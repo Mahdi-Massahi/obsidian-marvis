@@ -2,9 +2,15 @@ import { App, normalizePath, TFile } from "obsidian";
 import { todayISO, toWikilink, updateFrontmatter } from "../schema/frontmatter";
 import type { ProjectService } from "./projectService";
 import type { Milestone } from "../schema/types";
+import { openOrFocusFile, OpenMode, SidebarLeafCache } from "../utils/openFile";
 
 export class MilestoneService {
-  constructor(private app: App, private projects: ProjectService) {}
+  constructor(
+    private app: App,
+    private projects: ProjectService,
+    private getOpenMode: () => OpenMode = () => "sidebar",
+    private sidebarCache?: SidebarLeafCache
+  ) {}
 
   milestoneFolder(projectName: string): string {
     return normalizePath(`${this.projects.projectFolder(projectName)}/milestones`);
@@ -35,7 +41,7 @@ export class MilestoneService {
       `created: ${todayISO()}`,
     ];
     if (options.due) fmLines.push(`due: ${options.due}`);
-    fmLines.push("---", "", `# ${safeName}`, "", "## Goals", "", "## Scope", "", "## Notes", "");
+    fmLines.push("---", "", "## Goals", "", "## Scope", "", "## Notes", "");
 
     return await this.app.vault.create(path, fmLines.join("\n"));
   }
@@ -62,6 +68,10 @@ export class MilestoneService {
     await this.updateField(milestone, "due", due);
   }
 
+  async setStart(milestone: Milestone, start: string | undefined): Promise<void> {
+    await this.updateField(milestone, "start", start);
+  }
+
   async setProject(milestone: Milestone, projectName: string): Promise<void> {
     const file = this.getFile(milestone);
     if (!file) return;
@@ -79,10 +89,14 @@ export class MilestoneService {
     }
   }
 
-  async openInNewLeaf(milestone: Milestone): Promise<void> {
+  async openInNewLeaf(milestone: Milestone, modeOverride?: OpenMode): Promise<void> {
     const file = this.getFile(milestone);
     if (!file) return;
-    const leaf = this.app.workspace.getLeaf("tab");
-    await leaf.openFile(file);
+    await openOrFocusFile(
+      this.app,
+      file,
+      modeOverride ?? this.getOpenMode(),
+      this.sidebarCache
+    );
   }
 }

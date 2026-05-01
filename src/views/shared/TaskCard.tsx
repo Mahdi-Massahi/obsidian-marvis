@@ -23,13 +23,15 @@ export const TaskCard: React.FC<Props> = ({ task, compact, draggableProps, inner
   const onClick = (e: React.MouseEvent) => {
     if (e.defaultPrevented) return;
     if ((e.target as HTMLElement).closest("[data-no-open]")) return;
-    void taskService.openInNewLeaf(task);
+    const overrideMode = e.metaKey || e.ctrlKey ? "tab" : undefined;
+    void taskService.openInNewLeaf(task, overrideMode);
   };
 
-  const stripeColor = project?.color ?? "var(--background-modifier-border)";
+  const accent = project?.color ?? "var(--background-modifier-border)";
   const cardStyle: React.CSSProperties = {
     ...style,
-    ["--kp-card-stripe" as string]: stripeColor,
+    ["--kp-card-stripe" as string]: accent,
+    ["--kp-card-border" as string]: accent,
   };
 
   return (
@@ -48,6 +50,9 @@ export const TaskCard: React.FC<Props> = ({ task, compact, draggableProps, inner
           </span>
         )}
       </div>
+      {task.excerpt && !compact && (
+        <div className="kp-card__excerpt">{task.excerpt}</div>
+      )}
       {(status || due || task.milestone || task.tags.length > 0) && (
         <div className="kp-card__meta">
           {status && !compact && (

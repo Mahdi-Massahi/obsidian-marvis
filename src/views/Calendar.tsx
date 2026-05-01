@@ -194,13 +194,14 @@ const CalChip: React.FC<{
   const { taskService, settings } = usePlugin();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
   const project = task.project ? Object.values(projectsMap).find((p) => p.name === task.project) : undefined;
-  const priority = settings.priorities.find((p) => p.id === task.priority);
+  const priority = task.priority
+    ? settings.priorities.find((p) => p.id === task.priority)
+    : undefined;
   const style: React.CSSProperties = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-    background: project?.color ?? "var(--background-secondary)",
+    borderColor: project?.color ?? "var(--background-modifier-border)",
     opacity: isDragging ? 0.4 : 1,
   };
-  const label = parseDate(task.due) ? `${task.title}` : task.title;
   return (
     <div
       ref={setNodeRef}
@@ -211,13 +212,18 @@ const CalChip: React.FC<{
         if (e.defaultPrevented) return;
         if ((e.target as HTMLElement).closest("[data-no-open]")) return;
         e.stopPropagation();
-        void taskService.openInNewLeaf(task);
+        const overrideMode = e.metaKey || e.ctrlKey ? "tab" : undefined;
+        void taskService.openInNewLeaf(task, overrideMode);
       }}
       {...attributes}
       {...listeners}
     >
-      {priority && <span className="kp-cal__pri" style={{ background: priority.color }} />}
-      <span className="kp-cal__chip-title">{label}</span>
+      <span className="kp-cal__chip-title">{task.title}</span>
+      {priority && (
+        <span className="kp-cal__chip-pri" style={{ color: priority.color }}>
+          {priority.label}
+        </span>
+      )}
     </div>
   );
 };

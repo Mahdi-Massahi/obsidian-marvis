@@ -121,11 +121,14 @@ export function parseTask(file: TFile, fm: Record<string, unknown>): Task {
 
 export function parseProject(file: TFile, fm: Record<string, unknown>): Project {
   const folder = file.parent?.path ?? "";
+  // The project's identifying name is the parent folder, not the `_project.md`
+  // file. Tasks reference their project by folder name via wikilinks.
+  const folderName = file.parent?.name ?? fileBaseName(file.path);
   return {
     id: file.path,
     path: file.path,
-    name: fileBaseName(file.path),
-    title: asString(fm["title"]) ?? fileBaseName(file.path),
+    name: folderName,
+    title: asString(fm["title"]) ?? folderName,
     status: (asString(fm["status"]) as Project["status"]) ?? "active",
     color: asString(fm["color"]) ?? DEFAULT_PROJECT_COLOR,
     created: asDate(fm["created"]),
@@ -140,7 +143,8 @@ export function parseMilestone(file: TFile, fm: Record<string, unknown>): Milest
     name: fileBaseName(file.path),
     title: asString(fm["title"]) ?? fileBaseName(file.path),
     project: stripWikilink(fm["project"]),
-    due: asDate(fm["due"]),
+    start: asDate(fm["start"]),
+    due: asDate(fm["due"]) ?? asDate(fm["end"]),
     status: (asString(fm["status"]) as Milestone["status"]) ?? "planned",
   };
 }

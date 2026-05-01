@@ -13,10 +13,22 @@ const ROW_HEIGHT = 36;
 const HEADER_HEIGHT = 48;
 const SIDEBAR_WIDTH = 200;
 
-const DAY_WIDTHS: Record<Zoom, number> = { day: 36, week: 18, month: 8 };
+const DAY_WIDTHS: Record<Zoom, number> = { day: 64, week: 36, month: 16 };
+
+interface Bar {
+  id: string;
+  path: string;
+  kind: "task" | "milestone";
+  label: string;
+  startISO: string;
+  endISO: string;
+  color: string;
+  priorityLabel?: string;
+  priorityColor?: string;
+}
 
 export const TimelineRoot: React.FC = () => {
-  const { store, settings, taskService } = usePlugin();
+  const { store, settings, taskService, milestoneService } = usePlugin();
   const tasksMap = store((s) => s.tasks);
   const projectsMap = store((s) => s.projects);
   const milestonesMap = store((s) => s.milestones);
@@ -26,34 +38,81 @@ export const TimelineRoot: React.FC = () => {
   const [groupBy, setGroupBy] = React.useState<GroupBy>("project");
 
   const allTasks = React.useMemo(() => Object.values(tasksMap), [tasksMap]);
-  const filtered = React.useMemo(() => applyFilter(allTasks, filter), [allTasks, filter]);
-  const datedTasks = React.useMemo(() => filtered.filter((t) => t.due || t.start), [filtered]);
+  const filteredTasks = React.useMemo(() => applyFilter(allTasks, filter), [allTasks, filter]);
+  const datedTasks = React.useMemo(
+    () =>
+      filteredTasks.filter((t) => {
+        if (t.due || t.start) return true;
+        const m = lookupMilestone(t.milestone, milestonesMap);
+        return !!(m && (m.due || m.start));
+      }),
+    [filteredTasks, milestonesMap]
+  );
 
-  const { from, to } = React.useMemo(() => computeRange(datedTasks), [datedTasks]);
-  const days = React.useMemo(() => buildDays(from, to), [from, to]);
-  const dayWidth = DAY_WIDTHS[zoom];
+  const allMilestones = React.useMemo(() => Object.values(milestonesMap), [milestonesMap]);
+  const filteredMilestones = React.useMemo(() => {
+    return allMilestones.filter((m) => {
+      if (!m.due && !m.start) return false;
+      if (filter.projects.length && (!m.project || !filter.projects.includes(m.project)))
+        return false;
+      if (filter.milestones.length && !filter.milestones.includes(m.name)) return false;
+      return true;
+    });
+  }, [allMilestones, filter]);
 
   const rows = React.useMemo(
-    () => buildRows(datedTasks, groupBy, projectsMap, milestonesMap),
-    [datedTasks, groupBy, projectsMap, milestonesMap]
+    () =>
+      buildRows(
+        groupBy,
+        datedTasks,
+        filteredMilestones,
+        projectsMap,
+        milestonesMap,
+        settings.priorities
+      ),
+    [groupBy, datedTasks, filteredMilestones, projectsMap, milestonesMap, settings.priorities]
   );
+
+  const dateSpan = React.useMemo(() => {
+    if (groupBy === "project") return computeRangeFromBars(rows);
+    return computeRangeFromBars(rows);
+  }, [rows, groupBy]);
+  const { from, to } = dateSpan;
+  const days = React.useMemo(() => buildDays(from, to), [from, to]);
+  const [dayWidth, setDayWidth] = React.useState(DAY_WIDTHS[zoom]);
+  React.useEffect(() => {
+    setDayWidth(DAY_WIDTHS[zoom]);
+  }, [zoom]);
+  const headerRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * 0.005);
+      setDayWidth((w) => Math.max(4, Math.min(240, w * factor)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [draft, setDraft] = React.useState<DraftBar | null>(null);
 
   const onPointerStart = (
     e: React.PointerEvent,
-    task: Task,
+    bar: Bar,
     mode: "move" | "resize-start" | "resize-end"
   ) => {
     if (e.button !== 0) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const startX = e.clientX;
-    const start = parseDate(task.start) ?? parseDate(task.due) ?? new Date();
-    const end = parseDate(task.due) ?? parseDate(task.start) ?? new Date();
+    const start = parseDate(bar.startISO) ?? new Date();
+    const end = parseDate(bar.endISO) ?? new Date();
     const initial: DraftBar = {
-      taskPath: task.path,
+      barPath: bar.path,
+      barKind: bar.kind,
       mode,
       startISO: fmtISO(start),
       endISO: fmtISO(end),
@@ -83,11 +142,24 @@ export const TimelineRoot: React.FC = () => {
       const finalDraft = currentDraftRef.current;
       setDraft(null);
       if (!finalDraft) return;
-      if (mode === "move" || mode === "resize-start") {
-        await taskService.setStart(task, finalDraft.startISO);
-      }
-      if (mode === "move" || mode === "resize-end") {
-        await taskService.setDue(task, finalDraft.endISO);
+      if (bar.kind === "task") {
+        const task = tasksMap[bar.path];
+        if (!task) return;
+        if (mode === "move" || mode === "resize-start") {
+          await taskService.setStart(task, finalDraft.startISO);
+        }
+        if (mode === "move" || mode === "resize-end") {
+          await taskService.setDue(task, finalDraft.endISO);
+        }
+      } else {
+        const milestone = milestonesMap[bar.path];
+        if (!milestone) return;
+        if (mode === "move" || mode === "resize-start") {
+          await milestoneService.setStart(milestone, finalDraft.startISO);
+        }
+        if (mode === "move" || mode === "resize-end") {
+          await milestoneService.setDue(milestone, finalDraft.endISO);
+        }
       }
     };
     window.addEventListener("pointermove", onMove);
@@ -102,6 +174,21 @@ export const TimelineRoot: React.FC = () => {
   const totalWidth = days.length * dayWidth;
   const today = startOfDay(new Date());
   const todayIdx = days.findIndex((d) => isSameDay(d, today));
+
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!scrollRef.current || todayIdx < 0) return;
+    const targetX = todayIdx * dayWidth - 80;
+    scrollRef.current.scrollLeft = Math.max(0, targetX);
+  }, [zoom, todayIdx, dayWidth]);
+
+  const scrollToToday = () => {
+    if (!scrollRef.current || todayIdx < 0) return;
+    scrollRef.current.scrollTo({
+      left: Math.max(0, todayIdx * dayWidth - 80),
+      behavior: "smooth",
+    });
+  };
 
   const groupIcon: Record<GroupBy, IconName> = {
     project: "folder",
@@ -132,6 +219,10 @@ export const TimelineRoot: React.FC = () => {
           {z}
         </button>
       ))}
+      <span className="kp-toolbar__sep" />
+      <button className="kp-btn kp-btn--ghost" onClick={scrollToToday}>
+        Today
+      </button>
     </>
   );
 
@@ -139,7 +230,7 @@ export const TimelineRoot: React.FC = () => {
     <div className="kp-view kp-view--timeline">
       <FilterBar activeView="timeline" toolbar={toolbar} />
 
-      <div className="kp-tl__scroll">
+      <div className="kp-tl__scroll" ref={scrollRef}>
         <div className="kp-tl__container" ref={containerRef}>
           <div className="kp-tl__sidebar" style={{ width: SIDEBAR_WIDTH }}>
             <div className="kp-tl__sidebar-head" style={{ height: HEADER_HEIGHT }}>
@@ -149,17 +240,24 @@ export const TimelineRoot: React.FC = () => {
               <div
                 key={row.id}
                 className="kp-tl__sidebar-row"
-                style={{ height: row.tasks.length * ROW_HEIGHT + 4, borderLeftColor: row.color }}
+                style={{
+                  height: Math.max(row.bars.length, 1) * ROW_HEIGHT + 4,
+                  borderLeftColor: row.color,
+                }}
               >
                 <div className="kp-tl__sidebar-label">{row.label}</div>
-                <div className="kp-tl__sidebar-count">{row.tasks.length}</div>
+                <div className="kp-tl__sidebar-count">{row.bars.length}</div>
               </div>
             ))}
           </div>
 
           <div className="kp-tl__chart" style={{ width: totalWidth }}>
-            <div className="kp-tl__header" style={{ height: HEADER_HEIGHT, width: totalWidth }}>
-              {renderHeader(days, dayWidth, zoom)}
+            <div
+              ref={headerRef}
+              className="kp-tl__header"
+              style={{ height: HEADER_HEIGHT, width: totalWidth }}
+            >
+              {renderHeader(days, dayWidth, dayWidth < 24 ? "month" : dayWidth < 48 ? "week" : "day")}
             </div>
 
             <div className="kp-tl__grid" style={{ width: totalWidth }}>
@@ -179,66 +277,82 @@ export const TimelineRoot: React.FC = () => {
                   key={row.id}
                   className="kp-tl__row"
                   style={{
-                    height: row.tasks.length * ROW_HEIGHT + 4,
+                    height: Math.max(row.bars.length, 1) * ROW_HEIGHT + 4,
                     top: rowsBefore(rows, rowIdx),
                   }}
                 >
-                  {row.tasks.map((task, taskIdx) => {
-                    const isDrafting = draft && draft.taskPath === task.path;
-                    const startISO = isDrafting ? draft!.startISO : task.start ?? task.due!;
-                    const endISO = isDrafting ? draft!.endISO : task.due ?? task.start!;
+                  {row.bars.map((bar, barIdx) => {
+                    const isDrafting = draft && draft.barPath === bar.path;
+                    const startISO = isDrafting ? draft!.startISO : bar.startISO;
+                    const endISO = isDrafting ? draft!.endISO : bar.endISO;
                     const startDate = parseDate(startISO)!;
                     const endDate = parseDate(endISO)!;
                     const startIdx = dayIndex(days, startDate);
                     const endIdx = dayIndex(days, endDate);
                     const left = startIdx * dayWidth;
                     const width = Math.max((endIdx - startIdx + 1) * dayWidth, dayWidth);
-                    const top = taskIdx * ROW_HEIGHT + 2;
+                    const top = barIdx * ROW_HEIGHT + 2;
+                    const isNarrow = width < 56;
+                    const isMilestone = bar.kind === "milestone";
                     return (
                       <div
-                        key={task.id}
-                        className="kp-tl__bar"
+                        key={bar.id}
+                        className={`kp-tl__bar ${isNarrow ? "kp-tl__bar--narrow" : ""} ${
+                          isMilestone ? "kp-tl__bar--milestone" : ""
+                        }`}
                         style={{
                           left,
                           width,
                           top,
                           height: ROW_HEIGHT - 6,
-                          background: row.color,
+                          background: `color-mix(in oklab, ${bar.color} 18%, transparent)`,
+                          borderColor: bar.color,
                         }}
-                        onPointerDown={(e) => onPointerStart(e, task, "move")}
+                        onPointerDown={(e) => onPointerStart(e, bar, "move")}
                         onClick={(e) => {
-                          if (e.detail === 2) void taskService.openInNewLeaf(task);
+                          if (e.detail !== 2) return;
+                          const overrideMode =
+                            e.metaKey || e.ctrlKey ? "tab" : undefined;
+                          if (bar.kind === "task") {
+                            const t = tasksMap[bar.path];
+                            if (t) void taskService.openInNewLeaf(t, overrideMode);
+                          } else {
+                            const m = milestonesMap[bar.path];
+                            if (m) void milestoneService.openInNewLeaf(m, overrideMode);
+                          }
                         }}
                       >
                         <div
                           className="kp-tl__bar-handle kp-tl__bar-handle--start"
                           onPointerDown={(e) => {
                             e.stopPropagation();
-                            onPointerStart(e, task, "resize-start");
+                            onPointerStart(e, bar, "resize-start");
                           }}
                         />
-                        <span className="kp-tl__bar-label">{task.title}</span>
+                        <span className="kp-tl__bar-label">
+                          <Icon
+                            name={isMilestone ? "flag" : "check"}
+                            size={12}
+                            className="kp-tl__bar-icon"
+                          />
+                          {bar.label}
+                        </span>
+                        {bar.priorityLabel && (
+                          <span
+                            className="kp-tl__bar-pri"
+                            style={{ color: bar.priorityColor }}
+                          >
+                            {bar.priorityLabel}
+                          </span>
+                        )}
                         <div
                           className="kp-tl__bar-handle kp-tl__bar-handle--end"
                           onPointerDown={(e) => {
                             e.stopPropagation();
-                            onPointerStart(e, task, "resize-end");
+                            onPointerStart(e, bar, "resize-end");
                           }}
                         />
                       </div>
-                    );
-                  })}
-                  {row.milestones?.map((m) => {
-                    const date = parseDate(m.due);
-                    if (!date) return null;
-                    const idx = dayIndex(days, date);
-                    return (
-                      <div
-                        key={m.id}
-                        className="kp-tl__milestone"
-                        style={{ left: idx * dayWidth + dayWidth / 2 - 6 }}
-                        title={m.title}
-                      />
                     );
                   })}
                 </div>
@@ -252,7 +366,8 @@ export const TimelineRoot: React.FC = () => {
 };
 
 interface DraftBar {
-  taskPath: string;
+  barPath: string;
+  barKind: "task" | "milestone";
   mode: "move" | "resize-start" | "resize-end";
   startISO: string;
   endISO: string;
@@ -263,16 +378,19 @@ interface Row {
   id: string;
   label: string;
   color: string;
-  tasks: Task[];
-  milestones?: Milestone[];
+  bars: Bar[];
 }
 
 function buildRows(
-  tasks: Task[],
   groupBy: GroupBy,
+  tasks: Task[],
+  milestones: Milestone[],
   projectsMap: Record<string, Project>,
-  milestonesMap: Record<string, Milestone>
+  milestonesMap: Record<string, Milestone>,
+  priorities: { id: string; label: string; color: string }[]
 ): Row[] {
+  const milestoneByName = new Map<string, Milestone>();
+  for (const m of Object.values(milestonesMap)) milestoneByName.set(m.name, m);
   if (groupBy === "project") {
     const byProject = new Map<string, Task[]>();
     for (const t of tasks) {
@@ -282,57 +400,102 @@ function buildRows(
     }
     return Array.from(byProject.entries()).map(([name, list]) => {
       const project = Object.values(projectsMap).find((p) => p.name === name);
-      const milestones = Object.values(milestonesMap).filter((m) => m.project === name);
+      const color = project?.color ?? "#3b82f6";
+      const sorted = list.slice().sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""));
       return {
-        id: name,
+        id: `project:${name}`,
         label: name,
-        color: project?.color ?? "#3b82f6",
-        tasks: list.slice().sort((a, b) => (a.due ?? "").localeCompare(b.due ?? "")),
-        milestones,
+        color,
+        bars: sorted.map((t) => taskToBar(t, color, priorities, milestoneByName)),
       };
     });
   }
-  const byMilestone = new Map<string, Task[]>();
-  byMilestone.set("__unassigned", []);
-  for (const t of tasks) {
-    const key = t.milestone ?? "__unassigned";
-    if (!byMilestone.has(key)) byMilestone.set(key, []);
-    byMilestone.get(key)!.push(t);
+  // milestone mode: rows = project, bars = milestones
+  const byProject = new Map<string, Milestone[]>();
+  for (const m of milestones) {
+    const key = m.project ?? "Unassigned";
+    if (!byProject.has(key)) byProject.set(key, []);
+    byProject.get(key)!.push(m);
   }
-  return Array.from(byMilestone.entries()).map(([name, list]) => {
-    const milestone = Object.values(milestonesMap).find((m) => m.name === name);
-    const project = milestone?.project
-      ? Object.values(projectsMap).find((p) => p.name === milestone.project)
-      : undefined;
+  return Array.from(byProject.entries()).map(([name, list]) => {
+    const project = Object.values(projectsMap).find((p) => p.name === name);
+    const color = project?.color ?? "#8b5cf6";
+    const sorted = list.slice().sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""));
     return {
-      id: name,
-      label: name === "__unassigned" ? "Unassigned" : name,
-      color: project?.color ?? "#8b5cf6",
-      tasks: list.slice().sort((a, b) => (a.due ?? "").localeCompare(b.due ?? "")),
+      id: `milestone-row:${name}`,
+      label: name,
+      color,
+      bars: sorted.map((m) => milestoneToBar(m, color)),
     };
   });
 }
 
+function lookupMilestone(
+  ref: string | undefined,
+  milestonesMap: Record<string, Milestone>
+): Milestone | undefined {
+  if (!ref) return undefined;
+  const last = ref.split("/").pop()!.replace(/\.md$/i, "");
+  return Object.values(milestonesMap).find((m) => m.name === last);
+}
+
+function taskToBar(
+  t: Task,
+  projectColor: string,
+  priorities: { id: string; label: string; color: string }[],
+  milestoneByName: Map<string, Milestone>
+): Bar {
+  const last = t.milestone?.split("/").pop()?.replace(/\.md$/i, "");
+  const m = last ? milestoneByName.get(last) : undefined;
+  const start = t.start ?? t.due ?? m?.start ?? m?.due!;
+  const end = t.due ?? t.start ?? m?.due ?? m?.start!;
+  const pri = t.priority ? priorities.find((p) => p.id === t.priority) : undefined;
+  return {
+    id: t.id,
+    path: t.path,
+    kind: "task",
+    label: t.title,
+    startISO: start,
+    endISO: end,
+    color: projectColor,
+    priorityLabel: pri?.label,
+    priorityColor: pri?.color,
+  };
+}
+
+function milestoneToBar(m: Milestone, color: string): Bar {
+  const start = m.start ?? m.due!;
+  const end = m.due ?? m.start!;
+  return {
+    id: m.id,
+    path: m.path,
+    kind: "milestone",
+    label: m.title,
+    startISO: start,
+    endISO: end,
+    color,
+  };
+}
+
 function rowsBefore(rows: Row[], idx: number): number {
   let total = 0;
-  for (let i = 0; i < idx; i++) total += rows[i].tasks.length * ROW_HEIGHT + 4;
+  for (let i = 0; i < idx; i++) total += Math.max(rows[i].bars.length, 1) * ROW_HEIGHT + 4;
   return total;
 }
 
-function computeRange(tasks: Task[]): { from: Date; to: Date } {
+function computeRangeFromBars(rows: Row[]): { from: Date; to: Date } {
   const today = startOfDay(new Date());
-  if (tasks.length === 0) {
-    return { from: addDays(today, -7), to: addDays(today, 30) };
+  let from = addDays(today, -60);
+  let to = addDays(today, 180);
+  for (const row of rows) {
+    for (const b of row.bars) {
+      const s = parseDate(b.startISO);
+      const e = parseDate(b.endISO);
+      if (s && s < from) from = addDays(s, -7);
+      if (e && e > to) to = addDays(e, 14);
+    }
   }
-  let min = today;
-  let max = today;
-  for (const t of tasks) {
-    const s = parseDate(t.start) ?? parseDate(t.due);
-    const e = parseDate(t.due) ?? parseDate(t.start);
-    if (s && s < min) min = s;
-    if (e && e > max) max = e;
-  }
-  return { from: addDays(min, -3), to: addDays(max, 7) };
+  return { from, to };
 }
 
 function buildDays(from: Date, to: Date): Date[] {
@@ -381,7 +544,17 @@ function renderHeader(days: Date[], dayWidth: number, zoom: Zoom): React.ReactNo
     width: (days.length - bandStart) * dayWidth,
   });
 
-  const showDayLabels = zoom !== "month";
+  if (zoom === "month") {
+    return (
+      <div className="kp-tl__header-months kp-tl__header-months--solo">
+        {monthBands.map((b, i) => (
+          <div key={i} className="kp-tl__header-month" style={{ left: b.left, width: b.width }}>
+            {b.label}
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -399,7 +572,7 @@ function renderHeader(days: Date[], dayWidth: number, zoom: Zoom): React.ReactNo
             className={`kp-tl__header-day ${isWeekend(d) ? "kp-tl__header-day--weekend" : ""}`}
             style={{ left: i * dayWidth, width: dayWidth }}
           >
-            {showDayLabels ? format(d, zoom === "day" ? "d EEE" : "d") : ""}
+            {format(d, zoom === "day" ? "d EEE" : "d")}
           </div>
         ))}
       </div>

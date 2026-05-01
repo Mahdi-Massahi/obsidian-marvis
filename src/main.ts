@@ -1,4 +1,5 @@
 import { Plugin, WorkspaceLeaf } from "obsidian";
+import type { SidebarLeafCache } from "./utils/openFile";
 import { DEFAULT_SETTINGS, KanbanPlusSettings, KanbanPlusSettingTab } from "./settings";
 import { Indexer } from "./index/indexer";
 import { createPlannerStore, PlannerStore } from "./index/store";
@@ -26,9 +27,32 @@ export default class KanbanPlusPlugin extends Plugin {
       includeArchived: this.settings.showArchivedByDefault,
     });
 
-    this.projectService = new ProjectService(this.app, () => this.settings.rootFolder);
-    this.milestoneService = new MilestoneService(this.app, this.projectService);
-    this.taskService = new TaskService(this.app, this.projectService);
+    const getOpenMode = () => this.settings.openIn;
+    let sidebarLeaf: WorkspaceLeaf | null = null;
+    const sidebarCache: SidebarLeafCache = {
+      get: () => sidebarLeaf,
+      set: (leaf) => {
+        sidebarLeaf = leaf;
+      },
+    };
+    this.projectService = new ProjectService(
+      this.app,
+      () => this.settings.rootFolder,
+      getOpenMode,
+      sidebarCache
+    );
+    this.milestoneService = new MilestoneService(
+      this.app,
+      this.projectService,
+      getOpenMode,
+      sidebarCache
+    );
+    this.taskService = new TaskService(
+      this.app,
+      this.projectService,
+      getOpenMode,
+      sidebarCache
+    );
 
     this.indexer = new Indexer(this.app, this.store, () => this.settings.rootFolder);
     this.app.workspace.onLayoutReady(() => this.indexer.start());

@@ -209,6 +209,10 @@ interface RowProps {
 const Row: React.FC<RowProps> = ({ task, projects, checked, onToggle }) => {
   const { settings, taskService, store } = usePlugin();
   const milestonesMap = store((s) => s.milestones);
+  const projectsMap = store((s) => s.projects);
+  const projectObj = task.project
+    ? Object.values(projectsMap).find((p) => p.name === task.project)
+    : undefined;
   const milestones = React.useMemo(
     () =>
       Object.values(milestonesMap)
@@ -223,24 +227,39 @@ const Row: React.FC<RowProps> = ({ task, projects, checked, onToggle }) => {
         <input type="checkbox" checked={checked} onChange={onToggle} />
       </td>
       <td>
-        <a className="kp-table__title" onClick={() => void taskService.openInNewLeaf(task)}>
+        <a
+          className="kp-table__title"
+          onClick={(e) =>
+            void taskService.openInNewLeaf(
+              task,
+              e.metaKey || e.ctrlKey ? "tab" : undefined
+            )
+          }
+        >
           {task.title}
         </a>
       </td>
       <td>
-        <select
-          value={task.project ?? ""}
-          onChange={(e) => void taskService.setProject(task, e.target.value)}
-        >
-          {projects.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-          {task.project && !projects.includes(task.project) && (
-            <option value={task.project}>{task.project}</option>
-          )}
-        </select>
+        <div className="kp-table__project-cell">
+          <span
+            className="kp-table__color-dot"
+            style={{ background: projectObj?.color ?? "transparent" }}
+            aria-hidden
+          />
+          <select
+            value={task.project ?? ""}
+            onChange={(e) => void taskService.setProject(task, e.target.value)}
+          >
+            {projects.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+            {task.project && !projects.includes(task.project) && (
+              <option value={task.project}>{task.project}</option>
+            )}
+          </select>
+        </div>
       </td>
       <td>
         <select
@@ -259,21 +278,40 @@ const Row: React.FC<RowProps> = ({ task, projects, checked, onToggle }) => {
         </select>
       </td>
       <td>
-        <select
-          value={task.status}
-          onChange={(e) => void taskService.setStatus(task, e.target.value)}
-        >
-          {settings.statuses.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+        <div className="kp-table__project-cell">
+          <span
+            className="kp-table__color-dot"
+            style={{
+              background:
+                settings.statuses.find((s) => s.id === task.status)?.color ??
+                "transparent",
+            }}
+            aria-hidden
+          />
+          <select
+            value={task.status}
+            onChange={(e) => void taskService.setStatus(task, e.target.value)}
+          >
+            {settings.statuses.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </td>
       <td>
         <select
           value={task.priority ?? ""}
           onChange={(e) => void taskService.setPriority(task, e.target.value)}
+          className="kp-table__priority-select"
+          style={{
+            color: task.priority
+              ? settings.priorities.find((p) => p.id === task.priority)?.color
+              : undefined,
+            fontWeight: task.priority ? 700 : undefined,
+            letterSpacing: task.priority ? "-1px" : undefined,
+          }}
         >
           <option value="">—</option>
           {settings.priorities.map((p) => (
@@ -319,7 +357,8 @@ const Row: React.FC<RowProps> = ({ task, projects, checked, onToggle }) => {
 };
 
 const NewTaskRow: React.FC<{ projects: string[] }> = ({ projects }) => {
-  const { taskService, settings, openQuickCreate } = usePlugin();
+  const { taskService, settings, openQuickCreate, store } = usePlugin();
+  const projectsMap = store((s) => s.projects);
   const [editing, setEditing] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [project, setProject] = React.useState(projects[0] ?? "Inbox");
@@ -399,26 +438,57 @@ const NewTaskRow: React.FC<{ projects: string[] }> = ({ projects }) => {
         />
       </td>
       <td>
-        <select value={project} onChange={(e) => setProject(e.target.value)}>
-          {projects.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
+        <div className="kp-table__project-cell">
+          <span
+            className="kp-table__color-dot"
+            style={{
+              background:
+                Object.values(projectsMap).find((p) => p.name === project)?.color ??
+                "transparent",
+            }}
+            aria-hidden
+          />
+          <select value={project} onChange={(e) => setProject(e.target.value)}>
+            {projects.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </div>
       </td>
       <td>—</td>
       <td>
-        <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          {settings.statuses.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+        <div className="kp-table__project-cell">
+          <span
+            className="kp-table__color-dot"
+            style={{
+              background:
+                settings.statuses.find((s) => s.id === status)?.color ?? "transparent",
+            }}
+            aria-hidden
+          />
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            {settings.statuses.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </td>
       <td>
-        <select value={priority} onChange={(e) => setPriority(e.target.value)}>
+        <select
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+          style={{
+            color: priority
+              ? settings.priorities.find((p) => p.id === priority)?.color
+              : undefined,
+            fontWeight: priority ? 700 : undefined,
+            letterSpacing: priority ? "-1px" : undefined,
+          }}
+        >
           <option value="">—</option>
           {settings.priorities.map((p) => (
             <option key={p.id} value={p.id}>

@@ -18,6 +18,7 @@ export interface KanbanPlusSettings {
   weekStartsOn: 0 | 1;
   showArchivedByDefault: boolean;
   filterPresets: FilterPreset[];
+  openIn: "sidebar" | "window" | "tab";
 }
 
 export const DEFAULT_SETTINGS: KanbanPlusSettings = {
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS: KanbanPlusSettings = {
   weekStartsOn: 1,
   showArchivedByDefault: false,
   filterPresets: [],
+  openIn: "sidebar",
 };
 
 export class KanbanPlusSettingTab extends PluginSettingTab {
@@ -103,6 +105,21 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
             this.plugin.settings.weekStartsOn = (value === "0" ? 0 : 1) as 0 | 1;
             await this.plugin.saveSettings();
             this.plugin.refreshViews();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Open task in")
+      .setDesc("Where to open a task/project/milestone note when you click it.")
+      .addDropdown((dd) =>
+        dd
+          .addOption("sidebar", "Right sidebar")
+          .addOption("tab", "New tab in current pane")
+          .addOption("window", "New window")
+          .setValue(this.plugin.settings.openIn)
+          .onChange(async (value) => {
+            this.plugin.settings.openIn = value as KanbanPlusSettings["openIn"];
+            await this.plugin.saveSettings();
           })
       );
 

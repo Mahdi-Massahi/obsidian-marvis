@@ -93,7 +93,15 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, taskCount, milestoneCo
   return (
     <tr>
       <td>
-        <a className="kp-table__title" onClick={() => void projectService.openInNewLeaf(project)}>
+        <a
+          className="kp-table__title"
+          onClick={(e) =>
+            void projectService.openInNewLeaf(
+              project,
+              e.metaKey || e.ctrlKey ? "tab" : undefined
+            )
+          }
+        >
           <span
             className="kp-table__color-dot"
             style={{ background: project.color }}
@@ -128,7 +136,12 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, taskCount, milestoneCo
       <td>
         <button
           className="kp-btn kp-btn--ghost"
-          onClick={() => void projectService.openInNewLeaf(project)}
+          onClick={(e) =>
+            void projectService.openInNewLeaf(
+              project,
+              e.metaKey || e.ctrlKey ? "tab" : undefined
+            )
+          }
         >
           Open
         </button>

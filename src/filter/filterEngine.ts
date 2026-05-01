@@ -24,7 +24,9 @@ export function applyFilter(tasks: Task[], filter: FilterState): Task[] {
       if (!isInRange(t.due, dateFrom, dateTo)) return false;
     }
     if (search) {
-      const haystack = `${t.title} ${t.tags.join(" ")} ${t.project ?? ""} ${t.milestone ?? ""}`.toLowerCase();
+      const haystack = `${t.title} ${t.tags.join(" ")} ${t.project ?? ""} ${
+        t.milestone ?? ""
+      } ${t.body ?? ""}`.toLowerCase();
       if (!haystack.includes(search)) return false;
     }
     return true;

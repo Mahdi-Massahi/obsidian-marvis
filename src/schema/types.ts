@@ -44,6 +44,8 @@ export interface Task {
   parent?: string;
   recurrence?: string;
   archived: boolean;
+  excerpt?: string;
+  body?: string;
 }
 
 export interface Project {
@@ -63,6 +65,7 @@ export interface Milestone {
   name: string;
   title: string;
   project?: string;
+  start?: string;
   due?: string;
   status: MilestoneStatusDef["id"];
 }

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import {
   DndContext,
   DragEndEvent,
@@ -160,11 +161,16 @@ export const KanbanRoot: React.FC = () => {
             <KanbanColumn key={col.id} column={col} groupBy={groupBy} />
           ))}
         </div>
-        <DragOverlay dropAnimation={null}>
-          {activeId && taskById.get(activeId) ? (
-            <TaskCard task={taskById.get(activeId)!} />
-          ) : null}
-        </DragOverlay>
+        {createPortal(
+          <div className="kp-portal">
+            <DragOverlay dropAnimation={null}>
+              {activeId && taskById.get(activeId) ? (
+                <TaskCard task={taskById.get(activeId)!} />
+              ) : null}
+            </DragOverlay>
+          </div>,
+          document.body
+        )}
       </DndContext>
     </div>
   );

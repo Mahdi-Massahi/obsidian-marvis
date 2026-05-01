@@ -86,32 +86,48 @@ interface RowProps {
 }
 
 const MilestoneRow: React.FC<RowProps> = ({ milestone, projects, taskCount }) => {
-  const { milestoneService } = usePlugin();
+  const { milestoneService, store } = usePlugin();
+  const projectsMap = store((s) => s.projects);
+  const projectObj = milestone.project
+    ? Object.values(projectsMap).find((p) => p.name === milestone.project)
+    : undefined;
   return (
     <tr>
       <td>
         <a
           className="kp-table__title"
-          onClick={() => void milestoneService.openInNewLeaf(milestone)}
+          onClick={(e) =>
+            void milestoneService.openInNewLeaf(
+              milestone,
+              e.metaKey || e.ctrlKey ? "tab" : undefined
+            )
+          }
         >
           <Icon name="flag" size={13} />
           {milestone.title}
         </a>
       </td>
       <td>
-        <select
-          value={milestone.project ?? ""}
-          onChange={(e) => void milestoneService.setProject(milestone, e.target.value)}
-        >
-          {projects.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-          {milestone.project && !projects.includes(milestone.project) && (
-            <option value={milestone.project}>{milestone.project}</option>
-          )}
-        </select>
+        <div className="kp-table__project-cell">
+          <span
+            className="kp-table__color-dot"
+            style={{ background: projectObj?.color ?? "transparent" }}
+            aria-hidden
+          />
+          <select
+            value={milestone.project ?? ""}
+            onChange={(e) => void milestoneService.setProject(milestone, e.target.value)}
+          >
+            {projects.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+            {milestone.project && !projects.includes(milestone.project) && (
+              <option value={milestone.project}>{milestone.project}</option>
+            )}
+          </select>
+        </div>
       </td>
       <td>
         <select
@@ -138,7 +154,12 @@ const MilestoneRow: React.FC<RowProps> = ({ milestone, projects, taskCount }) =>
       <td>
         <button
           className="kp-btn kp-btn--ghost"
-          onClick={() => void milestoneService.openInNewLeaf(milestone)}
+          onClick={(e) =>
+            void milestoneService.openInNewLeaf(
+              milestone,
+              e.metaKey || e.ctrlKey ? "tab" : undefined
+            )
+          }
         >
           Open
         </button>
@@ -148,7 +169,8 @@ const MilestoneRow: React.FC<RowProps> = ({ milestone, projects, taskCount }) =>
 };
 
 const NewMilestoneRow: React.FC<{ projects: string[] }> = ({ projects }) => {
-  const { milestoneService } = usePlugin();
+  const { milestoneService, store } = usePlugin();
+  const projectsMap = store((s) => s.projects);
   const [editing, setEditing] = React.useState(false);
   const [name, setName] = React.useState("");
   const [project, setProject] = React.useState(projects[0] ?? "");
@@ -222,13 +244,24 @@ const NewMilestoneRow: React.FC<{ projects: string[] }> = ({ projects }) => {
         />
       </td>
       <td>
-        <select value={project} onChange={(e) => setProject(e.target.value)}>
-          {projects.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
+        <div className="kp-table__project-cell">
+          <span
+            className="kp-table__color-dot"
+            style={{
+              background:
+                Object.values(projectsMap).find((p) => p.name === project)?.color ??
+                "transparent",
+            }}
+            aria-hidden
+          />
+          <select value={project} onChange={(e) => setProject(e.target.value)}>
+            {projects.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </div>
       </td>
       <td>planned</td>
       <td>

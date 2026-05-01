@@ -6,6 +6,9 @@ import {
 } from "../schema/frontmatter";
 import type { ProjectService } from "./projectService";
 import type { Task } from "../schema/types";
+import { openOrFocusFile, OpenMode, SidebarLeafCache } from "../utils/openFile";
+
+export { findOpenLeafForFile } from "../utils/openFile";
 
 export interface CreateTaskInput {
   title: string;
@@ -19,7 +22,12 @@ export interface CreateTaskInput {
 }
 
 export class TaskService {
-  constructor(private app: App, private projects: ProjectService) {}
+  constructor(
+    private app: App,
+    private projects: ProjectService,
+    private getOpenMode: () => OpenMode = () => "sidebar",
+    private sidebarCache?: SidebarLeafCache
+  ) {}
 
   tasksFolder(projectName: string): string {
     return normalizePath(`${this.projects.projectFolder(projectName)}/tasks`);
@@ -66,7 +74,7 @@ export class TaskService {
     }
     fm.push(`created: ${todayISO()}`);
     fm.push("order: 1");
-    fm.push("---", "", `# ${input.title}`, "", "");
+    fm.push("---", "", "");
 
     return await this.app.vault.create(path, fm.join("\n"));
   }
@@ -169,11 +177,15 @@ export class TaskService {
     }
   }
 
-  async openInNewLeaf(task: Task): Promise<void> {
+  async openInNewLeaf(task: Task, modeOverride?: OpenMode): Promise<void> {
     const file = this.getFile(task);
     if (!file) return;
-    const leaf = this.app.workspace.getLeaf("tab");
-    await leaf.openFile(file);
+    await openOrFocusFile(
+      this.app,
+      file,
+      modeOverride ?? this.getOpenMode(),
+      this.sidebarCache
+    );
   }
 }
 

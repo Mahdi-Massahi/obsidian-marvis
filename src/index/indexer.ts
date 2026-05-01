@@ -55,14 +55,17 @@ export class Indexer {
     const tasks: ReturnType<typeof parseTask>[] = [];
     const projects: ReturnType<typeof parseProject>[] = [];
     const milestones: ReturnType<typeof parseMilestone>[] = [];
+    const taskFiles: TFile[] = [];
 
     if (folder instanceof TFolder) {
       this.walk(folder, (file) => {
         const fm = this.app.metadataCache.getFileCache(file)?.frontmatter ?? null;
         const kind = getKind(fm);
         if (!kind) return;
-        if (kind === "task") tasks.push(parseTask(file, fm!));
-        else if (kind === "project") projects.push(parseProject(file, fm!));
+        if (kind === "task") {
+          tasks.push(parseTask(file, fm!));
+          taskFiles.push(file);
+        } else if (kind === "project") projects.push(parseProject(file, fm!));
         else if (kind === "milestone") milestones.push(parseMilestone(file, fm!));
       });
     }
@@ -71,6 +74,9 @@ export class Indexer {
     state.setTasks(tasks);
     state.setProjects(projects);
     state.setMilestones(milestones);
+
+    // Async second pass — load body excerpts and patch each task.
+    void this.loadExcerpts(taskFiles);
   }
 
   private handleFile(file: TFile): void {
@@ -86,9 +92,56 @@ export class Indexer {
       state.removeByPath(file.path);
       return;
     }
-    if (kind === "task") state.upsertTask(parseTask(file, fm!));
-    else if (kind === "project") state.upsertProject(parseProject(file, fm!));
+    if (kind === "task") {
+      const task = parseTask(file, fm!);
+      state.upsertTask(task);
+      void this.loadExcerptForFile(file);
+    } else if (kind === "project") state.upsertProject(parseProject(file, fm!));
     else if (kind === "milestone") state.upsertMilestone(parseMilestone(file, fm!));
+  }
+
+  private async loadExcerpts(files: TFile[]): Promise<void> {
+    for (const file of files) {
+      await this.loadExcerptForFile(file);
+    }
+  }
+
+  private async loadExcerptForFile(file: TFile): Promise<void> {
+    const { excerpt, body } = await this.readBody(file);
+    const state = this.store.getState();
+    const existing = state.tasks[file.path];
+    if (!existing) return;
+    if (existing.excerpt === excerpt && existing.body === body) return;
+    state.upsertTask({ ...existing, excerpt, body });
+  }
+
+  private async readBody(
+    file: TFile
+  ): Promise<{ excerpt?: string; body?: string }> {
+    try {
+      const content = await this.app.vault.cachedRead(file);
+      const fmMatch = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+      const rawBody = fmMatch ? content.slice(fmMatch[0].length) : content;
+      const body = rawBody.trim() ? rawBody.trim().slice(0, 8000) : undefined;
+      let excerpt: string | undefined;
+      for (const rawLine of rawBody.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        if (line.startsWith("#")) continue;
+        const cleaned = line
+          .replace(/^[-*+>]\s+/, "")
+          .replace(/^\[[ x]\]\s+/i, "")
+          .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+          .replace(/[*_`~]/g, "")
+          .trim();
+        if (!cleaned) continue;
+        excerpt = cleaned.slice(0, 200);
+        break;
+      }
+      return { excerpt, body };
+    } catch {
+      return {};
+    }
   }
 
   private walk(folder: TFolder, visit: (file: TFile) => void): void {

@@ -35,6 +35,21 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
     () => Object.values(projects).map((p) => p.name).sort(),
     [projects]
   );
+  const projectColors = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of Object.values(projects)) map[p.name] = p.color;
+    return map;
+  }, [projects]);
+  const statusColors = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of settings.statuses) map[s.id] = s.color;
+    return map;
+  }, [settings.statuses]);
+  const priorityColors = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of settings.priorities) map[p.id] = p.color;
+    return map;
+  }, [settings.priorities]);
   const milestoneNames = React.useMemo(
     () => Object.values(milestones).map((m) => m.name).sort(),
     [milestones]
@@ -85,6 +100,7 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
             options={projectNames}
             selected={filter.projects}
             onToggle={(v) => setFilter({ projects: toggle(filter.projects, v) })}
+            colors={projectColors}
           />
           <ChipGroup
             label="Milestone"
@@ -98,6 +114,7 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
             labels={Object.fromEntries(settings.statuses.map((s) => [s.id, s.label]))}
             selected={filter.statuses}
             onToggle={(v) => setFilter({ statuses: toggle(filter.statuses, v) })}
+            colors={statusColors}
           />
           <ChipGroup
             label="Priority"
@@ -105,6 +122,8 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
             labels={Object.fromEntries(settings.priorities.map((p) => [p.id, p.label]))}
             selected={filter.priorities}
             onToggle={(v) => setFilter({ priorities: toggle(filter.priorities, v) })}
+            colors={priorityColors}
+            colorMode="text"
           />
           {allTags.length > 0 && (
             <ChipGroup
@@ -136,9 +155,11 @@ interface ChipGroupProps {
   onToggle: (value: string) => void;
   labels?: Record<string, string>;
   prefix?: string;
+  colors?: Record<string, string>;
+  colorMode?: "dot" | "text";
 }
 
-const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggle, labels, prefix }) => {
+const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggle, labels, prefix, colors, colorMode = "dot" }) => {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -165,17 +186,34 @@ const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggl
       </button>
       {open && (
         <div className="kp-chipgroup__menu">
-          {options.map((opt) => (
-            <label key={opt} className="kp-chipgroup__item">
-              <input
-                type="checkbox"
-                checked={selected.includes(opt)}
-                onChange={() => onToggle(opt)}
-              />
-              {prefix ?? ""}
-              {labels?.[opt] ?? opt}
-            </label>
-          ))}
+          {options.map((opt) => {
+            const c = colors?.[opt];
+            const showDot = c && colorMode === "dot";
+            const labelStyle =
+              c && colorMode === "text"
+                ? { color: c, fontWeight: 700, letterSpacing: "-1px" as const }
+                : undefined;
+            return (
+              <label key={opt} className="kp-chipgroup__item">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt)}
+                  onChange={() => onToggle(opt)}
+                />
+                {showDot && (
+                  <span
+                    className="kp-table__color-dot"
+                    style={{ background: c }}
+                    aria-hidden
+                  />
+                )}
+                <span style={labelStyle}>
+                  {prefix ?? ""}
+                  {labels?.[opt] ?? opt}
+                </span>
+              </label>
+            );
+          })}
         </div>
       )}
     </div>

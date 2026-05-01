@@ -2,9 +2,15 @@ import { App, normalizePath, TFile, TFolder } from "obsidian";
 import { todayISO, updateFrontmatter } from "../schema/frontmatter";
 import { DEFAULT_PROJECT_COLOR, PROJECT_PALETTE } from "../schema/types";
 import type { Project } from "../schema/types";
+import { openOrFocusFile, OpenMode, SidebarLeafCache } from "../utils/openFile";
 
 export class ProjectService {
-  constructor(private app: App, private getRoot: () => string) {}
+  constructor(
+    private app: App,
+    private getRoot: () => string,
+    private getOpenMode: () => OpenMode = () => "sidebar",
+    private sidebarCache?: SidebarLeafCache
+  ) {}
 
   projectFolder(name: string): string {
     return normalizePath(`${this.getRoot()}/${name}`);
@@ -83,10 +89,14 @@ export class ProjectService {
     await this.updateField(project, "color", color);
   }
 
-  async openInNewLeaf(project: Project): Promise<void> {
+  async openInNewLeaf(project: Project, modeOverride?: OpenMode): Promise<void> {
     const file = this.getFile(project);
     if (!file) return;
-    const leaf = this.app.workspace.getLeaf("tab");
-    await leaf.openFile(file);
+    await openOrFocusFile(
+      this.app,
+      file,
+      modeOverride ?? this.getOpenMode(),
+      this.sidebarCache
+    );
   }
 }
