@@ -1294,6 +1294,17 @@
   margin-left: 2px;
 }
 
+.kp-cal__chip--log {
+  background: color-mix(in oklab, var(--kp-bg) 92%, transparent);
+  font-style: italic;
+  opacity: 0.92;
+}
+
+.kp-cal__chip-icon {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
 /* =====================================================
    Timeline / Gantt
    ===================================================== */

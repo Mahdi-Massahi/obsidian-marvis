@@ -3,14 +3,16 @@ import { FilterBar } from "./shared/FilterBar";
 import { TaskTable } from "./table/TaskTable";
 import { ProjectTable } from "./table/ProjectTable";
 import { MilestoneTable } from "./table/MilestoneTable";
+import { LogTable } from "./table/LogTable";
 import { Icon, IconName } from "./shared/Icon";
 
-type Tab = "tasks" | "projects" | "milestones";
+type Tab = "tasks" | "projects" | "milestones" | "logs";
 
 const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: "tasks", label: "Tasks", icon: "check" },
   { id: "projects", label: "Projects", icon: "folder" },
   { id: "milestones", label: "Milestones", icon: "flag" },
+  { id: "logs", label: "Logs", icon: "notebook" },
 ];
 
 export const TableRoot: React.FC = () => {
@@ -37,6 +39,7 @@ export const TableRoot: React.FC = () => {
       {tab === "tasks" && <TaskTable />}
       {tab === "projects" && <ProjectTable />}
       {tab === "milestones" && <MilestoneTable />}
+      {tab === "logs" && <LogTable />}
     </div>
   );
 };

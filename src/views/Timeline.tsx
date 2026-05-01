@@ -4,7 +4,7 @@ import { usePlugin } from "./context";
 import { FilterBar } from "./shared/FilterBar";
 import { applyFilter } from "../filter/filterEngine";
 import { Icon, IconName } from "./shared/Icon";
-import type { Milestone, Project, Task } from "../schema/types";
+import type { Log, Milestone, Project, Task } from "../schema/types";
 
 type Zoom = "day" | "week" | "month";
 type GroupBy = "project" | "milestone";
@@ -18,7 +18,7 @@ const DAY_WIDTHS: Record<Zoom, number> = { day: 64, week: 36, month: 16 };
 interface Bar {
   id: string;
   path: string;
-  kind: "task" | "milestone";
+  kind: "task" | "milestone" | "log";
   label: string;
   startISO: string;
   endISO: string;
@@ -28,10 +28,11 @@ interface Bar {
 }
 
 export const TimelineRoot: React.FC = () => {
-  const { store, settings, taskService, milestoneService } = usePlugin();
+  const { store, settings, taskService, milestoneService, logService } = usePlugin();
   const tasksMap = store((s) => s.tasks);
   const projectsMap = store((s) => s.projects);
   const milestonesMap = store((s) => s.milestones);
+  const logsMap = store((s) => s.logs);
   const filter = store((s) => s.filter);
 
   const [zoom, setZoom] = React.useState<Zoom>("week");
@@ -48,6 +49,20 @@ export const TimelineRoot: React.FC = () => {
       }),
     [filteredTasks, milestonesMap]
   );
+
+  const filteredLogs = React.useMemo(() => {
+    if (!filter.includeLogs) return [];
+    return Object.values(logsMap).filter((l) => {
+      if (!l.timestamp) return false;
+      if (filter.projects.length && (!l.project || !filter.projects.includes(l.project)))
+        return false;
+      if (filter.tags.length) {
+        const tagSet = new Set(l.tags);
+        if (!filter.tags.every((t) => tagSet.has(t))) return false;
+      }
+      return true;
+    });
+  }, [logsMap, filter]);
 
   const allMilestones = React.useMemo(() => Object.values(milestonesMap), [milestonesMap]);
   const filteredMilestones = React.useMemo(() => {
@@ -66,11 +81,20 @@ export const TimelineRoot: React.FC = () => {
         groupBy,
         datedTasks,
         filteredMilestones,
+        filteredLogs,
         projectsMap,
         milestonesMap,
         settings.priorities
       ),
-    [groupBy, datedTasks, filteredMilestones, projectsMap, milestonesMap, settings.priorities]
+    [
+      groupBy,
+      datedTasks,
+      filteredMilestones,
+      filteredLogs,
+      projectsMap,
+      milestonesMap,
+      settings.priorities,
+    ]
   );
 
   const dateSpan = React.useMemo(() => {
@@ -151,7 +175,7 @@ export const TimelineRoot: React.FC = () => {
         if (mode === "move" || mode === "resize-end") {
           await taskService.setDue(task, finalDraft.endISO);
         }
-      } else {
+      } else if (bar.kind === "milestone") {
         const milestone = milestonesMap[bar.path];
         if (!milestone) return;
         if (mode === "move" || mode === "resize-start") {
@@ -160,6 +184,15 @@ export const TimelineRoot: React.FC = () => {
         if (mode === "move" || mode === "resize-end") {
           await milestoneService.setDue(milestone, finalDraft.endISO);
         }
+      } else {
+        const log = logsMap[bar.path];
+        if (!log) return;
+        if (mode !== "move") return;
+        const time = log.timestamp.length >= 16 ? log.timestamp.slice(11, 16) : "00:00";
+        const [h, m] = time.split(":").map((n) => parseInt(n, 10) || 0);
+        const newDate = new Date(`${finalDraft.startISO}T00:00`);
+        newDate.setHours(h, m, 0, 0);
+        await logService.setTimestamp(log, newDate);
       }
     };
     window.addEventListener("pointermove", onMove);
@@ -294,12 +327,18 @@ export const TimelineRoot: React.FC = () => {
                     const top = barIdx * ROW_HEIGHT + 2;
                     const isNarrow = width < 56;
                     const isMilestone = bar.kind === "milestone";
+                    const isLog = bar.kind === "log";
+                    const iconName: IconName = isMilestone
+                      ? "flag"
+                      : isLog
+                      ? "notebook"
+                      : "check";
                     return (
                       <div
                         key={bar.id}
                         className={`kp-tl__bar ${isNarrow ? "kp-tl__bar--narrow" : ""} ${
                           isMilestone ? "kp-tl__bar--milestone" : ""
-                        }`}
+                        } ${isLog ? "kp-tl__bar--log" : ""}`}
                         style={{
                           left,
                           width,
@@ -316,25 +355,26 @@ export const TimelineRoot: React.FC = () => {
                           if (bar.kind === "task") {
                             const t = tasksMap[bar.path];
                             if (t) void taskService.openInNewLeaf(t, overrideMode);
-                          } else {
+                          } else if (bar.kind === "milestone") {
                             const m = milestonesMap[bar.path];
                             if (m) void milestoneService.openInNewLeaf(m, overrideMode);
+                          } else {
+                            const l = logsMap[bar.path];
+                            if (l) void logService.openInNewLeaf(l, overrideMode);
                           }
                         }}
                       >
-                        <div
-                          className="kp-tl__bar-handle kp-tl__bar-handle--start"
-                          onPointerDown={(e) => {
-                            e.stopPropagation();
-                            onPointerStart(e, bar, "resize-start");
-                          }}
-                        />
-                        <span className="kp-tl__bar-label">
-                          <Icon
-                            name={isMilestone ? "flag" : "check"}
-                            size={12}
-                            className="kp-tl__bar-icon"
+                        {!isLog && (
+                          <div
+                            className="kp-tl__bar-handle kp-tl__bar-handle--start"
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              onPointerStart(e, bar, "resize-start");
+                            }}
                           />
+                        )}
+                        <span className="kp-tl__bar-label">
+                          <Icon name={iconName} size={12} className="kp-tl__bar-icon" />
                           {bar.label}
                         </span>
                         {bar.priorityLabel && (
@@ -345,13 +385,15 @@ export const TimelineRoot: React.FC = () => {
                             {bar.priorityLabel}
                           </span>
                         )}
-                        <div
-                          className="kp-tl__bar-handle kp-tl__bar-handle--end"
-                          onPointerDown={(e) => {
-                            e.stopPropagation();
-                            onPointerStart(e, bar, "resize-end");
-                          }}
-                        />
+                        {!isLog && (
+                          <div
+                            className="kp-tl__bar-handle kp-tl__bar-handle--end"
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              onPointerStart(e, bar, "resize-end");
+                            }}
+                          />
+                        )}
                       </div>
                     );
                   })}
@@ -367,7 +409,7 @@ export const TimelineRoot: React.FC = () => {
 
 interface DraftBar {
   barPath: string;
-  barKind: "task" | "milestone";
+  barKind: "task" | "milestone" | "log";
   mode: "move" | "resize-start" | "resize-end";
   startISO: string;
   endISO: string;
@@ -385,6 +427,7 @@ function buildRows(
   groupBy: GroupBy,
   tasks: Task[],
   milestones: Milestone[],
+  logs: Log[],
   projectsMap: Record<string, Project>,
   milestonesMap: Record<string, Milestone>,
   priorities: { id: string; label: string; color: string }[]
@@ -392,21 +435,40 @@ function buildRows(
   const milestoneByName = new Map<string, Milestone>();
   for (const m of Object.values(milestonesMap)) milestoneByName.set(m.name, m);
   if (groupBy === "project") {
-    const byProject = new Map<string, Task[]>();
+    const taskByProject = new Map<string, Task[]>();
     for (const t of tasks) {
       const key = t.project ?? "Unassigned";
-      if (!byProject.has(key)) byProject.set(key, []);
-      byProject.get(key)!.push(t);
+      if (!taskByProject.has(key)) taskByProject.set(key, []);
+      taskByProject.get(key)!.push(t);
     }
-    return Array.from(byProject.entries()).map(([name, list]) => {
+    const logByProject = new Map<string, Log[]>();
+    for (const l of logs) {
+      const key = l.project ?? "Unassigned";
+      if (!logByProject.has(key)) logByProject.set(key, []);
+      logByProject.get(key)!.push(l);
+    }
+    const projectKeys = new Set<string>([
+      ...taskByProject.keys(),
+      ...logByProject.keys(),
+    ]);
+    return Array.from(projectKeys).map((name) => {
       const project = Object.values(projectsMap).find((p) => p.name === name);
       const color = project?.color ?? "#3b82f6";
-      const sorted = list.slice().sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""));
+      const taskList = taskByProject.get(name) ?? [];
+      const logList = logByProject.get(name) ?? [];
+      const taskBars = taskList
+        .slice()
+        .sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""))
+        .map((t) => taskToBar(t, color, priorities, milestoneByName));
+      const logBars = logList
+        .slice()
+        .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+        .map((l) => logToBar(l, color));
       return {
         id: `project:${name}`,
         label: name,
         color,
-        bars: sorted.map((t) => taskToBar(t, color, priorities, milestoneByName)),
+        bars: [...taskBars, ...logBars],
       };
     });
   }
@@ -460,6 +522,20 @@ function taskToBar(
     color: projectColor,
     priorityLabel: pri?.label,
     priorityColor: pri?.color,
+  };
+}
+
+function logToBar(l: Log, color: string): Bar {
+  const date = l.timestamp.slice(0, 10);
+  const time = l.timestamp.length >= 16 ? l.timestamp.slice(11, 16) : "";
+  return {
+    id: l.id,
+    path: l.path,
+    kind: "log",
+    label: l.excerpt ?? (time ? `Log @ ${time}` : "Log"),
+    startISO: date,
+    endISO: date,
+    color,
   };
 }
 

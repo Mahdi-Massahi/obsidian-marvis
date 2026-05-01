@@ -1,5 +1,5 @@
 import { App, TFile } from "obsidian";
-import type { Task, Project, Milestone, Kind } from "./types";
+import type { Task, Project, Milestone, Log, Kind } from "./types";
 import { DEFAULT_PROJECT_COLOR } from "./types";
 
 export const WIKILINK_RE = /^\[\[(.+?)(?:\|.+?)?\]\]$/;
@@ -88,8 +88,51 @@ export function todayISO(): string {
 export function getKind(fm: Record<string, unknown> | null | undefined): Kind | null {
   if (!fm) return null;
   const k = asString(fm["kind"]);
-  if (k === "task" || k === "project" || k === "milestone") return k;
+  if (k === "task" || k === "project" || k === "milestone" || k === "log") return k;
   return null;
+}
+
+export function asDateTime(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (value instanceof Date) {
+    return formatDateTimeISO(value);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    // YYYY-MM-DD-HH-mm or YYYY-MM-DDTHH:mm or YYYY-MM-DD HH:mm
+    const compact = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[-T ](\d{2})[-:](\d{2})/);
+    if (compact) {
+      return `${compact[1]}-${compact[2]}-${compact[3]}T${compact[4]}:${compact[5]}`;
+    }
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) return formatDateTimeISO(parsed);
+  }
+  return undefined;
+}
+
+export function formatDateTimeISO(date: Date): string {
+  const y = date.getFullYear();
+  const mo = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const mi = String(date.getMinutes()).padStart(2, "0");
+  return `${y}-${mo}-${d}T${h}:${mi}`;
+}
+
+export function formatLogFilename(date: Date): string {
+  const y = date.getFullYear();
+  const mo = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const mi = String(date.getMinutes()).padStart(2, "0");
+  return `${y}-${mo}-${d}-${h}-${mi}`;
+}
+
+export function filenameToTimestamp(name: string): string | undefined {
+  const m = name.match(/^(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})$/);
+  if (!m) return undefined;
+  return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}`;
 }
 
 export function fileBaseName(path: string): string {
@@ -133,6 +176,20 @@ export function parseProject(file: TFile, fm: Record<string, unknown>): Project 
     color: asString(fm["color"]) ?? DEFAULT_PROJECT_COLOR,
     created: asDate(fm["created"]),
     folder,
+  };
+}
+
+export function parseLog(file: TFile, fm: Record<string, unknown>): Log {
+  const base = fileBaseName(file.path);
+  const ts = asDateTime(fm["timestamp"]) ?? filenameToTimestamp(base) ?? formatDateTimeISO(new Date());
+  return {
+    id: file.path,
+    path: file.path,
+    name: base,
+    project: stripWikilink(fm["project"]),
+    timestamp: ts,
+    tags: asTags(fm["tags"]),
+    created: asDate(fm["created"]),
   };
 }
 

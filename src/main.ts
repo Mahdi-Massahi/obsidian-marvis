@@ -6,6 +6,7 @@ import { createPlannerStore, PlannerStore } from "./index/store";
 import { ProjectService } from "./services/projectService";
 import { MilestoneService } from "./services/milestoneService";
 import { TaskService } from "./services/taskService";
+import { LogService } from "./services/logService";
 import { PlannerView, VIEW_TYPE_KANBAN_PLUS } from "./views/PlannerView";
 import { registerCommands } from "./commands";
 import type { ViewKind } from "./schema/types";
@@ -17,6 +18,7 @@ export default class KanbanPlusPlugin extends Plugin {
   projectService!: ProjectService;
   milestoneService!: MilestoneService;
   taskService!: TaskService;
+  logService!: LogService;
 
   private openViews = new Set<PlannerView>();
 
@@ -48,6 +50,12 @@ export default class KanbanPlusPlugin extends Plugin {
       sidebarCache
     );
     this.taskService = new TaskService(
+      this.app,
+      this.projectService,
+      getOpenMode,
+      sidebarCache
+    );
+    this.logService = new LogService(
       this.app,
       this.projectService,
       getOpenMode,
@@ -117,4 +125,5 @@ const DEFAULT_SETTINGS_FILTER = {
   dateRange: null,
   search: "",
   includeArchived: false,
+  includeLogs: true,
 };

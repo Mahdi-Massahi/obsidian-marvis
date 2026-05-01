@@ -1,6 +1,7 @@
 import { App, EventRef, TAbstractFile, TFile, TFolder } from "obsidian";
 import {
   getKind,
+  parseLog,
   parseMilestone,
   parseProject,
   parseTask,
@@ -55,7 +56,8 @@ export class Indexer {
     const tasks: ReturnType<typeof parseTask>[] = [];
     const projects: ReturnType<typeof parseProject>[] = [];
     const milestones: ReturnType<typeof parseMilestone>[] = [];
-    const taskFiles: TFile[] = [];
+    const logs: ReturnType<typeof parseLog>[] = [];
+    const bodyFiles: TFile[] = [];
 
     if (folder instanceof TFolder) {
       this.walk(folder, (file) => {
@@ -64,9 +66,13 @@ export class Indexer {
         if (!kind) return;
         if (kind === "task") {
           tasks.push(parseTask(file, fm!));
-          taskFiles.push(file);
+          bodyFiles.push(file);
         } else if (kind === "project") projects.push(parseProject(file, fm!));
         else if (kind === "milestone") milestones.push(parseMilestone(file, fm!));
+        else if (kind === "log") {
+          logs.push(parseLog(file, fm!));
+          bodyFiles.push(file);
+        }
       });
     }
 
@@ -74,9 +80,10 @@ export class Indexer {
     state.setTasks(tasks);
     state.setProjects(projects);
     state.setMilestones(milestones);
+    state.setLogs(logs);
 
-    // Async second pass — load body excerpts and patch each task.
-    void this.loadExcerpts(taskFiles);
+    // Async second pass — load body excerpts.
+    void this.loadExcerpts(bodyFiles);
   }
 
   private handleFile(file: TFile): void {
@@ -98,6 +105,11 @@ export class Indexer {
       void this.loadExcerptForFile(file);
     } else if (kind === "project") state.upsertProject(parseProject(file, fm!));
     else if (kind === "milestone") state.upsertMilestone(parseMilestone(file, fm!));
+    else if (kind === "log") {
+      const log = parseLog(file, fm!);
+      state.upsertLog(log);
+      void this.loadExcerptForFile(file);
+    }
   }
 
   private async loadExcerpts(files: TFile[]): Promise<void> {
@@ -109,10 +121,17 @@ export class Indexer {
   private async loadExcerptForFile(file: TFile): Promise<void> {
     const { excerpt, body } = await this.readBody(file);
     const state = this.store.getState();
-    const existing = state.tasks[file.path];
-    if (!existing) return;
-    if (existing.excerpt === excerpt && existing.body === body) return;
-    state.upsertTask({ ...existing, excerpt, body });
+    const existingTask = state.tasks[file.path];
+    if (existingTask) {
+      if (existingTask.excerpt === excerpt && existingTask.body === body) return;
+      state.upsertTask({ ...existingTask, excerpt, body });
+      return;
+    }
+    const existingLog = state.logs[file.path];
+    if (existingLog) {
+      if (existingLog.excerpt === excerpt && existingLog.body === body) return;
+      state.upsertLog({ ...existingLog, excerpt, body });
+    }
   }
 
   private async readBody(

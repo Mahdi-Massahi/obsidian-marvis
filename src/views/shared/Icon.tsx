@@ -172,6 +172,22 @@ const ICONS = {
     </>
   ),
   check: <path d="M20 6 9 17l-5-5" />,
+  notebook: (
+    <>
+      <path d="M2 6h4" />
+      <path d="M2 10h4" />
+      <path d="M2 14h4" />
+      <path d="M2 18h4" />
+      <rect width="16" height="20" x="4" y="2" rx="2" />
+      <path d="M16 2v20" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
   arrowUpDown: (
     <>
       <path d="m21 16-4 4-4-4" />

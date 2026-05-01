@@ -96,6 +96,7 @@ export class PlannerView extends ItemView {
       taskService: this.plugin.taskService,
       projectService: this.plugin.projectService,
       milestoneService: this.plugin.milestoneService,
+      logService: this.plugin.logService,
       settings: this.plugin.settings,
       switchView: (kind: ViewKind) => this.switchKind(kind),
       openQuickCreate: this.openQuickCreate,

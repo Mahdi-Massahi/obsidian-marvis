@@ -1,4 +1,4 @@
-export type Kind = "task" | "project" | "milestone";
+export type Kind = "task" | "project" | "milestone" | "log";
 
 export type Status = string;
 export type Priority = string;
@@ -70,6 +70,18 @@ export interface Milestone {
   status: MilestoneStatusDef["id"];
 }
 
+export interface Log {
+  id: string;
+  path: string;
+  name: string;
+  project?: string;
+  timestamp: string; // ISO with minute precision: YYYY-MM-DDTHH:mm
+  tags: string[];
+  created?: string;
+  excerpt?: string;
+  body?: string;
+}
+
 export type ViewKind = "kanban" | "timeline" | "calendar" | "table";
 
 export interface FilterState {
@@ -81,6 +93,7 @@ export interface FilterState {
   dateRange: { from?: string; to?: string } | null;
   search: string;
   includeArchived: boolean;
+  includeLogs: boolean;
   preset?: string;
 }
 
@@ -126,4 +139,5 @@ export const EMPTY_FILTER: FilterState = {
   dateRange: null,
   search: "",
   includeArchived: false,
+  includeLogs: true,
 };

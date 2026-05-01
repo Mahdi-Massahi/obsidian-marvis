@@ -55,6 +55,30 @@ export function registerCommands(plugin: KanbanPlusPlugin): void {
   });
 
   plugin.addCommand({
+    id: "quick-log",
+    name: "Quick log",
+    callback: () => {
+      const projects = listProjectFolders(plugin.app, plugin.settings.rootFolder);
+      if (projects.length === 0) {
+        new Notice("Create a project first.");
+        return;
+      }
+      new QuickLogModal(plugin.app, projects, async (project, body, tags) => {
+        try {
+          await plugin.logService.createLog(project, {
+            body: body || undefined,
+            tags: tags.length ? tags : undefined,
+          });
+          new Notice(`Log added to ${project}`);
+        } catch (e) {
+          console.error(e);
+          new Notice("Failed to create log — see console");
+        }
+      }).open();
+    },
+  });
+
+  plugin.addCommand({
     id: "create-milestone",
     name: "Create milestone",
     callback: () => {
@@ -113,6 +137,65 @@ class TextPromptModal extends Modal {
     if (!v) return;
     this.close();
     this.onSubmit(v);
+  }
+}
+
+class QuickLogModal extends Modal {
+  private projects: string[];
+  private onSubmit: (project: string, body: string, tags: string[]) => void;
+  private project: string;
+  private body = "";
+  private tagsInput = "";
+
+  constructor(
+    app: App,
+    projects: string[],
+    onSubmit: (project: string, body: string, tags: string[]) => void
+  ) {
+    super(app);
+    this.projects = projects;
+    this.project = projects[0];
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen(): void {
+    this.contentEl.createEl("h2", { text: "Quick log" });
+    new Setting(this.contentEl).setName("Project").addDropdown((dd) => {
+      for (const p of this.projects) dd.addOption(p, p);
+      dd.setValue(this.project);
+      dd.onChange((v) => (this.project = v));
+    });
+    new Setting(this.contentEl).setName("Tags").addText((t) => {
+      t.setPlaceholder("comma-separated");
+      t.onChange((v) => (this.tagsInput = v));
+    });
+    new Setting(this.contentEl).setName("Body").addTextArea((t) => {
+      t.setPlaceholder("What happened?");
+      t.onChange((v) => (this.body = v));
+      t.inputEl.rows = 5;
+      t.inputEl.style.width = "100%";
+      t.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) this.submit();
+      });
+      setTimeout(() => t.inputEl.focus(), 0);
+    });
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) =>
+        b
+          .setButtonText("Save")
+          .setCta()
+          .onClick(() => this.submit())
+      );
+  }
+
+  private submit(): void {
+    const tags = this.tagsInput
+      .split(/[,\s]+/)
+      .map((t) => t.replace(/^#/, "").trim())
+      .filter((t) => t.length > 0);
+    this.close();
+    this.onSubmit(this.project, this.body.trim(), tags);
   }
 }
 

@@ -134,6 +134,16 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
               prefix="#"
             />
           )}
+          {(activeView === "calendar" || activeView === "timeline") && (
+            <button
+              className={`kp-chipgroup__trigger ${filter.includeLogs ? "is-selected" : ""}`}
+              onClick={() => setFilter({ includeLogs: !filter.includeLogs })}
+              title="Toggle log visibility"
+            >
+              <Icon name="notebook" size={13} />
+              <span>Logs</span>
+            </button>
+          )}
           <button
             className={`kp-chipgroup__trigger ${filter.includeArchived ? "is-selected" : ""}`}
             onClick={() => setFilter({ includeArchived: !filter.includeArchived })}
