@@ -3,6 +3,7 @@ import type KanbanPlusPlugin from "./main";
 import { QuickCreateModal } from "./views/shared/QuickCreateModal";
 import { listProjectFolders } from "./services/taskService";
 import type { PullProgress } from "./services/telegramService";
+import { ConfirmModal } from "./views/shared/ConfirmModal";
 
 export function registerCommands(plugin: KanbanPlusPlugin): void {
   plugin.addCommand({
@@ -116,6 +117,99 @@ export function registerCommands(plugin: KanbanPlusPlugin): void {
         console.error(e);
         modal.fail(e instanceof Error ? e.message : "Pull failed");
       }
+    },
+  });
+
+  plugin.addCommand({
+    id: "apply-skill-template-all",
+    name: "Apply skill template to all projects",
+    callback: async () => {
+      try {
+        const r = await plugin.projectService.applySkillTemplateToAll();
+        new Notice(`Skills: ${r.created} created, ${r.skipped} already had one`);
+      } catch (e) {
+        console.error(e);
+        new Notice("Failed to apply skill template — see console");
+      }
+    },
+  });
+
+  plugin.addCommand({
+    id: "reset-skill-for-project",
+    name: "Reset skill template for project…",
+    callback: () => {
+      const projects = listProjectFolders(plugin.app, plugin.settings.rootFolder);
+      if (projects.length === 0) {
+        new Notice("No projects found.");
+        return;
+      }
+      new SkillResetModal(plugin.app, projects, async (project) => {
+        try {
+          const r = await plugin.projectService.writeSkillFile(
+            project,
+            "marvis",
+            plugin.settings.marvisSkillTemplate,
+            true
+          );
+          new Notice(`Reset ${r.path}`);
+        } catch (e) {
+          console.error(e);
+          new Notice("Failed to reset skill — see console");
+        }
+      }).open();
+    },
+  });
+
+  plugin.addCommand({
+    id: "backfill-codes",
+    name: "Backfill IDs (T-/L-/M-/P-)",
+    callback: async () => {
+      try {
+        const r = await backfillCodes(plugin);
+        new Notice(
+          `IDs assigned — tasks: ${r.task}, logs: ${r.log}, milestones: ${r.milestone}, projects: ${r.project}`
+        );
+      } catch (e) {
+        console.error(e);
+        new Notice("Backfill failed — see console");
+      }
+    },
+  });
+
+  plugin.addCommand({
+    id: "delete-active-task",
+    name: "Delete task",
+    checkCallback: (checking) => {
+      const file = plugin.app.workspace.getActiveFile();
+      if (!file) return false;
+      const fm = plugin.app.metadataCache.getFileCache(file)?.frontmatter ?? null;
+      if (!fm || fm["kind"] !== "task") return false;
+      if (checking) return true;
+      const taskPath = file.path;
+      const task = plugin.store.getState().tasks[taskPath];
+      const title =
+        (typeof fm["title"] === "string" && fm["title"]) ||
+        task?.title ||
+        file.basename;
+      new ConfirmModal(
+        plugin.app,
+        "Delete task",
+        `Permanently delete "${title}"? This moves the file to the system or vault trash.`,
+        async () => {
+          try {
+            if (task) {
+              await plugin.taskService.deleteTask(task);
+            } else {
+              await plugin.app.fileManager.trashFile(file);
+            }
+            new Notice(`Deleted "${title}"`);
+          } catch (e) {
+            console.error(e);
+            new Notice("Failed to delete task — see console");
+          }
+        }
+      ).open();
+      return true;
     },
   });
 
@@ -369,4 +463,100 @@ class TelegramProgressModal extends Modal {
     if (!this.done) return;
     this.contentEl.empty();
   }
+}
+
+class SkillResetModal extends Modal {
+  private projects: string[];
+  private onSubmit: (project: string) => void;
+  private project: string;
+
+  constructor(app: App, projects: string[], onSubmit: (project: string) => void) {
+    super(app);
+    this.projects = projects;
+    this.project = projects[0];
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen(): void {
+    this.contentEl.createEl("h2", { text: "Reset skills/marvis.md" });
+    this.contentEl.createEl("p", {
+      text:
+        "This overwrites the picked project's skills/marvis.md with the current settings template. The existing file is replaced.",
+    });
+    new Setting(this.contentEl).setName("Project").addDropdown((dd) => {
+      for (const p of this.projects) dd.addOption(p, p);
+      dd.setValue(this.project);
+      dd.onChange((v) => (this.project = v));
+    });
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) =>
+        b
+          .setButtonText("Reset")
+          .setWarning()
+          .onClick(() => {
+            this.close();
+            this.onSubmit(this.project);
+          })
+      );
+  }
+}
+
+async function backfillCodes(plugin: KanbanPlusPlugin): Promise<{
+  task: number;
+  log: number;
+  milestone: number;
+  project: number;
+}> {
+  const counts = { task: 0, log: 0, milestone: 0, project: 0 };
+  const state = plugin.store.getState();
+  const groups: Array<{
+    kind: "task" | "log" | "milestone" | "project";
+    items: { path: string; created?: string; code?: string }[];
+  }> = [
+    { kind: "project", items: Object.values(state.projects) },
+    { kind: "milestone", items: Object.values(state.milestones) },
+    { kind: "task", items: Object.values(state.tasks) },
+    { kind: "log", items: Object.values(state.logs) },
+  ];
+  // First pass: bump counters past any existing codes so new allocations don't collide.
+  const codeRegex = /^[A-Z]-(\d+)$/;
+  for (const { kind, items } of groups) {
+    let max = 0;
+    for (const it of items) {
+      const m = it.code?.match(codeRegex);
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    if (max > 0) plugin.bumpCodeCounter(kind, max + 1);
+  }
+  await plugin.saveSettings();
+
+  // Second pass: assign codes to items missing them, in created-then-path order.
+  for (const { kind, items } of groups) {
+    const missing = items
+      .filter((it) => !it.code)
+      .sort((a, b) => {
+        const ca = a.created ?? "";
+        const cb = b.created ?? "";
+        if (ca !== cb) return ca.localeCompare(cb);
+        return a.path.localeCompare(b.path);
+      });
+    for (const it of missing) {
+      const code = await plugin.allocateCode(kind);
+      const file = plugin.app.vault.getAbstractFileByPath(it.path);
+      if (!file || !(file as { extension?: string }).extension) continue;
+      try {
+        await plugin.app.fileManager.processFrontMatter(
+          file as never,
+          (fm: Record<string, unknown>) => {
+            fm["code"] = code;
+          }
+        );
+        counts[kind] += 1;
+      } catch (e) {
+        console.warn("Failed to set code on", it.path, e);
+      }
+    }
+  }
+  return counts;
 }

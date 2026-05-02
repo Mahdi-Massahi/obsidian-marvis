@@ -207,6 +207,15 @@
   color: var(--kp-text);
 }
 
+.kp-btn--danger {
+  color: var(--text-error, #ef4444);
+}
+
+.kp-btn--danger:hover {
+  background: color-mix(in oklab, var(--text-error, #ef4444) 12%, transparent);
+  color: var(--text-error, #ef4444);
+}
+
 /* =====================================================
    Filter bar
    ===================================================== */
@@ -856,7 +865,8 @@
   font-weight: 500;
 }
 
-.kp-bulkbar select {
+.kp-bulkbar select,
+.kp-bulkbar__input {
   padding: 4px 8px;
   border: 1px solid var(--kp-border);
   border-radius: var(--kp-radius-sm);
@@ -864,6 +874,108 @@
   color: var(--kp-text);
   font-size: var(--kp-text-sm);
   cursor: pointer;
+}
+
+.kp-bulkbar__input {
+  cursor: text;
+  min-width: 140px;
+}
+
+.kp-table__created {
+  color: var(--kp-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kp-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--kp-radius);
+  background: transparent;
+  color: var(--kp-text-muted);
+  cursor: pointer;
+  transition: background var(--kp-trans), color var(--kp-trans),
+    border-color var(--kp-trans);
+  flex-shrink: 0;
+  flex-grow: 0;
+  align-self: center;
+}
+
+.kp-iconbtn:hover {
+  background: var(--kp-bg-hover);
+  color: var(--kp-text);
+}
+
+.kp-iconbtn:focus-visible {
+  outline: 2px solid var(--kp-accent);
+  outline-offset: 2px;
+}
+
+.kp-iconbtn--round {
+  border-radius: 50%;
+}
+
+.kp-iconbtn--accent {
+  background: var(--kp-accent);
+  color: var(--kp-on-accent);
+}
+
+.kp-iconbtn--accent:hover {
+  background: var(--kp-accent-hover);
+  color: var(--kp-on-accent);
+}
+
+.kp-create-menu .kp-create-menu__tabs {
+  margin-bottom: 14px;
+}
+
+.kp-create-menu .kp-create-menu__tabicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.kp-create-menu .kp-create-menu__tabicon > svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.kp-code {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 5px;
+  border-radius: var(--kp-radius-sm);
+  background: var(--kp-bg-soft);
+  color: var(--kp-text-muted);
+  font-family: var(--font-monospace, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.kp-card__age {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  color: var(--kp-text-faint);
+  font-size: var(--kp-text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kp-card__age .kp-icon {
+  opacity: 0.8;
 }
 
 /* =====================================================
@@ -1485,14 +1597,33 @@
   opacity: 0.6;
 }
 
-.kp-tl__today {
+.kp-tl__now-line {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--kp-accent);
-  z-index: 1;
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+  background: #3b82f6;
+  z-index: 4;
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.45);
+}
+
+.kp-tl__now-label {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  background: #3b82f6;
+  color: #ffffff;
+  padding: 1px 6px;
+  border-radius: var(--kp-radius-pill);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+  box-shadow: var(--kp-shadow-sm);
 }
 
 .kp-tl__row {
@@ -1719,4 +1850,115 @@
 .kp-tg-progress__actions {
   display: flex;
   justify-content: flex-end;
+}
+
+/* =====================================================
+   Compact FilterBar on tablet + mobile
+   ===================================================== */
+
+@media (max-width: 760px) {
+  .kp-filterbar {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  /* Stop wrapping the chip + toolbar row; let it scroll horizontally so the
+     bar stays exactly two thin rows instead of wrapping into many. */
+  .kp-filterbar__row--chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .kp-filterbar__row--chips::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .kp-filterbar__toolbar,
+  .kp-filterbar__chips {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* The chips group margin-left:auto pushes them to the right when the row
+     wraps; on a horizontally-scrolling row that auto margin would force a huge
+     gap. Reset it. */
+  .kp-filterbar__chips {
+    margin-left: var(--kp-space-3);
+  }
+
+  /* The first row also wrapped onto multiple lines on narrow widths. Keep it
+     single-row by allowing horizontal overflow there too. */
+  .kp-filterbar__row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .kp-search--anchored {
+    margin-left: auto;
+    flex: 0 1 200px;
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 520px) {
+  /* Icon-only view-switcher to free up first-row space. Tooltips still
+     announce the label. */
+  .kp-viewswitcher__btn span {
+    display: none;
+  }
+
+  .kp-viewswitcher .kp-viewswitcher__btn {
+    padding: 4px 9px;
+  }
+
+  /* Drop the "Zoom" word label in the timeline toolbar. */
+  .kp-filterbar__toolbar .kp-toolbar__label span {
+    display: none;
+  }
+
+  /* Drop ghost-button text labels in toolbars (Tasks/Projects/etc tabs in
+     Table view, group-by buttons in Timeline). Icons remain. */
+  .kp-filterbar__toolbar .kp-btn--ghost span {
+    display: none;
+  }
+
+  .kp-search--anchored {
+    flex: 0 1 140px;
+    min-width: 100px;
+  }
+}
+
+/* =====================================================
+   Mobile/tablet: keep modals reachable when the on-screen
+   keyboard pops up. dvh tracks the visual viewport so the
+   max-height shrinks as the keyboard appears, and the
+   modal becomes vertically scrollable so action buttons
+   below an input stay reachable.
+   ===================================================== */
+
+@media (max-width: 1024px) {
+  .modal {
+    max-height: min(92dvh, 92vh);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Pad the bottom a bit so the final action button isn't flush against the
+     keyboard (or the rounded modal edge). Respects iOS safe area too. */
+  .modal > .modal-content,
+  .modal {
+    scroll-padding-bottom: 16px;
+  }
+
+  .modal::after {
+    content: "";
+    display: block;
+    height: env(safe-area-inset-bottom, 12px);
+    flex-shrink: 0;
+  }
 }

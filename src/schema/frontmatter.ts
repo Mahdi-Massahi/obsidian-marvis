@@ -169,6 +169,7 @@ export function parseTask(file: TFile, fm: Record<string, unknown>): Task {
     parent: stripWikilink(fm["parent"]),
     recurrence: asString(fm["recurrence"]),
     archived: asBool(fm["archived"], false) || file.path.includes("/archive/"),
+    code: asString(fm["code"]),
   };
 }
 
@@ -186,6 +187,7 @@ export function parseProject(file: TFile, fm: Record<string, unknown>): Project 
     color: asString(fm["color"]) ?? DEFAULT_PROJECT_COLOR,
     created: asDate(fm["created"]),
     folder,
+    code: asString(fm["code"]),
   };
 }
 
@@ -200,6 +202,7 @@ export function parseLog(file: TFile, fm: Record<string, unknown>): Log {
     timestamp: ts,
     tags: asTags(fm["tags"]),
     created: asDate(fm["created"]),
+    code: asString(fm["code"]),
   };
 }
 
@@ -213,6 +216,8 @@ export function parseMilestone(file: TFile, fm: Record<string, unknown>): Milest
     start: asDate(fm["start"]),
     due: asDate(fm["due"]) ?? asDate(fm["end"]),
     status: (asString(fm["status"]) as Milestone["status"]) ?? "planned",
+    created: asDate(fm["created"]),
+    code: asString(fm["code"]),
   };
 }
 

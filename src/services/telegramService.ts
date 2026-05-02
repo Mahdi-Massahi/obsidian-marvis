@@ -151,7 +151,9 @@ export class TelegramService {
     const project = this.resolveProject(parsed.projectMention) ?? inbox;
     const tags = Array.from(new Set([...parsed.tags, "tg"]));
 
-    const attachments = await this.handleMedia(inbox, msg, ts);
+    // Attachments live under the destination project's tasks/_attachments or
+    // logs/_attachments folder, matching the entity kind.
+    const attachments = await this.handleMedia(project, parsed.kind, msg, ts);
 
     const bodyParts: string[] = [];
     if (parsed.cleanText) bodyParts.push(parsed.cleanText);
@@ -193,13 +195,15 @@ export class TelegramService {
   }
 
   private async handleMedia(
-    inbox: string,
+    project: string,
+    kind: "task" | "log",
     msg: TelegramMessage,
     ts: Date
   ): Promise<string[]> {
     const out: string[] = [];
+    const subfolder = kind === "task" ? "tasks" : "logs";
     const attachDir = normalizePath(
-      `${this.projects.projectFolder(inbox)}/logs/_attachments`
+      `${this.projects.projectFolder(project)}/${subfolder}/_attachments`
     );
 
     const ensureDir = async () => {

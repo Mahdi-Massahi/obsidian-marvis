@@ -9,7 +9,8 @@ export class MilestoneService {
     private app: App,
     private projects: ProjectService,
     private getOpenMode: () => OpenMode = () => "sidebar",
-    private sidebarCache?: SidebarLeafCache
+    private sidebarCache?: SidebarLeafCache,
+    private allocateCode: () => Promise<string | undefined> = async () => undefined
   ) {}
 
   milestoneFolder(projectName: string): string {
@@ -33,6 +34,7 @@ export class MilestoneService {
     const existing = this.app.vault.getAbstractFileByPath(path);
     if (existing instanceof TFile) return existing;
 
+    const code = await this.allocateCode();
     const fmLines: string[] = [
       "---",
       "kind: milestone",
@@ -40,6 +42,7 @@ export class MilestoneService {
       "status: planned",
       `created: ${todayISO()}`,
     ];
+    if (code) fmLines.push(`code: ${code}`);
     if (options.due) fmLines.push(`due: ${options.due}`);
     fmLines.push("---", "", "## Goals", "", "## Scope", "", "## Notes", "");
 
@@ -87,6 +90,23 @@ export class MilestoneService {
         fm["project"] = toWikilink(projectName);
       });
     }
+  }
+
+  async archive(milestone: Milestone): Promise<void> {
+    const file = this.getFile(milestone);
+    if (!file || !milestone.project) return;
+    const archiveFolder = normalizePath(
+      `${this.projects.projectFolder(milestone.project)}/archive`
+    );
+    await this.projects.ensureFolder(archiveFolder);
+    const newPath = normalizePath(`${archiveFolder}/${file.name}`);
+    await this.app.fileManager.renameFile(file, newPath);
+  }
+
+  async deleteMilestone(milestone: Milestone): Promise<void> {
+    const file = this.getFile(milestone);
+    if (!file) return;
+    await this.app.fileManager.trashFile(file);
   }
 
   async openInNewLeaf(milestone: Milestone, modeOverride?: OpenMode): Promise<void> {

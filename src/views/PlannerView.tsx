@@ -9,6 +9,7 @@ import { TableRoot } from "./Table";
 import { CalendarRoot } from "./Calendar";
 import { TimelineRoot } from "./Timeline";
 import { QuickCreateModal, QuickCreateDefaults } from "./shared/QuickCreateModal";
+import { CreateMenuModal } from "./shared/CreateMenuModal";
 
 export const VIEW_TYPE_KANBAN_PLUS = "marvis-view";
 
@@ -88,6 +89,10 @@ export class PlannerView extends ItemView {
     ).open();
   };
 
+  private openCreateMenu = () => {
+    new CreateMenuModal(this.app, this.plugin).open();
+  };
+
   private render(): void {
     if (!this.root) return;
     const ctx = {
@@ -100,6 +105,7 @@ export class PlannerView extends ItemView {
       settings: this.plugin.settings,
       switchView: (kind: ViewKind) => this.switchKind(kind),
       openQuickCreate: this.openQuickCreate,
+      openCreateMenu: this.openCreateMenu,
     };
     this.root.render(
       <PluginContext.Provider value={ctx}>

@@ -70,4 +70,22 @@ export function monthGrid(month: Date, weekStartsOn: 0 | 1 = 1): Date[][] {
   return weeks;
 }
 
+export function formatAge(fromMs: number, nowMs: number = Date.now()): string {
+  const diff = Math.max(0, nowMs - fromMs);
+  const sec = Math.floor(diff / 1000);
+  if (sec < 45) return "now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}min`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  if (day < 14) return `${day}d`;
+  const wk = Math.floor(day / 7);
+  if (wk < 9) return `${wk}w`;
+  const mo = Math.floor(day / 30);
+  if (mo < 12) return `${mo}mo`;
+  const yr = Math.floor(day / 365);
+  return `${yr}y`;
+}
+
 export { addDays, isSameDay, isSameMonth, startOfDay, format };

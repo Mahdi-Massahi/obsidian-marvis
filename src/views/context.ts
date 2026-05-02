@@ -17,6 +17,7 @@ export interface PluginContextValue {
   settings: KanbanPlusSettings;
   switchView: (kind: "kanban" | "timeline" | "calendar" | "table") => void;
   openQuickCreate: (defaults?: Partial<{ due: string; project: string }>) => void;
+  openCreateMenu: () => void;
 }
 
 export const PluginContext = createContext<PluginContextValue | null>(null);

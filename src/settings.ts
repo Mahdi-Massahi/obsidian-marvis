@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type KanbanPlusPlugin from "./main";
 import {
   DEFAULT_PRIORITIES,
@@ -8,6 +8,7 @@ import {
   ViewKind,
   FilterPreset,
 } from "./schema/types";
+import { DEFAULT_MARVIS_SKILL } from "./skills/defaultTemplate";
 
 export interface KanbanPlusSettings {
   rootFolder: string;
@@ -23,6 +24,8 @@ export interface KanbanPlusSettings {
   telegramInboxProject: string;
   telegramChatId: string;
   telegramOffset: number;
+  marvisSkillTemplate: string;
+  nextCode: { task: number; log: number; milestone: number; project: number };
 }
 
 export const DEFAULT_SETTINGS: KanbanPlusSettings = {
@@ -39,6 +42,8 @@ export const DEFAULT_SETTINGS: KanbanPlusSettings = {
   telegramInboxProject: "_project",
   telegramChatId: "",
   telegramOffset: 0,
+  marvisSkillTemplate: DEFAULT_MARVIS_SKILL,
+  nextCode: { task: 1, log: 1, milestone: 1, project: 1 },
 };
 
 export class KanbanPlusSettingTab extends PluginSettingTab {
@@ -192,6 +197,43 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
           this.plugin.settings.telegramOffset = 0;
           await this.plugin.saveSettings();
           this.display();
+        })
+      );
+
+    containerEl.createEl("h3", { text: "Coding-agent skills" });
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Each project gets a skills/marvis.md scaffolded from this template. " +
+        "Edit it once here; new projects pick it up automatically. " +
+        "Use the commands to retrofit existing projects.",
+    });
+    new Setting(containerEl)
+      .setName("marvis.md template")
+      .addTextArea((t) => {
+        t.setValue(this.plugin.settings.marvisSkillTemplate).onChange(async (v) => {
+          this.plugin.settings.marvisSkillTemplate = v;
+          await this.plugin.saveSettings();
+        });
+        t.inputEl.rows = 16;
+        t.inputEl.style.width = "100%";
+        t.inputEl.style.fontFamily = "var(--font-monospace)";
+        t.inputEl.style.fontSize = "12px";
+      });
+    new Setting(containerEl)
+      .addButton((b) =>
+        b.setButtonText("Reset to default").onClick(async () => {
+          this.plugin.settings.marvisSkillTemplate = DEFAULT_MARVIS_SKILL;
+          await this.plugin.saveSettings();
+          this.display();
+        })
+      )
+      .addButton((b) =>
+        b.setButtonText("Apply to all projects").onClick(async () => {
+          const r = await this.plugin.projectService.applySkillTemplateToAll();
+          new Notice(
+            `Skills: ${r.created} created, ${r.skipped} already had one`
+          );
         })
       );
 

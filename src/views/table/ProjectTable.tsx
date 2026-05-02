@@ -4,11 +4,12 @@ import { usePlugin } from "../context";
 import type { Project } from "../../schema/types";
 import { PROJECT_PALETTE } from "../../schema/types";
 import { Icon, IconName } from "../shared/Icon";
+import { ConfirmModal } from "../shared/ConfirmModal";
 
 const PROJECT_STATUSES: Project["status"][] = ["active", "paused", "done", "archived"];
 
 export const ProjectTable: React.FC = () => {
-  const { store, projectService } = usePlugin();
+  const { app, store, projectService } = usePlugin();
   const projectsMap = store((s) => s.projects);
   const tasksMap = store((s) => s.tasks);
   const milestonesMap = store((s) => s.milestones);
@@ -36,40 +37,116 @@ export const ProjectTable: React.FC = () => {
     return counts;
   }, [milestonesMap]);
 
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+
+  const toggleRow = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+
+  const allChecked = projects.length > 0 && projects.every((p) => selected.has(p.id));
+  const toggleAll = () => {
+    if (allChecked) setSelected(new Set());
+    else setSelected(new Set(projects.map((p) => p.id)));
+  };
+
+  const bulkSetStatus = async (status: Project["status"]) => {
+    const targets = projects.filter((p) => selected.has(p.id));
+    for (const p of targets) await projectService.setStatus(p, status);
+    setSelected(new Set());
+  };
+
+  const bulkDelete = () => {
+    const targets = projects.filter((p) => selected.has(p.id));
+    if (targets.length === 0) return;
+    const names = targets.map((p) => p.name).join(", ");
+    new ConfirmModal(
+      app,
+      `Delete ${targets.length} project${targets.length === 1 ? "" : "s"}`,
+      `Trash ${targets.length} project folder${
+        targets.length === 1 ? "" : "s"
+      } (${names}) and ALL their tasks, milestones, logs, and archive? This cannot be undone except by restoring from trash.`,
+      async () => {
+        for (const p of targets) await projectService.deleteProject(p);
+        new Notice(`Deleted ${targets.length} project${targets.length === 1 ? "" : "s"}`);
+        setSelected(new Set());
+      }
+    ).open();
+  };
+
   return (
-    <div className="kp-table__wrap">
-      <table className="kp-table">
-        <thead>
-          <tr>
-            <ProjTh icon="folder" label="Name" />
-            <ProjTh icon="status" label="Status" />
-            <ProjTh icon="palette" label="Color" />
-            <ProjTh icon="check" label="Tasks" />
-            <ProjTh icon="flag" label="Milestones" />
-            <ProjTh icon="calendar" label="Created" />
-            <ProjTh icon="more" label="Actions" />
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map((p) => (
-            <ProjectRow
-              key={p.id}
-              project={p}
-              taskCount={taskCounts.get(p.name) ?? 0}
-              milestoneCount={milestoneCounts.get(p.name) ?? 0}
-            />
-          ))}
-          <NewProjectRow />
-          {projects.length === 0 && (
+    <>
+      {selected.size > 0 && (
+        <div className="kp-bulkbar">
+          <span>{selected.size} selected</span>
+          <select
+            onChange={(e) => {
+              if (e.target.value) void bulkSetStatus(e.target.value as Project["status"]);
+              e.target.value = "";
+            }}
+            defaultValue=""
+          >
+            <option value="" disabled>
+              Set status…
+            </option>
+            {PROJECT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <button className="kp-btn kp-btn--ghost" onClick={() => void bulkSetStatus("archived")}>
+            Archive
+          </button>
+          <button className="kp-btn kp-btn--ghost kp-btn--danger" onClick={bulkDelete}>
+            Delete
+          </button>
+          <button className="kp-btn kp-btn--ghost" onClick={() => setSelected(new Set())}>
+            Clear
+          </button>
+        </div>
+      )}
+      <div className="kp-table__wrap">
+        <table className="kp-table">
+          <thead>
             <tr>
-              <td colSpan={7} className="kp-empty">
-                No projects yet — click the row below to add one.
-              </td>
+              <th className="kp-table__check">
+                <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+              </th>
+              <ProjTh icon="folder" label="Name" />
+              <ProjTh icon="status" label="Status" />
+              <ProjTh icon="palette" label="Color" />
+              <ProjTh icon="check" label="Tasks" />
+              <ProjTh icon="flag" label="Milestones" />
+              <ProjTh icon="calendar" label="Created" />
+              <ProjTh icon="more" label="Actions" />
             </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {projects.map((p) => (
+              <ProjectRow
+                key={p.id}
+                project={p}
+                taskCount={taskCounts.get(p.name) ?? 0}
+                milestoneCount={milestoneCounts.get(p.name) ?? 0}
+                checked={selected.has(p.id)}
+                onToggle={() => toggleRow(p.id)}
+              />
+            ))}
+            <NewProjectRow />
+            {projects.length === 0 && (
+              <tr>
+                <td colSpan={8} className="kp-empty">
+                  No projects yet — click the row below to add one.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 };
 
@@ -86,12 +163,23 @@ interface ProjectRowProps {
   project: Project;
   taskCount: number;
   milestoneCount: number;
+  checked: boolean;
+  onToggle: () => void;
 }
 
-const ProjectRow: React.FC<ProjectRowProps> = ({ project, taskCount, milestoneCount }) => {
+const ProjectRow: React.FC<ProjectRowProps> = ({
+  project,
+  taskCount,
+  milestoneCount,
+  checked,
+  onToggle,
+}) => {
   const { projectService } = usePlugin();
   return (
     <tr>
+      <td className="kp-table__check">
+        <input type="checkbox" checked={checked} onChange={onToggle} />
+      </td>
       <td>
         <a
           className="kp-table__title"
@@ -107,6 +195,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, taskCount, milestoneCo
             style={{ background: project.color }}
             aria-hidden
           />
+          {project.code && <span className="kp-code">{project.code}</span>}
           {project.title}
         </a>
       </td>
@@ -185,6 +274,7 @@ const NewProjectRow: React.FC = () => {
   if (!editing) {
     return (
       <tr className="kp-newrow" onClick={() => setEditing(true)}>
+        <td className="kp-table__check" />
         <td colSpan={7}>
           <span className="kp-newrow__label">+ New project</span>
         </td>
@@ -194,6 +284,7 @@ const NewProjectRow: React.FC = () => {
 
   return (
     <tr className="kp-newrow kp-newrow--editing">
+      <td className="kp-table__check" />
       <td>
         <input
           ref={inputRef}

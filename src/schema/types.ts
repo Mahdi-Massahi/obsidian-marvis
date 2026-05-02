@@ -46,6 +46,8 @@ export interface Task {
   archived: boolean;
   excerpt?: string;
   body?: string;
+  code?: string;
+  updated?: number;
 }
 
 export interface Project {
@@ -57,6 +59,7 @@ export interface Project {
   color: string;
   created?: string;
   folder: string;
+  code?: string;
 }
 
 export interface Milestone {
@@ -68,6 +71,8 @@ export interface Milestone {
   start?: string;
   due?: string;
   status: MilestoneStatusDef["id"];
+  created?: string;
+  code?: string;
 }
 
 export interface Log {
@@ -80,6 +85,7 @@ export interface Log {
   created?: string;
   excerpt?: string;
   body?: string;
+  code?: string;
 }
 
 export type ViewKind = "kanban" | "timeline" | "calendar" | "table";
@@ -107,6 +113,7 @@ export const DEFAULT_STATUSES: StatusDef[] = [
   { id: "backlog", label: "Backlog", color: "#94a3b8", category: "open" },
   { id: "todo", label: "To do", color: "#60a5fa", category: "open" },
   { id: "in-progress", label: "In progress", color: "#f59e0b", category: "active" },
+  { id: "review", label: "Review", color: "#a855f7", category: "active" },
   { id: "blocked", label: "Blocked", color: "#ef4444", category: "blocked" },
   { id: "done", label: "Done", color: "#10b981", category: "done" },
 ];

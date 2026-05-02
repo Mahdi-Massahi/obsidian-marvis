@@ -65,7 +65,9 @@ export class Indexer {
         const kind = getKind(fm);
         if (!kind) return;
         if (kind === "task") {
-          tasks.push(parseTask(file, fm!));
+          const t = parseTask(file, fm!);
+          t.updated = file.stat.mtime;
+          tasks.push(t);
           bodyFiles.push(file);
         } else if (kind === "project") projects.push(parseProject(file, fm!));
         else if (kind === "milestone") milestones.push(parseMilestone(file, fm!));
@@ -101,6 +103,7 @@ export class Indexer {
     }
     if (kind === "task") {
       const task = parseTask(file, fm!);
+      task.updated = file.stat.mtime;
       state.upsertTask(task);
       void this.loadExcerptForFile(file);
     } else if (kind === "project") state.upsertProject(parseProject(file, fm!));
@@ -166,7 +169,10 @@ export class Indexer {
   private walk(folder: TFolder, visit: (file: TFile) => void): void {
     for (const child of folder.children) {
       if (child instanceof TFile && child.extension === "md") visit(child);
-      else if (child instanceof TFolder) this.walk(child, visit);
+      else if (child instanceof TFolder) {
+        if (child.name === "skills") continue;
+        this.walk(child, visit);
+      }
       else if ((child as TAbstractFile) && (child as TFolder).children) {
         this.walk(child as TFolder, visit);
       }

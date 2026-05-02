@@ -15,7 +15,8 @@ export class LogService {
     private app: App,
     private projects: ProjectService,
     private getOpenMode: () => OpenMode = () => "sidebar",
-    private sidebarCache?: SidebarLeafCache
+    private sidebarCache?: SidebarLeafCache,
+    private allocateCode: () => Promise<string | undefined> = async () => undefined
   ) {}
 
   logFolder(projectName: string): string {
@@ -43,6 +44,7 @@ export class LogService {
       path = this.logFilePath(projectName, `${filename}-${suffix}`);
     }
 
+    const code = await this.allocateCode();
     const fmLines: string[] = [
       "---",
       "kind: log",
@@ -52,6 +54,7 @@ export class LogService {
     if (options.tags && options.tags.length) {
       fmLines.push(`tags: [${options.tags.join(", ")}]`);
     }
+    if (code) fmLines.push(`code: ${code}`);
     fmLines.push(`created: ${todayISO()}`, "---", "", options.body ?? "", "");
 
     return await this.app.vault.create(path, fmLines.join("\n"));
@@ -73,6 +76,11 @@ export class LogService {
 
   async setTags(log: Log, tags: string[]): Promise<void> {
     await this.updateField(log, "tags", tags);
+  }
+
+  async addTags(log: Log, newTags: string[]): Promise<void> {
+    const merged = Array.from(new Set([...log.tags, ...newTags]));
+    await this.setTags(log, merged);
   }
 
   async setTimestamp(log: Log, ts: Date): Promise<void> {
@@ -127,6 +135,12 @@ export class LogService {
     await this.projects.ensureFolder(archiveFolder);
     const newPath = normalizePath(`${archiveFolder}/${file.name}`);
     await this.app.fileManager.renameFile(file, newPath);
+  }
+
+  async deleteLog(log: Log): Promise<void> {
+    const file = this.getFile(log);
+    if (!file) return;
+    await this.app.fileManager.trashFile(file);
   }
 
   async openInNewLeaf(log: Log, modeOverride?: OpenMode): Promise<void> {

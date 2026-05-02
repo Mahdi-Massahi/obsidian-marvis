@@ -27,7 +27,8 @@ export class TaskService {
     private app: App,
     private projects: ProjectService,
     private getOpenMode: () => OpenMode = () => "sidebar",
-    private sidebarCache?: SidebarLeafCache
+    private sidebarCache?: SidebarLeafCache,
+    private allocateCode: () => Promise<string | undefined> = async () => undefined
   ) {}
 
   tasksFolder(projectName: string): string {
@@ -64,6 +65,7 @@ export class TaskService {
     await this.projects.ensureFolder(folder);
 
     const path = await this.uniquePath(folder, input.title);
+    const code = await this.allocateCode();
     const fm: string[] = ["---", "kind: task", `project: "${toWikilink(projectName)}"`];
     if (input.milestone) fm.push(`milestone: "${toWikilink(input.milestone)}"`);
     fm.push(`status: ${input.status ?? "todo"}`);
@@ -75,6 +77,7 @@ export class TaskService {
     }
     fm.push(`created: ${todayISO()}`);
     fm.push("order: 1");
+    if (code) fm.push(`code: ${code}`);
     fm.push("---", "");
     if (input.body && input.body.trim()) {
       fm.push(input.body.trim(), "");
@@ -163,6 +166,12 @@ export class TaskService {
     if (refreshed instanceof TFile) {
       await this.app.fileManager.renameFile(refreshed, newPath);
     }
+  }
+
+  async deleteTask(task: Task): Promise<void> {
+    const file = this.getFile(task);
+    if (!file) return;
+    await this.app.fileManager.trashFile(file);
   }
 
   async unarchive(task: Task): Promise<void> {

@@ -4,8 +4,9 @@ import { applyFilter } from "../../filter/filterEngine";
 import type { Task } from "../../schema/types";
 import { listProjectFolders } from "../../services/taskService";
 import { Icon, IconName } from "../shared/Icon";
+import { ConfirmModal } from "../shared/ConfirmModal";
 
-type SortKey = "title" | "project" | "milestone" | "status" | "priority" | "due";
+type SortKey = "title" | "project" | "milestone" | "status" | "priority" | "due" | "created";
 
 const COLUMN_ICONS: Record<SortKey | "tags" | "actions", IconName> = {
   title: "text",
@@ -14,6 +15,7 @@ const COLUMN_ICONS: Record<SortKey | "tags" | "actions", IconName> = {
   status: "status",
   priority: "priority",
   due: "calendar",
+  created: "clock",
   tags: "hash",
   actions: "more",
 };
@@ -81,6 +83,20 @@ export const TaskTable: React.FC = () => {
     setSelected(new Set());
   };
 
+  const bulkDelete = () => {
+    const tasks = sorted.filter((t) => selected.has(t.id));
+    if (tasks.length === 0) return;
+    new ConfirmModal(
+      app,
+      `Delete ${tasks.length} task${tasks.length === 1 ? "" : "s"}`,
+      `Permanently delete ${tasks.length} selected task${tasks.length === 1 ? "" : "s"}? Files are moved to trash.`,
+      async () => {
+        for (const t of tasks) await taskService.deleteTask(t);
+        setSelected(new Set());
+      }
+    ).open();
+  };
+
   return (
     <>
       {selected.size > 0 && (
@@ -124,6 +140,9 @@ export const TaskTable: React.FC = () => {
           <button className="kp-btn kp-btn--ghost" onClick={bulkArchive}>
             Archive
           </button>
+          <button className="kp-btn kp-btn--ghost kp-btn--danger" onClick={bulkDelete}>
+            Delete
+          </button>
           <button className="kp-btn kp-btn--ghost" onClick={() => setSelected(new Set())}>
             Clear
           </button>
@@ -142,6 +161,7 @@ export const TaskTable: React.FC = () => {
               <Th label="Status" k="status" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <Th label="Priority" k="priority" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <Th label="Due" k="due" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+              <Th label="Created" k="created" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <th>
                 <span className="kp-table__th-inner">
                   <Icon name={COLUMN_ICONS.tags} size={13} />
@@ -169,7 +189,7 @@ export const TaskTable: React.FC = () => {
             <NewTaskRow projects={projects} />
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={9} className="kp-empty">
+                <td colSpan={10} className="kp-empty">
                   No tasks match the current filter.
                 </td>
               </tr>
@@ -236,6 +256,7 @@ const Row: React.FC<RowProps> = ({ task, projects, checked, onToggle }) => {
             )
           }
         >
+          {task.code && <span className="kp-code">{task.code}</span>}
           {task.title}
         </a>
       </td>
@@ -328,6 +349,7 @@ const Row: React.FC<RowProps> = ({ task, projects, checked, onToggle }) => {
           onChange={(e) => void taskService.setDue(task, e.target.value || undefined)}
         />
       </td>
+      <td className="kp-table__created">{task.created ?? "—"}</td>
       <td>
         {task.tags.length > 0 ? (
           <div className="kp-table__tags">
@@ -402,7 +424,7 @@ const NewTaskRow: React.FC<{ projects: string[] }> = ({ projects }) => {
     return (
       <tr className="kp-newrow" onClick={() => setEditing(true)}>
         <td className="kp-table__check" />
-        <td colSpan={8}>
+        <td colSpan={9}>
           <span className="kp-newrow__label">+ New task</span>
           <button
             className="kp-btn kp-btn--ghost kp-newrow__expand"
@@ -500,6 +522,7 @@ const NewTaskRow: React.FC<{ projects: string[] }> = ({ projects }) => {
       <td>
         <input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
       </td>
+      <td className="kp-table__created">—</td>
       <td />
       <td>
         <button className="kp-btn kp-btn--primary" onMouseDown={(e) => e.preventDefault()} onClick={() => void submit()}>

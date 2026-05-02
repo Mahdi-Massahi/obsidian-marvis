@@ -6,3 +6,6 @@ main.js.map
 data.json
 .env
 .vscode/
+
+.marvis/
+notes.md

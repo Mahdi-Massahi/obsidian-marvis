@@ -208,6 +208,19 @@ export const TimelineRoot: React.FC = () => {
   const today = startOfDay(new Date());
   const todayIdx = days.findIndex((d) => isSameDay(d, today));
 
+  // Time cursor — precise within today's column. Refreshes once a minute so
+  // the line crawls forward without the user re-rendering anything.
+  const [now, setNow] = React.useState(() => new Date());
+  React.useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const nowFraction = (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
+  const nowX = todayIdx >= 0 ? todayIdx * dayWidth + nowFraction * dayWidth : -1;
+  const nowLabel = `${String(now.getHours()).padStart(2, "0")}:${String(
+    now.getMinutes()
+  ).padStart(2, "0")}`;
+
   const scrollRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (!scrollRef.current || todayIdx < 0) return;
@@ -301,10 +314,6 @@ export const TimelineRoot: React.FC = () => {
                   style={{ left: i * dayWidth, width: dayWidth }}
                 />
               ))}
-              {todayIdx >= 0 && (
-                <div className="kp-tl__today" style={{ left: todayIdx * dayWidth + dayWidth / 2 }} />
-              )}
-
               {rows.map((row, rowIdx) => (
                 <div
                   key={row.id}
@@ -400,6 +409,15 @@ export const TimelineRoot: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {nowX >= 0 && (
+              <>
+                <div className="kp-tl__now-line" style={{ left: nowX }} />
+                <div className="kp-tl__now-label" style={{ left: nowX }}>
+                  {nowLabel}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
