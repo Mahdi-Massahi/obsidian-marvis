@@ -209,6 +209,7 @@ const MilestoneRow: React.FC<RowProps> = ({
       <td>
         <a
           className="kp-table__title"
+          title={milestone.title}
           onClick={(e) =>
             void milestoneService.openInNewLeaf(
               milestone,
@@ -218,7 +219,7 @@ const MilestoneRow: React.FC<RowProps> = ({
         >
           <Icon name="flag" size={13} />
           {milestone.code && <span className="kp-code">{milestone.code}</span>}
-          {milestone.title}
+          <span className="kp-table__title-text">{milestone.title}</span>
         </a>
       </td>
       <td>

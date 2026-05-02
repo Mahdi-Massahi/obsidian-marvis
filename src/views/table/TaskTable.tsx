@@ -249,6 +249,7 @@ const Row: React.FC<RowProps> = ({ task, projects, checked, onToggle }) => {
       <td>
         <a
           className="kp-table__title"
+          title={task.title}
           onClick={(e) =>
             void taskService.openInNewLeaf(
               task,
@@ -257,7 +258,7 @@ const Row: React.FC<RowProps> = ({ task, projects, checked, onToggle }) => {
           }
         >
           {task.code && <span className="kp-code">{task.code}</span>}
-          {task.title}
+          <span className="kp-table__title-text">{task.title}</span>
         </a>
       </td>
       <td>

@@ -253,9 +253,6 @@ export const TimelineRoot: React.FC = () => {
         </button>
       ))}
       <span className="kp-toolbar__sep" />
-      <span className="kp-toolbar__label">
-        <Icon name="zoom" size={13} /> Zoom
-      </span>
       {(["day", "week", "month"] as Zoom[]).map((z) => (
         <button
           key={z}

@@ -241,13 +241,14 @@ const LogRow: React.FC<RowProps> = ({ log, projects, checked, onToggle }) => {
       <td>
         <a
           className="kp-table__title"
+          title={log.excerpt ?? log.name}
           onClick={(e) =>
             void logService.openInNewLeaf(log, e.metaKey || e.ctrlKey ? "tab" : undefined)
           }
         >
           <Icon name="notebook" size={13} />
           {log.code && <span className="kp-code">{log.code}</span>}
-          {log.excerpt ?? log.name}
+          <span className="kp-table__title-text">{log.excerpt ?? log.name}</span>
         </a>
       </td>
       <td>

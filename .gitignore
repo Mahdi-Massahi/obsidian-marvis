@@ -7,5 +7,5 @@ data.json
 .env
 .vscode/
 
-.marvis/
+.marvis
 notes.md

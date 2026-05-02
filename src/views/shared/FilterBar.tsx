@@ -1,4 +1,5 @@
 import * as React from "react";
+import * as ReactDOM from "react-dom";
 import { usePlugin } from "../context";
 import type { ViewKind } from "../../schema/types";
 import { Icon, IconName } from "./Icon";
@@ -191,22 +192,45 @@ interface ChipGroupProps {
 
 const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggle, labels, prefix, colors, colorMode = "dot" }) => {
   const [open, setOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
+  const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  const updatePos = React.useCallback(() => {
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setPos({ top: r.bottom + 6, left: r.left });
+  }, []);
 
   React.useEffect(() => {
+    if (!open) return;
+    updatePos();
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (
+        !triggerRef.current?.contains(t) &&
+        !menuRef.current?.contains(t)
+      )
+        setOpen(false);
     };
+    const onScroll = () => updatePos();
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [open, updatePos]);
 
   if (options.length === 0) return null;
 
   const iconName = CHIP_ICONS[label];
   return (
-    <div className="kp-chipgroup" ref={ref}>
+    <div className="kp-chipgroup">
       <button
+        ref={triggerRef}
         className={`kp-chipgroup__trigger ${selected.length ? "is-selected" : ""}`}
         onClick={() => setOpen((v) => !v)}
       >
@@ -214,8 +238,13 @@ const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggl
         <span>{label}</span>
         {selected.length > 0 && <span className="kp-chipgroup__count">{selected.length}</span>}
       </button>
-      {open && (
-        <div className="kp-chipgroup__menu">
+      {open && pos && ReactDOM.createPortal(
+        <div className="kp-portal">
+        <div
+          ref={menuRef}
+          className="kp-chipgroup__menu kp-chipgroup__menu--floating"
+          style={{ top: pos.top, left: pos.left }}
+        >
           {options.map((opt) => {
             const c = colors?.[opt];
             const showDot = c && colorMode === "dot";
@@ -245,6 +274,8 @@ const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggl
             );
           })}
         </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -183,6 +183,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
       <td>
         <a
           className="kp-table__title"
+          title={project.title}
           onClick={(e) =>
             void projectService.openInNewLeaf(
               project,
@@ -196,7 +197,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
             aria-hidden
           />
           {project.code && <span className="kp-code">{project.code}</span>}
-          {project.title}
+          <span className="kp-table__title-text">{project.title}</span>
         </a>
       </td>
       <td>
