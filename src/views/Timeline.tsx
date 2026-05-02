@@ -188,10 +188,10 @@ export const TimelineRoot: React.FC = () => {
         const log = logsMap[bar.path];
         if (!log) return;
         if (mode !== "move") return;
-        const time = log.timestamp.length >= 16 ? log.timestamp.slice(11, 16) : "00:00";
-        const [h, m] = time.split(":").map((n) => parseInt(n, 10) || 0);
+        const time = log.timestamp.length >= 11 ? log.timestamp.slice(11) : "00:00:00";
+        const [h, m, s] = time.split(":").map((n) => parseInt(n, 10) || 0);
         const newDate = new Date(`${finalDraft.startISO}T00:00`);
-        newDate.setHours(h, m, 0, 0);
+        newDate.setHours(h, m, s ?? 0, 0);
         await logService.setTimestamp(log, newDate);
       }
     };

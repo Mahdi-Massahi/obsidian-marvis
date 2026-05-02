@@ -96,10 +96,10 @@ export const CalendarRoot: React.FC = () => {
       const log = filteredLogs.find((l) => l.path === path);
       if (!log) return;
       if (log.timestamp.slice(0, 10) === targetDate) return;
-      const time = log.timestamp.slice(11) || "00:00";
-      const [h, m] = time.split(":").map((n) => parseInt(n, 10) || 0);
+      const time = log.timestamp.slice(11) || "00:00:00";
+      const [h, m, s] = time.split(":").map((n) => parseInt(n, 10) || 0);
       const newDate = new Date(`${targetDate}T00:00`);
-      newDate.setHours(h, m, 0, 0);
+      newDate.setHours(h, m, s ?? 0, 0);
       await logService.setTimestamp(log, newDate);
       return;
     }

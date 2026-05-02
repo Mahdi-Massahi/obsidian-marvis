@@ -10,7 +10,7 @@ import { CalendarRoot } from "./Calendar";
 import { TimelineRoot } from "./Timeline";
 import { QuickCreateModal, QuickCreateDefaults } from "./shared/QuickCreateModal";
 
-export const VIEW_TYPE_KANBAN_PLUS = "kanban-plus-view";
+export const VIEW_TYPE_KANBAN_PLUS = "marvis-view";
 
 interface PlannerViewState {
   kind: ViewKind;
@@ -32,7 +32,7 @@ export class PlannerView extends ItemView {
   }
 
   getDisplayText(): string {
-    return `Kanban+ — ${labelFor(this.kind)}`;
+    return `Marvis — ${labelFor(this.kind)}`;
   }
 
   getIcon(): string {

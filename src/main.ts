@@ -7,6 +7,7 @@ import { ProjectService } from "./services/projectService";
 import { MilestoneService } from "./services/milestoneService";
 import { TaskService } from "./services/taskService";
 import { LogService } from "./services/logService";
+import { TelegramService } from "./services/telegramService";
 import { PlannerView, VIEW_TYPE_KANBAN_PLUS } from "./views/PlannerView";
 import { registerCommands } from "./commands";
 import type { ViewKind } from "./schema/types";
@@ -19,6 +20,7 @@ export default class KanbanPlusPlugin extends Plugin {
   milestoneService!: MilestoneService;
   taskService!: TaskService;
   logService!: LogService;
+  telegramService!: TelegramService;
 
   private openViews = new Set<PlannerView>();
 
@@ -61,6 +63,13 @@ export default class KanbanPlusPlugin extends Plugin {
       getOpenMode,
       sidebarCache
     );
+    this.telegramService = new TelegramService(
+      this.app,
+      this,
+      this.projectService,
+      this.logService,
+      this.taskService
+    );
 
     this.indexer = new Indexer(this.app, this.store, () => this.settings.rootFolder);
     this.app.workspace.onLayoutReady(() => this.indexer.start());
@@ -72,7 +81,7 @@ export default class KanbanPlusPlugin extends Plugin {
 
     registerCommands(this);
 
-    this.addRibbonIcon("kanban-square", "Open Kanban+", () => {
+    this.addRibbonIcon("kanban-square", "Open Marvis", () => {
       void this.activateView(this.settings.defaultView);
     });
 

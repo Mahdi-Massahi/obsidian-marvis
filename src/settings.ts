@@ -19,6 +19,10 @@ export interface KanbanPlusSettings {
   showArchivedByDefault: boolean;
   filterPresets: FilterPreset[];
   openIn: "sidebar" | "window" | "tab";
+  telegramToken: string;
+  telegramInboxProject: string;
+  telegramChatId: string;
+  telegramOffset: number;
 }
 
 export const DEFAULT_SETTINGS: KanbanPlusSettings = {
@@ -31,6 +35,10 @@ export const DEFAULT_SETTINGS: KanbanPlusSettings = {
   showArchivedByDefault: false,
   filterPresets: [],
   openIn: "sidebar",
+  telegramToken: "",
+  telegramInboxProject: "_project",
+  telegramChatId: "",
+  telegramOffset: 0,
 };
 
 export class KanbanPlusSettingTab extends PluginSettingTab {
@@ -44,7 +52,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Kanban+ settings" });
+    containerEl.createEl("h2", { text: "Marvis settings" });
 
     new Setting(containerEl)
       .setName("Planner root folder")
@@ -62,7 +70,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Default view")
-      .setDesc("Which view opens first when you launch Kanban+.")
+      .setDesc("Which view opens first when you launch Marvis.")
       .addDropdown((dd) =>
         dd
           .addOption("kanban", "Kanban")
@@ -130,6 +138,60 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
           this.plugin.settings.showArchivedByDefault = v;
           await this.plugin.saveSettings();
           this.plugin.refreshViews();
+        })
+      );
+
+    containerEl.createEl("h3", { text: "Telegram ingest" });
+    new Setting(containerEl)
+      .setName("Bot token")
+      .setDesc("BotFather token. Stored locally in plugin settings.")
+      .addText((t) => {
+        t.inputEl.type = "password";
+        t.setPlaceholder("123456:ABC…")
+          .setValue(this.plugin.settings.telegramToken)
+          .onChange(async (v) => {
+            this.plugin.settings.telegramToken = v.trim();
+            await this.plugin.saveSettings();
+          });
+      });
+    new Setting(containerEl)
+      .setName("Chat ID")
+      .setDesc(
+        "Only messages from this chat are ingested. Leave empty to accept all chats. Negative for groups/channels (e.g. -1001234567890). Use 'Show recent Telegram chats' to discover."
+      )
+      .addText((t) =>
+        t
+          .setPlaceholder("123456789")
+          .setValue(this.plugin.settings.telegramChatId)
+          .onChange(async (v) => {
+            this.plugin.settings.telegramChatId = v.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+    new Setting(containerEl)
+      .setName("Inbox project")
+      .setDesc(
+        "Project name whose logs/ folder receives pulled messages. Auto-created if missing."
+      )
+      .addText((t) =>
+        t
+          .setPlaceholder("_project")
+          .setValue(this.plugin.settings.telegramInboxProject)
+          .onChange(async (v) => {
+            this.plugin.settings.telegramInboxProject = v.trim() || "_project";
+            await this.plugin.saveSettings();
+          })
+      );
+    new Setting(containerEl)
+      .setName("Last update offset")
+      .setDesc(
+        `Stored update_id offset (currently ${this.plugin.settings.telegramOffset}). Reset to re-pull history.`
+      )
+      .addButton((b) =>
+        b.setButtonText("Reset offset").onClick(async () => {
+          this.plugin.settings.telegramOffset = 0;
+          await this.plugin.saveSettings();
+          this.display();
         })
       );
 

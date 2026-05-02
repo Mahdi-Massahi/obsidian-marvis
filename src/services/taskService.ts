@@ -19,6 +19,7 @@ export interface CreateTaskInput {
   due?: string;
   start?: string;
   tags?: string[];
+  body?: string;
 }
 
 export class TaskService {
@@ -74,7 +75,10 @@ export class TaskService {
     }
     fm.push(`created: ${todayISO()}`);
     fm.push("order: 1");
-    fm.push("---", "", "");
+    fm.push("---", "");
+    if (input.body && input.body.trim()) {
+      fm.push(input.body.trim(), "");
+    }
 
     return await this.app.vault.create(path, fm.join("\n"));
   }

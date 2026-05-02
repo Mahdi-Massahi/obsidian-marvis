@@ -100,10 +100,13 @@ export function asDateTime(value: unknown): string | undefined {
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) return undefined;
-    // YYYY-MM-DD-HH-mm or YYYY-MM-DDTHH:mm or YYYY-MM-DD HH:mm
-    const compact = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[-T ](\d{2})[-:](\d{2})/);
+    // YYYY-MM-DD-HH-mm[-ss] or YYYY-MM-DDTHH:mm[:ss] or YYYY-MM-DD HH:mm[:ss]
+    const compact = trimmed.match(
+      /^(\d{4})-(\d{2})-(\d{2})[-T ](\d{2})[-:](\d{2})(?:[-:](\d{2}))?/
+    );
     if (compact) {
-      return `${compact[1]}-${compact[2]}-${compact[3]}T${compact[4]}:${compact[5]}`;
+      const ss = compact[6] ?? "00";
+      return `${compact[1]}-${compact[2]}-${compact[3]}T${compact[4]}:${compact[5]}:${ss}`;
     }
     const parsed = new Date(trimmed);
     if (!Number.isNaN(parsed.getTime())) return formatDateTimeISO(parsed);
@@ -117,7 +120,8 @@ export function formatDateTimeISO(date: Date): string {
   const d = String(date.getDate()).padStart(2, "0");
   const h = String(date.getHours()).padStart(2, "0");
   const mi = String(date.getMinutes()).padStart(2, "0");
-  return `${y}-${mo}-${d}T${h}:${mi}`;
+  const s = String(date.getSeconds()).padStart(2, "0");
+  return `${y}-${mo}-${d}T${h}:${mi}:${s}`;
 }
 
 export function formatLogFilename(date: Date): string {
@@ -126,13 +130,19 @@ export function formatLogFilename(date: Date): string {
   const d = String(date.getDate()).padStart(2, "0");
   const h = String(date.getHours()).padStart(2, "0");
   const mi = String(date.getMinutes()).padStart(2, "0");
-  return `${y}-${mo}-${d}-${h}-${mi}`;
+  const s = String(date.getSeconds()).padStart(2, "0");
+  return `${y}-${mo}-${d}-${h}-${mi}-${s}`;
 }
 
 export function filenameToTimestamp(name: string): string | undefined {
-  const m = name.match(/^(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})$/);
-  if (!m) return undefined;
-  return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}`;
+  // New: YYYY-MM-DD-HH-mm-ss; legacy: YYYY-MM-DD-HH-mm.
+  const withSec = name.match(/^(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})$/);
+  if (withSec) {
+    return `${withSec[1]}-${withSec[2]}-${withSec[3]}T${withSec[4]}:${withSec[5]}:${withSec[6]}`;
+  }
+  const noSec = name.match(/^(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})$/);
+  if (noSec) return `${noSec[1]}-${noSec[2]}-${noSec[3]}T${noSec[4]}:${noSec[5]}:00`;
+  return undefined;
 }
 
 export function fileBaseName(path: string): string {

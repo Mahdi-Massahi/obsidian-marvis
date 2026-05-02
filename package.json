@@ -1,5 +1,5 @@
 {
-  "name": "kanban-plus",
+  "name": "marvis",
   "version": "0.1.0",
   "description": "Notion-style multi-view project planner for Obsidian.",
   "main": "main.js",

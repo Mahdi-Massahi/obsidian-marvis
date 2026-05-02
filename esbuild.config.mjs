@@ -1,5 +1,8 @@
 import esbuild from "esbuild";
 import process from "process";
+import path from "path";
+import { watch as fsWatch } from "fs";
+import { mkdir, copyFile, access } from "fs/promises";
 import builtins from "builtin-modules";
 
 const banner = `/*
@@ -9,6 +12,37 @@ If you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = process.argv[2] === "production";
+
+// Optional: copy build outputs to your Obsidian plugin folder on every rebuild.
+// Set the env var MARVIS_PLUGIN_DIR to the absolute path of
+// <vault>/.obsidian/plugins/marvis and esbuild will mirror main.js,
+// manifest.json, and styles.css there after each successful build.
+const installDir = process.env.MARVIS_PLUGIN_DIR?.trim();
+
+const installPlugin = {
+  name: "install-to-vault",
+  setup(build) {
+    build.onEnd(async (result) => {
+      if (!installDir) return;
+      if (result.errors && result.errors.length > 0) return;
+      try {
+        await mkdir(installDir, { recursive: true });
+        const files = ["main.js", "manifest.json", "styles.css"];
+        for (const f of files) {
+          try {
+            await access(f);
+          } catch {
+            continue; // optional file (e.g. styles.css may not exist yet)
+          }
+          await copyFile(f, path.join(installDir, f));
+        }
+        console.log(`[install] copied to ${installDir}`);
+      } catch (err) {
+        console.error("[install] failed:", err);
+      }
+    });
+  },
+};
 
 const context = await esbuild.context({
   banner: { js: banner },
@@ -38,6 +72,7 @@ const context = await esbuild.context({
   outfile: "main.js",
   jsx: "automatic",
   minify: prod,
+  plugins: [installPlugin],
 });
 
 if (prod) {
@@ -45,4 +80,30 @@ if (prod) {
   process.exit(0);
 } else {
   await context.watch();
+
+  // Mirror standalone files (styles.css, manifest.json) when they change —
+  // they aren't part of the esbuild graph, so we watch them ourselves.
+  if (installDir) {
+    const standalone = ["styles.css", "manifest.json"];
+    let pending = null;
+    for (const f of standalone) {
+      try {
+        fsWatch(f, async () => {
+          // Debounce rapid editor saves.
+          clearTimeout(pending);
+          pending = setTimeout(async () => {
+            try {
+              await mkdir(installDir, { recursive: true });
+              await copyFile(f, path.join(installDir, f));
+              console.log(`[install] copied ${f} to ${installDir}`);
+            } catch (err) {
+              console.error(`[install] failed to copy ${f}:`, err);
+            }
+          }, 80);
+        });
+      } catch (err) {
+        console.warn(`[install] cannot watch ${f}:`, err.message);
+      }
+    }
+  }
 }
