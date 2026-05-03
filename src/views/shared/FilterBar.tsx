@@ -110,6 +110,13 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
     () => Object.values(milestones).map((m) => m.name).sort(),
     [milestones]
   );
+  const milestoneProjects = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of Object.values(milestones)) {
+      if (m.project) map[m.name] = m.project;
+    }
+    return map;
+  }, [milestones]);
   const allTags = React.useMemo(() => {
     const set = new Set<string>();
     for (const t of Object.values(tasks)) for (const tag of t.tags) set.add(tag);
@@ -195,6 +202,7 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
             options={milestoneNames}
             selected={filter.milestones}
             onToggle={(v) => setFilter({ milestones: toggle(filter.milestones, v) })}
+            suffixes={milestoneProjects}
           />
           <ChipGroup
             label="Status"
@@ -364,6 +372,7 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
                 options={milestoneNames}
                 selected={filter.milestones}
                 onToggle={(v) => setFilter({ milestones: toggle(filter.milestones, v) })}
+                suffixes={milestoneProjects}
               />
               <FilterSection
                 label="Status"
@@ -463,6 +472,7 @@ interface FilterSectionProps {
   prefix?: string;
   colors?: Record<string, string>;
   colorMode?: "dot" | "text";
+  suffixes?: Record<string, string>;
 }
 
 const FilterSection: React.FC<FilterSectionProps> = ({
@@ -474,6 +484,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
   prefix,
   colors,
   colorMode = "dot",
+  suffixes,
 }) => {
   if (options.length === 0) return null;
   const iconName = CHIP_ICONS[label];
@@ -515,6 +526,9 @@ const FilterSection: React.FC<FilterSectionProps> = ({
               <span style={labelStyle}>
                 {prefix ?? ""}
                 {labels?.[opt] ?? opt}
+                {suffixes?.[opt] && (
+                  <span className="kp-suffix"> · {suffixes[opt]}</span>
+                )}
               </span>
             </label>
           );
@@ -533,9 +547,11 @@ interface ChipGroupProps {
   prefix?: string;
   colors?: Record<string, string>;
   colorMode?: "dot" | "text";
+  // Per-option dimmed inline suffix (e.g. project name on a milestone option).
+  suffixes?: Record<string, string>;
 }
 
-const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggle, labels, prefix, colors, colorMode = "dot" }) => {
+const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggle, labels, prefix, colors, colorMode = "dot", suffixes }) => {
   const [open, setOpen] = React.useState(false);
   const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -614,6 +630,9 @@ const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggl
                 <span style={labelStyle}>
                   {prefix ?? ""}
                   {labels?.[opt] ?? opt}
+                  {suffixes?.[opt] && (
+                    <span className="kp-suffix"> · {suffixes[opt]}</span>
+                  )}
                 </span>
               </label>
             );

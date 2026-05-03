@@ -182,6 +182,7 @@ interface Column {
   label: string;
   color?: string;
   tasks: Task[];
+  suffix?: string;
 }
 
 function columnIdFor(task: Task, groupBy: GroupBy): string {
@@ -244,9 +245,13 @@ function buildColumns(
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(t);
   }
+  const milestoneByName = new Map(
+    Object.values(milestones).map((m) => [m.name, m])
+  );
   return Array.from(map.entries()).map(([id, list]) => ({
     id,
     label: id === "__unassigned" ? "Unassigned" : id,
+    suffix: id === "__unassigned" ? undefined : milestoneByName.get(id)?.project,
     tasks: list,
   }));
 }
@@ -264,7 +269,10 @@ const KanbanColumn: React.FC<ColProps> = ({ column, groupBy }) => {
   return (
     <div className={`kp-col ${isOver ? "is-over" : ""}`} ref={setNodeRef} style={colStyle}>
       <div className="kp-col__header">
-        <span className="kp-col__title">{column.label}</span>
+        <span className="kp-col__title">
+          {column.label}
+          {column.suffix && <span className="kp-suffix"> · {column.suffix}</span>}
+        </span>
         <span className="kp-col__count">{column.tasks.length}</span>
       </div>
       <SortableContext items={column.tasks.map((t) => t.id)}>

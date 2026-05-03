@@ -3220,6 +3220,14 @@
   text-decoration: line-through;
 }
 
+/* Dimmed inline suffix (e.g. project name on a milestone chip / Kanban
+   column header). Conveys context without competing for attention. */
+.kp-suffix {
+  opacity: 0.55;
+  font-weight: 400;
+  font-style: italic;
+}
+
 /* Base tag chip — pill shape used in tag columns across tables. */
 .kp-tag-chip {
   display: inline-flex;

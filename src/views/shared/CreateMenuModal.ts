@@ -230,8 +230,8 @@ export class CreateMenuModal extends Modal {
   private renderEventForm(): void {
     const projects = this.projectOptions();
     const milestones = Object.values(this.plugin.store.getState().milestones)
-      .map((m) => m.name)
-      .sort();
+      .map((m) => ({ name: m.name, project: m.project }))
+      .sort((a, b) => a.name.localeCompare(b.name));
     const todayIso = new Date().toISOString().slice(0, 10);
     const state = {
       title: "",
@@ -304,9 +304,14 @@ export class CreateMenuModal extends Modal {
     });
 
     if (milestones.length > 0) {
+      // Native <option> elements can't be styled, so we suffix the project
+      // name as plain text — same intent as T-19's chip suffix.
       new Setting(this.formEl).setName("Milestone").addDropdown((dd) => {
         dd.addOption("", "—");
-        for (const m of milestones) dd.addOption(m, m);
+        for (const m of milestones) {
+          const label = m.project ? `${m.name} — ${m.project}` : m.name;
+          dd.addOption(m.name, label);
+        }
         dd.setValue(state.milestone);
         dd.onChange((v) => (state.milestone = v));
       });
