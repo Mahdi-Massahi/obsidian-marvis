@@ -88,6 +88,13 @@ export interface Log {
   code?: string;
 }
 
+export type ResponseStatus =
+  | "accepted"
+  | "needsAction"
+  | "tentative"
+  | "declined"
+  | "unknown";
+
 export interface Event {
   id: string;
   path: string;
@@ -100,8 +107,9 @@ export interface Event {
   endTime?: string;         // HH:mm
   recurrence?: string;      // RRULE string (RFC 5545)
   tags: string[];
-  extId?: string;           // external calendar UID (Google/Outlook)
-  source?: string;          // e.g. "google:user@x.com"
+  extId?: string;           // external calendar UID
+  source?: string;          // e.g. "macos:<calendarId>"
+  responseStatus?: ResponseStatus; // RSVP for the user, when known
   created?: string;
   excerpt?: string;
   body?: string;

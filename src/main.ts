@@ -9,6 +9,7 @@ import { TaskService } from "./services/taskService";
 import { LogService } from "./services/logService";
 import { EventService } from "./services/eventService";
 import { TelegramService } from "./services/telegramService";
+import { CalendarSyncEngine } from "./services/calendar/syncEngine";
 import { PlannerView, VIEW_TYPE_KANBAN_PLUS } from "./views/PlannerView";
 import { TaskActionBar } from "./views/shared/TaskActionBar";
 import { registerCommands } from "./commands";
@@ -24,6 +25,7 @@ export default class KanbanPlusPlugin extends Plugin {
   logService!: LogService;
   eventService!: EventService;
   telegramService!: TelegramService;
+  calendarSyncEngine!: CalendarSyncEngine;
   taskActionBar!: TaskActionBar;
 
   private openViews = new Set<PlannerView>();
@@ -86,6 +88,11 @@ export default class KanbanPlusPlugin extends Plugin {
       this.logService,
       this.taskService
     );
+    this.calendarSyncEngine = new CalendarSyncEngine(
+      this,
+      this.eventService,
+      this.projectService
+    );
 
     this.indexer = new Indexer(this.app, this.store, () => this.settings.rootFolder);
     this.app.workspace.onLayoutReady(() => this.indexer.start());
@@ -114,6 +121,18 @@ export default class KanbanPlusPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    if (!this.settings.calendarSync) {
+      this.settings.calendarSync = {
+        macos: { availableCalendars: [], selectedCalendars: [] },
+      };
+    }
+    if (!this.settings.calendarSync.macos) {
+      this.settings.calendarSync.macos = { availableCalendars: [], selectedCalendars: [] };
+    }
+    // Drop any vestigial OAuth-provider blocks from earlier iterations.
+    const stale = this.settings.calendarSync as unknown as Record<string, unknown>;
+    delete stale["outlook"];
+    delete stale["google"];
     // Migrate older installs that don't yet carry the `review` status. Splice
     // it in between in-progress and blocked so the natural workflow order is
     // preserved.

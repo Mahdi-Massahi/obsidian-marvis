@@ -238,6 +238,17 @@ const ICONS = {
       <path d="M7 4v16" />
     </>
   ),
+  // Apple Calendar — calendar with a filled "today" marker, distinguishes
+  // synced events from hand-authored ones.
+  appleCalendar: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4" />
+      <path d="M8 2v4" />
+      <path d="M3 10h18" />
+      <rect x="6" y="13" width="4" height="3" rx="0.5" fill="currentColor" stroke="none" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof ICONS;

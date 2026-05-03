@@ -5,10 +5,20 @@ import {
   updateFrontmatter,
 } from "../schema/frontmatter";
 import type { ProjectService } from "./projectService";
-import type { Event } from "../schema/types";
+import type { Event, ResponseStatus } from "../schema/types";
 import { openOrFocusFile, OpenMode, SidebarLeafCache } from "../utils/openFile";
 
 export const DEFAULT_EVENT_PROJECT = "_project";
+
+function findFrontmatterEnd(text: string): number {
+  if (!text.startsWith("---")) return -1;
+  const second = text.indexOf("\n---", 3);
+  if (second < 0) return -1;
+  // Move past the closing fence and its newline.
+  const afterFence = second + 4;
+  const newline = text.indexOf("\n", afterFence);
+  return newline >= 0 ? newline : afterFence;
+}
 
 export interface CreateEventInput {
   title: string;
@@ -22,6 +32,7 @@ export interface CreateEventInput {
   milestone?: string;
   extId?: string;
   source?: string;
+  responseStatus?: ResponseStatus;
 }
 
 export class EventService {
@@ -88,6 +99,7 @@ export class EventService {
     }
     if (input.extId) fmLines.push(`extId: ${JSON.stringify(input.extId)}`);
     if (input.source) fmLines.push(`source: ${JSON.stringify(input.source)}`);
+    if (input.responseStatus) fmLines.push(`responseStatus: ${input.responseStatus}`);
     if (code) fmLines.push(`code: ${code}`);
     fmLines.push(`created: ${todayISO()}`, "---", "", input.body ?? "", "");
 
@@ -143,6 +155,78 @@ export class EventService {
 
   async setRecurrence(event: Event, rrule: string | null): Promise<void> {
     await this.updateField(event, "recurrence", rrule);
+  }
+
+  async setRemoteFields(
+    event: Event,
+    patch: {
+      title?: string;
+      date?: string;
+      time?: string | null;
+      endTime?: string | null;
+      recurrence?: string | null;
+      description?: string | null;
+      responseStatus?: ResponseStatus | null;
+    }
+  ): Promise<void> {
+    const file = this.getFile(event);
+    if (!file) return;
+    const newDate = patch.date ?? event.date;
+    const newTitle = patch.title ?? event.title;
+    await updateFrontmatter(this.app, file, (fm) => {
+      if (patch.title !== undefined) fm["title"] = patch.title;
+      if (patch.date !== undefined) fm["date"] = patch.date;
+      if (patch.time !== undefined) {
+        if (patch.time === null || patch.time === "") delete fm["time"];
+        else fm["time"] = patch.time;
+      }
+      if (patch.endTime !== undefined) {
+        if (patch.endTime === null || patch.endTime === "") delete fm["endTime"];
+        else fm["endTime"] = patch.endTime;
+      }
+      if (patch.recurrence !== undefined) {
+        if (patch.recurrence === null || patch.recurrence === "") delete fm["recurrence"];
+        else fm["recurrence"] = patch.recurrence;
+      }
+      if (patch.responseStatus !== undefined) {
+        if (patch.responseStatus === null) delete fm["responseStatus"];
+        else fm["responseStatus"] = patch.responseStatus;
+      }
+    });
+    // Rename the file if date or title changed.
+    const projectName = event.project ?? DEFAULT_EVENT_PROJECT;
+    const folder = this.eventFolder(projectName);
+    const baseName = `${newDate}-${this.sanitizeFileName(newTitle)}`;
+    let newPath = normalizePath(`${folder}/${baseName}.md`);
+    if (newPath !== file.path) {
+      let n = 2;
+      while (
+        this.app.vault.getAbstractFileByPath(newPath) &&
+        newPath !== file.path
+      ) {
+        newPath = normalizePath(`${folder}/${baseName} ${n}.md`);
+        n += 1;
+      }
+      if (newPath !== file.path) {
+        await this.app.fileManager.renameFile(file, newPath);
+      }
+    }
+    if (patch.description !== undefined) {
+      const refreshed = this.app.vault.getAbstractFileByPath(newPath !== file.path ? newPath : file.path);
+      if (refreshed instanceof TFile) {
+        const original = await this.app.vault.read(refreshed);
+        const fmEnd = findFrontmatterEnd(original);
+        if (fmEnd >= 0) {
+          const head = original.slice(0, fmEnd);
+          const newBody = (patch.description ?? "").trimEnd();
+          await this.app.vault.modify(refreshed, `${head}\n${newBody}\n`);
+        }
+      }
+    }
+  }
+
+  findByExtId(source: string, extId: string, allEvents: Event[]): Event | undefined {
+    return allEvents.find((e) => e.source === source && e.extId === extId);
   }
 
   async setProject(event: Event, projectName: string): Promise<void> {

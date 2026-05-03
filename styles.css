@@ -3192,3 +3192,80 @@
     flex-shrink: 0;
   }
 }
+
+/* Calendar-list swatch in settings — a small dot before the calendar title
+   that picks up Apple's per-calendar color so duplicate-name calendars are
+   distinguishable at a glance. */
+.kp-cal-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  border: 1px solid var(--background-modifier-border);
+}
+
+/* Event response-status visual cues. Applied wherever an event renders
+   (calendar chip, day-view block, timeline bar, table row). */
+.kp-event--needs-response {
+  border-style: dashed !important;
+  border-width: 1.5px !important;
+  position: relative;
+}
+.kp-event--needs-response::before {
+  content: "!";
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+  z-index: 1;
+  pointer-events: none;
+}
+.kp-event--tentative {
+  opacity: 0.75;
+  border-style: dashed !important;
+}
+.kp-event--declined {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+/* Table row variants — keep the !-badge inline rather than a corner dot. */
+tr.kp-event--needs-response::before {
+  display: none;
+}
+tr.kp-event--needs-response td {
+  background: color-mix(in oklab, #f59e0b 8%, transparent);
+}
+tr.kp-event--declined td {
+  opacity: 0.5;
+}
+
+.kp-event-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 999px;
+  background: color-mix(in oklab, #f59e0b 18%, var(--background-secondary));
+  color: var(--text-normal);
+  vertical-align: middle;
+}
+.kp-event--declined .kp-event-badge {
+  background: color-mix(in oklab, #94a3b8 18%, var(--background-secondary));
+}
+.kp-event--tentative .kp-event-badge {
+  background: color-mix(in oklab, #6366f1 18%, var(--background-secondary));
+}
+

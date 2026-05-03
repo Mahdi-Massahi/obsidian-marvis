@@ -5,7 +5,7 @@ import { FilterBar } from "./shared/FilterBar";
 import { applyFilter } from "../filter/filterEngine";
 import { Icon, IconName } from "./shared/Icon";
 import type { Event, Log, Milestone, Project, Task } from "../schema/types";
-import { expandOccurrences } from "../utils/recurrence";
+import { eventIconName, expandOccurrences, responseStatusClass } from "../utils/recurrence";
 
 type Zoom = "day" | "week" | "month";
 type GroupBy = "project" | "milestone";
@@ -25,6 +25,8 @@ interface Bar {
   color: string;
   priorityLabel?: string;
   priorityColor?: string;
+  iconName?: IconName;
+  modifierClass?: string;
 }
 
 export const TimelineRoot: React.FC = () => {
@@ -380,7 +382,9 @@ export const TimelineRoot: React.FC = () => {
                     const isLog = bar.kind === "log";
                     const isEvent = bar.kind === "event";
                     const isPoint = isLog || isEvent;
-                    const iconName: IconName = isMilestone
+                    const iconName: IconName = bar.iconName
+                      ? bar.iconName
+                      : isMilestone
                       ? "flag"
                       : isEvent
                       ? "calendar"
@@ -394,7 +398,7 @@ export const TimelineRoot: React.FC = () => {
                           isMilestone ? "kp-tl__bar--milestone" : ""
                         } ${isLog ? "kp-tl__bar--log" : ""} ${
                           isEvent ? "kp-tl__bar--event" : ""
-                        }`}
+                        } ${bar.modifierClass ?? ""}`.trim()}
                         style={{
                           left,
                           width,
@@ -622,6 +626,8 @@ function eventToBar(ev: Event, date: Date, color: string, idx: number): Bar {
     startISO: iso,
     endISO: iso,
     color,
+    iconName: eventIconName(ev),
+    modifierClass: responseStatusClass(ev),
   };
 }
 

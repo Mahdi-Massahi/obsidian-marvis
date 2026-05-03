@@ -1,6 +1,40 @@
 import { RRule } from "rrule";
 import type { Event } from "../schema/types";
 
+export function eventIconName(event: Event): "appleCalendar" | "calendar" {
+  const src = event.source ?? "";
+  if (src.startsWith("macos:")) return "appleCalendar";
+  return "calendar";
+}
+
+// Empty for accepted / unset; otherwise a class hook the renderer applies
+// to chips/bars/rows so non-accepted invitations are visually distinct.
+export function responseStatusClass(event: Event): string {
+  switch (event.responseStatus) {
+    case "needsAction":
+      return "kp-event--needs-response";
+    case "tentative":
+      return "kp-event--tentative";
+    case "declined":
+      return "kp-event--declined";
+    default:
+      return "";
+  }
+}
+
+export function responseStatusLabel(event: Event): string | undefined {
+  switch (event.responseStatus) {
+    case "needsAction":
+      return "Needs response";
+    case "tentative":
+      return "Tentative";
+    case "declined":
+      return "Declined";
+    default:
+      return undefined;
+  }
+}
+
 const PRESET_TO_RRULE: Record<string, string> = {
   daily: "FREQ=DAILY",
   weekly: "FREQ=WEEKLY",

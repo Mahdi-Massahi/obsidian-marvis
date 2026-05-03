@@ -14,7 +14,12 @@ import { FilterBar } from "./shared/FilterBar";
 import { applyFilter } from "../filter/filterEngine";
 import { Icon } from "./shared/Icon";
 import type { Event, Log, Task } from "../schema/types";
-import { expandOccurrences } from "../utils/recurrence";
+import {
+  eventIconName,
+  expandOccurrences,
+  responseStatusClass,
+  responseStatusLabel,
+} from "../utils/recurrence";
 
 export const CalendarRoot: React.FC = () => {
   const { store, settings, taskService, logService, openQuickCreate } = usePlugin();
@@ -470,23 +475,25 @@ const DayTimedEvent: React.FC<{
   const height = Math.max(20, ((endMin - startMin) / 60) * HOUR_HEIGHT);
   const color = project?.color ?? "var(--kp-accent)";
   const timeLabel = event.endTime ? `${event.time}–${event.endTime}` : event.time!;
+  const respClass = responseStatusClass(event);
+  const respLabel = responseStatusLabel(event);
   return (
     <div
-      className="kp-cal__day-event"
+      className={`kp-cal__day-event ${respClass}`.trim()}
       style={{
         top,
         height,
         borderColor: color,
         background: `color-mix(in oklab, ${color} 18%, var(--kp-bg))`,
       }}
-      title={`${timeLabel} · ${event.title}`}
+      title={respLabel ? `${respLabel} · ${timeLabel} · ${event.title}` : `${timeLabel} · ${event.title}`}
       onClick={(e) => {
         e.stopPropagation();
         const overrideMode = e.metaKey || e.ctrlKey ? "tab" : undefined;
         void eventService.openInNewLeaf(event, overrideMode);
       }}
     >
-      <Icon name="calendar" size={11} className="kp-cal__day-event-icon" />
+      <Icon name={eventIconName(event)} size={11} className="kp-cal__day-event-icon" />
       <span className="kp-cal__day-event-time">{timeLabel}</span>
       <span className="kp-cal__day-event-title">{event.title}</span>
     </div>
@@ -547,14 +554,18 @@ const EventCalChip: React.FC<{
       : event.time
     : "";
   const label = timeLabel ? `${timeLabel} · ${event.title}` : event.title;
+  const respClass = responseStatusClass(event);
+  const respLabel = responseStatusLabel(event);
   const style: React.CSSProperties = {
     borderColor: project?.color ?? "var(--background-modifier-border)",
   };
   return (
     <div
-      className={`kp-cal__chip kp-cal__chip--event ${isAllDay ? "kp-cal__chip--allday" : ""}`}
+      className={`kp-cal__chip kp-cal__chip--event ${
+        isAllDay ? "kp-cal__chip--allday" : ""
+      } ${respClass}`.trim()}
       style={style}
-      title={label}
+      title={respLabel ? `${respLabel} · ${label}` : label}
       onClick={(e) => {
         if (e.defaultPrevented) return;
         if ((e.target as HTMLElement).closest("[data-no-open]")) return;
@@ -563,7 +574,7 @@ const EventCalChip: React.FC<{
         void eventService.openInNewLeaf(event, overrideMode);
       }}
     >
-      <Icon name="calendar" size={11} className="kp-cal__chip-icon" />
+      <Icon name={eventIconName(event)} size={11} className="kp-cal__chip-icon" />
       <span className="kp-cal__chip-title">{label}</span>
     </div>
   );

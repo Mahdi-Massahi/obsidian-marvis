@@ -103,6 +103,11 @@ created: 2026-05-12
 - A timed event without \`endTime\` is treated as a point in time. With
   \`endTime\`, it has a duration in the calendar tooltip.
 - Body is freeform markdown — same embedding rules as logs.
+- Events with \`source: macos:*\` are managed by Marvis's calendar sync
+  from Apple Calendar (which mirrors any account configured in macOS:
+  Exchange, iCloud, Google, etc.). Editing them by hand may be overwritten
+  on the next sync. Hand-authored events have no \`source\` field and are
+  never touched by sync.
 
 ## Wikilink rules
 

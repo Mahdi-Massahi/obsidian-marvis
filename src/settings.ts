@@ -9,6 +9,30 @@ import {
   FilterPreset,
 } from "./schema/types";
 import { DEFAULT_MARVIS_SKILL } from "./skills/defaultTemplate";
+import {
+  CalendarProvider,
+  RemoteCalendar,
+  TokenSet,
+} from "./services/calendar/types";
+import { macCalendarProvider } from "./services/calendar/macCalendarProvider";
+
+export interface CalendarProviderSettings {
+  token?: TokenSet;
+  availableCalendars: RemoteCalendar[];
+  selectedCalendars: SelectedCalendar[];
+}
+
+export interface SelectedCalendar {
+  id: string;
+  displayName: string;
+  projectName: string;
+  lastSyncedAt?: number;
+  lastResult?: { created: number; updated: number; archived: number; failed: number };
+}
+
+export interface CalendarSyncSettings {
+  macos: CalendarProviderSettings;
+}
 
 export interface KanbanPlusSettings {
   rootFolder: string;
@@ -26,6 +50,7 @@ export interface KanbanPlusSettings {
   telegramOffset: number;
   marvisSkillTemplate: string;
   nextCode: { task: number; log: number; milestone: number; project: number; event: number };
+  calendarSync: CalendarSyncSettings;
 }
 
 export const DEFAULT_SETTINGS: KanbanPlusSettings = {
@@ -44,7 +69,25 @@ export const DEFAULT_SETTINGS: KanbanPlusSettings = {
   telegramOffset: 0,
   marvisSkillTemplate: DEFAULT_MARVIS_SKILL,
   nextCode: { task: 1, log: 1, milestone: 1, project: 1, event: 1 },
+  calendarSync: {
+    macos: { availableCalendars: [], selectedCalendars: [] },
+  },
 };
+
+function sanitizeProjectName(name: string): string {
+  return name.replace(/[\\/:*?"<>|#^[\]]/g, "").trim().slice(0, 60) || "Calendar";
+}
+
+function humanAgo(ms: number): string {
+  const diff = Math.max(0, Date.now() - ms);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 export class KanbanPlusSettingTab extends PluginSettingTab {
   plugin: KanbanPlusPlugin;
@@ -200,6 +243,8 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
         })
       );
 
+    this.renderCalendarSync(containerEl);
+
     containerEl.createEl("h3", { text: "Coding-agent skills" });
     containerEl.createEl("p", {
       cls: "setting-item-description",
@@ -257,6 +302,211 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
       },
       () => ({ id: "new-priority", label: "New priority", color: "#94a3b8", weight: 1 })
     );
+  }
+
+  private renderCalendarSync(container: HTMLElement): void {
+    container.createEl("h3", { text: "Calendar sync" });
+    container.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Pull events from external calendars into Marvis as event files. " +
+        "One-way (read-only). Synced events are tagged #external and linked " +
+        "back via extId / source frontmatter.",
+    });
+    this.renderProviderSection(container, macCalendarProvider);
+  }
+
+  private renderProviderSection(
+    container: HTMLElement,
+    provider: CalendarProvider
+  ): void {
+    container.createEl("h4", { text: provider.label });
+
+    if (!provider.isAvailable()) {
+      container.createEl("p", {
+        cls: "setting-item-description",
+        text:
+          "Apple Calendar is only available on the macOS desktop app. " +
+          "It reads from any account configured in System Settings → Internet Accounts " +
+          "(Exchange, iCloud, Google, etc.).",
+      });
+      return;
+    }
+
+    const block = this.plugin.settings.calendarSync.macos;
+    const token = block.token;
+    const engine = this.plugin.calendarSyncEngine;
+
+    if (!token) {
+      new Setting(container)
+        .setName("Not connected")
+        .setDesc(
+          "Connect to read events from Calendar.app. macOS will ask for permission once."
+        )
+        .addButton((b) =>
+          b
+            .setCta()
+            .setButtonText("Connect Apple Calendar")
+            .onClick(async () => {
+              try {
+                await engine.connect(provider, {});
+                new Notice("Apple Calendar connected.");
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                new Notice(`Connect failed: ${msg}`);
+              }
+              this.display();
+            })
+        );
+      return;
+    }
+
+    new Setting(container)
+      .setName("Connected")
+      .setDesc(
+        "Reading from any account Calendar.app knows about (Exchange, iCloud, Google, etc.)."
+      )
+      .addButton((b) =>
+        b.setButtonText("Refresh calendar list").onClick(async () => {
+          try {
+            await engine.refreshCalendars(provider);
+            new Notice("Calendar list refreshed.");
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            new Notice(`Refresh failed: ${msg}`);
+          }
+          this.display();
+        })
+      )
+      .addButton((b) =>
+        b
+          .setWarning()
+          .setButtonText("Disconnect")
+          .onClick(async () => {
+            await engine.disconnect(provider);
+            this.display();
+          })
+      );
+
+    if (block.availableCalendars.length === 0) {
+      container.createEl("p", {
+        cls: "setting-item-description",
+        text: "No calendars loaded yet — click 'Refresh calendar list'.",
+      });
+    } else {
+      for (const cal of block.availableCalendars) {
+        this.renderCalendarRow(container, provider, cal);
+      }
+      new Setting(container).addButton((b) =>
+        b
+          .setCta()
+          .setButtonText("Sync all selected")
+          .onClick(async () => {
+            try {
+              const r = await engine.syncAllSelected(provider);
+              new Notice(
+                `Sync: +${r.created} ~${r.updated} ⌫${r.archived}` +
+                  (r.failed ? ` · ${r.failed} failed` : "")
+              );
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              new Notice(`Sync failed: ${msg}`);
+            }
+            this.display();
+          })
+      );
+    }
+  }
+
+  private renderCalendarRow(
+    container: HTMLElement,
+    provider: CalendarProvider,
+    cal: RemoteCalendar
+  ): void {
+    const block = this.plugin.settings.calendarSync.macos;
+    const selected = block.selectedCalendars.find((c) => c.id === cal.id);
+    const projects = Object.values(this.plugin.store.getState().projects).map(
+      (p) => p.name
+    );
+    const defaultProject = selected?.projectName ?? sanitizeProjectName(cal.displayName);
+    const setting = new Setting(container).setName(cal.displayName);
+
+    // Color swatch + account email render in the name area, before the title
+    // we already set, so duplicates are easy to tell apart at a glance.
+    if (cal.color) {
+      const swatch = createSpan({ cls: "kp-cal-swatch" });
+      swatch.style.background = cal.color;
+      setting.nameEl.prepend(swatch);
+    }
+
+    let descParts: string[] = [];
+    if (cal.account) descParts.push(cal.account);
+    if (cal.isPrimary) descParts.push("primary");
+    if (selected?.lastSyncedAt) {
+      const ago = humanAgo(selected.lastSyncedAt);
+      const r = selected.lastResult;
+      const summary = r
+        ? `last sync ${ago} · +${r.created} ~${r.updated} ⌫${r.archived}` +
+          (r.failed ? ` · ${r.failed} failed` : "")
+        : `last sync ${ago}`;
+      descParts.push(summary);
+    }
+    if (descParts.length) setting.setDesc(descParts.join(" · "));
+
+    setting.addToggle((tog) =>
+      tog.setValue(!!selected).onChange(async (v) => {
+        if (v && !selected) {
+          block.selectedCalendars.push({
+            id: cal.id,
+            displayName: cal.displayName,
+            projectName: defaultProject,
+          });
+        } else if (!v && selected) {
+          block.selectedCalendars = block.selectedCalendars.filter(
+            (c) => c.id !== cal.id
+          );
+        }
+        await this.plugin.saveSettings();
+        this.display();
+      })
+    );
+
+    if (selected) {
+      setting.addText((t) =>
+        t
+          .setPlaceholder("Project")
+          .setValue(selected.projectName)
+          .onChange(async (v) => {
+            const trimmed = v.trim();
+            if (!trimmed) return;
+            selected.projectName = trimmed;
+            await this.plugin.saveSettings();
+          })
+      );
+      const _projects = projects;
+      setting.addExtraButton((b) =>
+        b
+          .setIcon("refresh-ccw")
+          .setTooltip("Sync this calendar")
+          .onClick(async () => {
+            try {
+              const r = await this.plugin.calendarSyncEngine.syncCalendar(
+                provider,
+                cal.id
+              );
+              new Notice(
+                `${cal.displayName}: +${r.created} ~${r.updated} ⌫${r.archived}` +
+                  (r.failed ? ` · ${r.failed} failed` : "")
+              );
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              new Notice(`Sync failed: ${msg}`);
+            }
+            this.display();
+          })
+      );
+      void _projects;
+    }
   }
 
   private renderVocabulary<T extends { id: string; label: string; color: string }>(

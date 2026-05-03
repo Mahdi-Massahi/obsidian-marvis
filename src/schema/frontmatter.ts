@@ -230,9 +230,19 @@ export function parseEvent(file: TFile, fm: Record<string, unknown>): Event {
     tags: asTags(fm["tags"]),
     extId: asString(fm["extId"]),
     source: asString(fm["source"]),
+    responseStatus: asResponseStatus(fm["responseStatus"]),
     created: asDate(fm["created"]),
     code: asString(fm["code"]),
   };
+}
+
+function asResponseStatus(raw: unknown): import("./types").ResponseStatus | undefined {
+  if (typeof raw !== "string") return undefined;
+  const s = raw.toLowerCase();
+  if (s === "accepted" || s === "needsaction" || s === "tentative" || s === "declined" || s === "unknown") {
+    return s === "needsaction" ? "needsAction" : (s as import("./types").ResponseStatus);
+  }
+  return undefined;
 }
 
 function extractDateFromFilename(base: string): string | undefined {

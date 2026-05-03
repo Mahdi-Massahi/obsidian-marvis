@@ -5,7 +5,12 @@ import type { Event } from "../../schema/types";
 import { listProjectFolders } from "../../services/taskService";
 import { Icon, IconName } from "../shared/Icon";
 import { ConfirmModal } from "../shared/ConfirmModal";
-import { describeRecurrence } from "../../utils/recurrence";
+import {
+  describeRecurrence,
+  eventIconName,
+  responseStatusClass,
+  responseStatusLabel,
+} from "../../utils/recurrence";
 
 export const EventTable: React.FC = () => {
   const { store, app, settings, eventService } = usePlugin();
@@ -203,9 +208,11 @@ const EventRow: React.FC<RowProps> = ({ event, projects, checked, onToggle }) =>
     ? Object.values(projectsMap).find((p) => p.name === event.project)
     : undefined;
   const recurrenceLabel = event.recurrence ? describeRecurrence(event.recurrence) : "—";
+  const respClass = responseStatusClass(event);
+  const respLabel = responseStatusLabel(event);
 
   return (
-    <tr>
+    <tr className={respClass}>
       <td className="kp-table__check">
         <input type="checkbox" checked={checked} onChange={onToggle} />
       </td>
@@ -231,14 +238,15 @@ const EventRow: React.FC<RowProps> = ({ event, projects, checked, onToggle }) =>
       <td>
         <a
           className="kp-table__title"
-          title={event.title}
+          title={respLabel ? `${respLabel} · ${event.title}` : event.title}
           onClick={(e) =>
             void eventService.openInNewLeaf(event, e.metaKey || e.ctrlKey ? "tab" : undefined)
           }
         >
-          <Icon name="calendar" size={13} />
+          <Icon name={eventIconName(event)} size={13} />
           {event.code && <span className="kp-code">{event.code}</span>}
           <span className="kp-table__title-text">{event.title}</span>
+          {respLabel && <span className="kp-event-badge">{respLabel}</span>}
         </a>
       </td>
       <td>
