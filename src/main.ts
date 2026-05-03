@@ -8,7 +8,6 @@ import { MilestoneService } from "./services/milestoneService";
 import { TaskService } from "./services/taskService";
 import { LogService } from "./services/logService";
 import { EventService } from "./services/eventService";
-import { TelegramService } from "./services/telegramService";
 import { CalendarSyncEngine } from "./services/calendar/syncEngine";
 import { PlannerView, VIEW_TYPE_KANBAN_PLUS } from "./views/PlannerView";
 import { TaskActionBar } from "./views/shared/TaskActionBar";
@@ -24,7 +23,6 @@ export default class KanbanPlusPlugin extends Plugin {
   taskService!: TaskService;
   logService!: LogService;
   eventService!: EventService;
-  telegramService!: TelegramService;
   calendarSyncEngine!: CalendarSyncEngine;
   taskActionBar!: TaskActionBar;
 
@@ -80,13 +78,6 @@ export default class KanbanPlusPlugin extends Plugin {
       getOpenMode,
       sidebarCache,
       () => this.allocateCode("event")
-    );
-    this.telegramService = new TelegramService(
-      this.app,
-      this,
-      this.projectService,
-      this.logService,
-      this.taskService
     );
     this.calendarSyncEngine = new CalendarSyncEngine(
       this,

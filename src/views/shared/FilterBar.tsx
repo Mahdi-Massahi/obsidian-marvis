@@ -25,7 +25,7 @@ const CHIP_ICONS: Record<string, IconName> = {
 };
 
 export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
-  const { app, store, settings, switchView, openCreateMenu } = usePlugin();
+  const { store, settings, switchView, openCreateMenu } = usePlugin();
   const filter = store((s) => s.filter);
   const projects = store((s) => s.projects);
   const milestones = store((s) => s.milestones);
@@ -106,18 +106,6 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
           onClick={() => openCreateMenu()}
         >
           <Icon name="plus" size={15} />
-        </button>
-        <button
-          className="kp-iconbtn kp-iconbtn--round"
-          title="Fetch logs & tasks from Telegram"
-          aria-label="Fetch logs & tasks from Telegram"
-          onClick={() =>
-            (app as unknown as {
-              commands: { executeCommandById: (id: string) => boolean };
-            }).commands.executeCommandById("marvis:pull-telegram-logs")
-          }
-        >
-          <Icon name="cloudDownload" size={15} />
         </button>
 
         <div className="kp-search kp-search--anchored">

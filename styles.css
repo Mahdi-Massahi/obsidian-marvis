@@ -533,13 +533,13 @@
   }
 
   /* On mobile, the view-switcher and Create (+) move into the floating
-     bottom nav. Telegram pull and filter trigger remain on top. */
+     bottom nav. Sync and filter triggers remain on top. */
   .kp-filterbar__row > .kp-viewswitcher,
   .kp-filterbar__row > .kp-iconbtn--accent {
     display: none;
   }
 
-  /* Reorder merged-row children: segmented toolbar first, telegram next,
+  /* Reorder merged-row children: segmented toolbar first, sync next,
      filter trigger pushed to the far right. */
   .kp-filterbar__toolbar {
     order: 1;
@@ -2835,75 +2835,6 @@
 
 .kp-view ::-webkit-scrollbar-track {
   background: transparent;
-}
-
-/* =====================================================
-   Telegram pull progress modal
-   ===================================================== */
-
-.kp-tg-progress h2 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.kp-tg-progress__status {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 12px;
-  min-height: 1.4em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.kp-tg-progress__bar {
-  height: 8px;
-  background: var(--background-modifier-border);
-  border-radius: 999px;
-  overflow: hidden;
-  margin-bottom: 14px;
-}
-
-.kp-tg-progress__bar-fill {
-  height: 100%;
-  background: var(--interactive-accent);
-  transition: width 180ms ease;
-  width: 0%;
-}
-
-.kp-tg-progress__bar-fill.is-error {
-  background: var(--text-error, #ef4444);
-}
-
-.kp-tg-progress__counts {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-  font-size: 12px;
-}
-
-.kp-tg-progress__count {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.kp-tg-progress__count-label {
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-size: 10px;
-}
-
-.kp-tg-progress__count-value {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.kp-tg-progress__actions {
-  display: flex;
-  justify-content: flex-end;
 }
 
 /* =====================================================

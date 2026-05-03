@@ -1,8 +1,7 @@
-import { Modal, Notice, Setting, App } from "obsidian";
+import { App, Modal, Notice, Setting } from "obsidian";
 import type KanbanPlusPlugin from "./main";
 import { QuickCreateModal } from "./views/shared/QuickCreateModal";
 import { listProjectFolders } from "./services/taskService";
-import type { PullProgress } from "./services/telegramService";
 import { ConfirmModal } from "./views/shared/ConfirmModal";
 
 export function registerCommands(plugin: KanbanPlusPlugin): void {
@@ -77,46 +76,6 @@ export function registerCommands(plugin: KanbanPlusPlugin): void {
           new Notice("Failed to create log — see console");
         }
       }).open();
-    },
-  });
-
-  plugin.addCommand({
-    id: "show-telegram-chats",
-    name: "Show recent Telegram chats",
-    callback: async () => {
-      try {
-        const chats = await plugin.telegramService.discoverChats();
-        if (chats.length === 0) {
-          new Notice(
-            "No recent Telegram chats. Send a message to the bot first, then run this again."
-          );
-          return;
-        }
-        const lines = chats.map((c) => `${c.title}: ${c.id}`).join("\n");
-        new Notice(`Telegram chats:\n${lines}`, 15000);
-        console.log("[marvis] Telegram chats:\n" + lines);
-      } catch (e) {
-        console.error(e);
-        new Notice(
-          e instanceof Error ? `Telegram error: ${e.message}` : "Telegram error"
-        );
-      }
-    },
-  });
-
-  plugin.addCommand({
-    id: "pull-telegram-logs",
-    name: "Pull Telegram logs",
-    callback: async () => {
-      const modal = new TelegramProgressModal(plugin.app);
-      modal.open();
-      try {
-        const r = await plugin.telegramService.pull((p) => modal.update(p));
-        modal.finish(r);
-      } catch (e) {
-        console.error(e);
-        modal.fail(e instanceof Error ? e.message : "Pull failed");
-      }
     },
   });
 
@@ -376,92 +335,6 @@ class MilestonePromptModal extends Modal {
     if (!n) return;
     this.close();
     this.onSubmit(this.project, n);
-  }
-}
-
-class TelegramProgressModal extends Modal {
-  private titleEl_!: HTMLElement;
-  private statusEl!: HTMLElement;
-  private barFill!: HTMLElement;
-  private countsEl!: HTMLElement;
-  private closeBtn!: HTMLButtonElement;
-  private saved = 0;
-  private skipped = 0;
-  private errors = 0;
-  private done = false;
-
-  onOpen(): void {
-    this.contentEl.addClass("kp-tg-progress");
-    this.titleEl_ = this.contentEl.createEl("h2", { text: "Pulling Telegram logs…" });
-    this.statusEl = this.contentEl.createEl("div", {
-      cls: "kp-tg-progress__status",
-      text: "Connecting…",
-    });
-    const barWrap = this.contentEl.createDiv({ cls: "kp-tg-progress__bar" });
-    this.barFill = barWrap.createDiv({ cls: "kp-tg-progress__bar-fill" });
-    this.barFill.style.width = "0%";
-    this.countsEl = this.contentEl.createDiv({ cls: "kp-tg-progress__counts" });
-    this.renderCounts();
-    const actions = this.contentEl.createDiv({ cls: "kp-tg-progress__actions" });
-    this.closeBtn = actions.createEl("button", { text: "Close", cls: "mod-cta" });
-    this.closeBtn.disabled = true;
-    this.closeBtn.addEventListener("click", () => this.close());
-  }
-
-  update(p: PullProgress): void {
-    if (p.phase === "fetching") {
-      this.statusEl.setText("Fetching updates from Telegram…");
-      this.barFill.style.width = "5%";
-    } else if (p.phase === "processing") {
-      const pct = p.total === 0 ? 100 : Math.round((p.current / p.total) * 100);
-      this.barFill.style.width = `${pct}%`;
-      this.statusEl.setText(
-        `Processing ${p.current}/${p.total}${p.label ? ` — ${p.label}` : ""}`
-      );
-    } else if (p.phase === "done") {
-      this.saved = p.result.saved;
-      this.skipped = p.result.skipped;
-      this.errors = p.result.errors;
-      this.barFill.style.width = "100%";
-      this.statusEl.setText(
-        p.result.fetched === 0 ? "No new updates." : "Done."
-      );
-      this.titleEl_.setText("Telegram pull complete");
-      this.done = true;
-      this.closeBtn.disabled = false;
-    }
-    this.renderCounts();
-  }
-
-  finish(r: { saved: number; skipped: number; errors: number; fetched: number }): void {
-    this.update({ phase: "done", result: r });
-  }
-
-  fail(message: string): void {
-    this.titleEl_.setText("Telegram pull failed");
-    this.statusEl.setText(message);
-    this.barFill.style.width = "100%";
-    this.barFill.addClass("is-error");
-    this.done = true;
-    this.closeBtn.disabled = false;
-    new Notice(`Telegram: ${message}`);
-  }
-
-  private renderCounts(): void {
-    this.countsEl.empty();
-    const item = (label: string, value: number) => {
-      const wrap = this.countsEl.createDiv({ cls: "kp-tg-progress__count" });
-      wrap.createSpan({ cls: "kp-tg-progress__count-label", text: label });
-      wrap.createSpan({ cls: "kp-tg-progress__count-value", text: String(value) });
-    };
-    item("saved", this.saved);
-    item("skipped", this.skipped);
-    item("errors", this.errors);
-  }
-
-  onClose(): void {
-    if (!this.done) return;
-    this.contentEl.empty();
   }
 }
 
