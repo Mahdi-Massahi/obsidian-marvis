@@ -52,7 +52,7 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
     try {
       const r = await calendarSyncEngine.syncAllSelected(macCalendarProvider);
       new Notice(
-        `Calendar sync: +${r.created} ~${r.updated} ⌫${r.archived}` +
+        `Calendar sync: +${r.created} ~${r.updated} -${r.archived}` +
           (r.failed ? ` · ${r.failed} failed` : "")
       );
     } catch (err) {

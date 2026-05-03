@@ -3124,6 +3124,42 @@
   }
 }
 
+/* Combined "When" cell in EventTable — date + time on one line, recurrence
+   underneath in a muted tone. Keeps the row dense without losing context. */
+.kp-table__when {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.kp-table__when-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.kp-table__when-row > input.kp-table__when-date {
+  flex: 0 0 auto;
+  width: 130px;
+  min-width: 0;
+  max-width: 130px;
+  height: 26px;
+  padding: 0 6px;
+}
+.kp-table__when-time {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.kp-table__when-recurrence {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
 /* Calendar sync icon button — pulses while a sync is in flight. */
 .kp-iconbtn--calsync.is-syncing {
   pointer-events: none;
@@ -3184,32 +3220,45 @@
   text-decoration: line-through;
 }
 
-/* Table row variants — keep the !-badge inline rather than a corner dot. */
-tr.kp-event--needs-response::before {
-  display: none;
-}
-tr.kp-event--needs-response td {
-  background: color-mix(in oklab, #f59e0b 8%, transparent);
-}
-tr.kp-event--declined td {
-  opacity: 0.5;
+/* Base tag chip — pill shape used in tag columns across tables. */
+.kp-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  border-radius: 999px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
-.kp-event-badge {
-  display: inline-block;
-  padding: 1px 6px;
-  margin-left: 6px;
-  font-size: 10px;
+/* RSVP status surfaced as a tag chip in the EventTable Tags column,
+   colored by response state. No row-tint; the chip is the only signal. */
+.kp-tag-chip--status {
   font-weight: 600;
-  border-radius: 999px;
-  background: color-mix(in oklab, #f59e0b 18%, var(--background-secondary));
+  letter-spacing: 0.02em;
+}
+.kp-tag-chip--needsAction {
+  background: color-mix(in oklab, #f59e0b 22%, var(--background-secondary));
   color: var(--text-normal);
-  vertical-align: middle;
 }
-.kp-event--declined .kp-event-badge {
-  background: color-mix(in oklab, #94a3b8 18%, var(--background-secondary));
+.kp-tag-chip--tentative {
+  background: color-mix(in oklab, #6366f1 22%, var(--background-secondary));
+  color: var(--text-normal);
 }
-.kp-event--tentative .kp-event-badge {
-  background: color-mix(in oklab, #6366f1 18%, var(--background-secondary));
+.kp-tag-chip--declined {
+  background: color-mix(in oklab, #94a3b8 22%, var(--background-secondary));
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* Stacked tags column — one chip per row, left-aligned. Saves a lot of
+   horizontal space when events carry several tags. */
+.kp-table__tags--stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
 }
 

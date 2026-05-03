@@ -8,7 +8,6 @@ import { ConfirmModal } from "../shared/ConfirmModal";
 import {
   describeRecurrence,
   eventIconName,
-  responseStatusClass,
   responseStatusLabel,
 } from "../../utils/recurrence";
 
@@ -152,11 +151,9 @@ export const EventTable: React.FC = () => {
               <th className="kp-table__check">
                 <input type="checkbox" checked={allChecked} onChange={toggleAll} />
               </th>
-              <EventTh icon="calendar" label="Date" />
-              <EventTh icon="clock" label="Time" />
+              <EventTh icon="calendar" label="When" />
               <EventTh icon="text" label="Title" />
               <EventTh icon="folder" label="Project" />
-              <EventTh icon="filter" label="Recurrence" />
               <EventTh icon="tag" label="Tags" />
               <EventTh icon="more" label="Actions" />
             </tr>
@@ -173,7 +170,7 @@ export const EventTable: React.FC = () => {
             ))}
             {events.length === 0 && (
               <tr>
-                <td colSpan={8} className="kp-empty">
+                <td colSpan={6} className="kp-empty">
                   No events yet — use the Create menu to add one.
                 </td>
               </tr>
@@ -207,32 +204,37 @@ const EventRow: React.FC<RowProps> = ({ event, projects, checked, onToggle }) =>
   const projectObj = event.project
     ? Object.values(projectsMap).find((p) => p.name === event.project)
     : undefined;
-  const recurrenceLabel = event.recurrence ? describeRecurrence(event.recurrence) : "—";
-  const respClass = responseStatusClass(event);
   const respLabel = responseStatusLabel(event);
+  const respKey = event.responseStatus ?? "";
 
   return (
-    <tr className={respClass}>
+    <tr>
       <td className="kp-table__check">
         <input type="checkbox" checked={checked} onChange={onToggle} />
       </td>
-      <td>
-        <input
-          type="date"
-          value={event.date}
-          onChange={(e) => {
-            if (!e.target.value) return;
-            void eventService.setDate(event, e.target.value);
-          }}
-        />
-      </td>
-      <td>
-        {event.time ? (
-          <span className="kp-table__created">
-            {event.endTime ? `${event.time}–${event.endTime}` : event.time}
+      <td className="kp-table__when">
+        <div className="kp-table__when-row">
+          <input
+            type="date"
+            className="kp-table__when-date"
+            value={event.date}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              void eventService.setDate(event, e.target.value);
+            }}
+          />
+          <span className="kp-table__when-time">
+            {event.time
+              ? event.endTime
+                ? `${event.time}–${event.endTime}`
+                : event.time
+              : "All-day"}
           </span>
-        ) : (
-          <span className="kp-table__empty">All-day</span>
+        </div>
+        {event.recurrence && (
+          <div className="kp-table__when-recurrence">
+            {describeRecurrence(event.recurrence)}
+          </div>
         )}
       </td>
       <td>
@@ -246,7 +248,6 @@ const EventRow: React.FC<RowProps> = ({ event, projects, checked, onToggle }) =>
           <Icon name={eventIconName(event)} size={13} />
           {event.code && <span className="kp-code">{event.code}</span>}
           <span className="kp-table__title-text">{event.title}</span>
-          {respLabel && <span className="kp-event-badge">{respLabel}</span>}
         </a>
       </td>
       <td>
@@ -271,17 +272,20 @@ const EventRow: React.FC<RowProps> = ({ event, projects, checked, onToggle }) =>
           </select>
         </div>
       </td>
-      <td className="kp-table__created">{recurrenceLabel}</td>
       <td>
-        <div className="kp-table__tags">
-          {event.tags.length === 0 ? (
+        <div className="kp-table__tags kp-table__tags--stacked">
+          {respLabel && (
+            <span className={`kp-tag-chip kp-tag-chip--status kp-tag-chip--${respKey}`}>
+              {respLabel}
+            </span>
+          )}
+          {event.tags.map((t) => (
+            <span key={t} className="kp-tag-chip">
+              #{t}
+            </span>
+          ))}
+          {!respLabel && event.tags.length === 0 && (
             <span className="kp-table__empty">—</span>
-          ) : (
-            event.tags.map((t) => (
-              <span key={t} className="kp-tag-chip">
-                #{t}
-              </span>
-            ))
           )}
         </div>
       </td>
