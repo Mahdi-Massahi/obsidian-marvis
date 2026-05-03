@@ -5,6 +5,7 @@ import type { TaskService } from "../services/taskService";
 import type { ProjectService } from "../services/projectService";
 import type { MilestoneService } from "../services/milestoneService";
 import type { LogService } from "../services/logService";
+import type { EventService } from "../services/eventService";
 import type { KanbanPlusSettings } from "../settings";
 
 export interface PluginContextValue {
@@ -14,6 +15,7 @@ export interface PluginContextValue {
   projectService: ProjectService;
   milestoneService: MilestoneService;
   logService: LogService;
+  eventService: EventService;
   settings: KanbanPlusSettings;
   switchView: (kind: "kanban" | "timeline" | "calendar" | "table") => void;
   openQuickCreate: (defaults?: Partial<{ due: string; project: string }>) => void;

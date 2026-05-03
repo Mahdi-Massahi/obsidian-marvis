@@ -14,8 +14,8 @@ A Notion-style multi-view project planner for Obsidian. Every project, milestone
 ## Vault layout
 
 ```
-Planner/
-  Brison/
+Marvis/
+  Project Life/
     _project.md
     milestones/v1.md
     tasks/Fix-login.md
@@ -30,4 +30,4 @@ npm run dev      # esbuild watch
 npm run build    # production build (tsc + esbuild)
 ```
 
-To test in a real vault, symlink this folder into `<vault>/.obsidian/plugins/kanban-plus/`.
+To test in a real vault, symlink this folder into `<vault>/.obsidian/plugins/Marvis/`.

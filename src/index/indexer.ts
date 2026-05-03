@@ -1,6 +1,7 @@
 import { App, EventRef, TAbstractFile, TFile, TFolder } from "obsidian";
 import {
   getKind,
+  parseEvent,
   parseLog,
   parseMilestone,
   parseProject,
@@ -57,6 +58,7 @@ export class Indexer {
     const projects: ReturnType<typeof parseProject>[] = [];
     const milestones: ReturnType<typeof parseMilestone>[] = [];
     const logs: ReturnType<typeof parseLog>[] = [];
+    const events: ReturnType<typeof parseEvent>[] = [];
     const bodyFiles: TFile[] = [];
 
     if (folder instanceof TFolder) {
@@ -74,6 +76,9 @@ export class Indexer {
         else if (kind === "log") {
           logs.push(parseLog(file, fm!));
           bodyFiles.push(file);
+        } else if (kind === "event") {
+          events.push(parseEvent(file, fm!));
+          bodyFiles.push(file);
         }
       });
     }
@@ -83,6 +88,7 @@ export class Indexer {
     state.setProjects(projects);
     state.setMilestones(milestones);
     state.setLogs(logs);
+    state.setEvents(events);
 
     // Async second pass — load body excerpts.
     void this.loadExcerpts(bodyFiles);
@@ -112,6 +118,10 @@ export class Indexer {
       const log = parseLog(file, fm!);
       state.upsertLog(log);
       void this.loadExcerptForFile(file);
+    } else if (kind === "event") {
+      const event = parseEvent(file, fm!);
+      state.upsertEvent(event);
+      void this.loadExcerptForFile(file);
     }
   }
 
@@ -134,6 +144,12 @@ export class Indexer {
     if (existingLog) {
       if (existingLog.excerpt === excerpt && existingLog.body === body) return;
       state.upsertLog({ ...existingLog, excerpt, body });
+      return;
+    }
+    const existingEvent = state.events[file.path];
+    if (existingEvent) {
+      if (existingEvent.excerpt === excerpt && existingEvent.body === body) return;
+      state.upsertEvent({ ...existingEvent, excerpt, body });
     }
   }
 

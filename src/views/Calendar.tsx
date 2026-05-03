@@ -1,5 +1,5 @@
 import * as React from "react";
-import { addDays, format, isSameDay, isSameMonth, parseDate, fmtMonth, monthGrid, fmtISO } from "../utils/dates";
+import { addDays, format, isSameDay, isSameMonth, parseDate, fmtMonth, monthGrid, fmtISO, startOfDay } from "../utils/dates";
 import {
   DndContext,
   DragEndEvent,
@@ -13,12 +13,14 @@ import { usePlugin } from "./context";
 import { FilterBar } from "./shared/FilterBar";
 import { applyFilter } from "../filter/filterEngine";
 import { Icon } from "./shared/Icon";
-import type { Log, Task } from "../schema/types";
+import type { Event, Log, Task } from "../schema/types";
+import { expandOccurrences } from "../utils/recurrence";
 
 export const CalendarRoot: React.FC = () => {
   const { store, settings, taskService, logService, openQuickCreate } = usePlugin();
   const tasksMap = store((s) => s.tasks);
   const logsMap = store((s) => s.logs);
+  const eventsMap = store((s) => s.events);
   const filter = store((s) => s.filter);
   const projectsMap = store((s) => s.projects);
   const allTasks = React.useMemo(() => Object.values(tasksMap), [tasksMap]);
@@ -49,14 +51,66 @@ export const CalendarRoot: React.FC = () => {
     d.setDate(1);
     return d;
   });
-  const [mode, setMode] = React.useState<"month" | "week">("month");
+  const [mode, setMode] = React.useState<"month" | "week" | "day">("month");
 
   const weeks = React.useMemo(
     () => monthGrid(cursor, settings.weekStartsOn),
     [cursor, settings.weekStartsOn]
   );
 
-  const days: Date[] = mode === "month" ? weeks.flat() : visibleWeek(cursor, settings.weekStartsOn);
+  const days: Date[] =
+    mode === "month"
+      ? weeks.flat()
+      : mode === "week"
+      ? visibleWeek(cursor, settings.weekStartsOn)
+      : [startOfDay(cursor)];
+
+  const filteredEvents = React.useMemo(() => {
+    if (!filter.includeEvents) return [];
+    return Object.values(eventsMap).filter((ev) => {
+      if (filter.projects.length && (!ev.project || !filter.projects.includes(ev.project)))
+        return false;
+      if (filter.milestones.length && (!ev.milestone || !filter.milestones.includes(ev.milestone)))
+        return false;
+      if (filter.tags.length) {
+        const tagSet = new Set(ev.tags);
+        if (!filter.tags.every((t) => tagSet.has(t))) return false;
+      }
+      if (filter.search.trim()) {
+        const q = filter.search.trim().toLowerCase();
+        const haystack = `${ev.title} ${ev.tags.join(" ")} ${ev.project ?? ""} ${
+          ev.body ?? ""
+        }`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [eventsMap, filter]);
+
+  const eventsByDay = React.useMemo(() => {
+    const m = new Map<string, EventOccurrence[]>();
+    if (days.length === 0) return m;
+    const rangeStart = new Date(days[0]);
+    rangeStart.setHours(0, 0, 0, 0);
+    const rangeEnd = new Date(days[days.length - 1]);
+    rangeEnd.setHours(23, 59, 59, 999);
+    for (const ev of filteredEvents) {
+      const occurrences = expandOccurrences(ev, rangeStart, rangeEnd);
+      for (const occ of occurrences) {
+        const key = fmtISO(occ);
+        if (!m.has(key)) m.set(key, []);
+        m.get(key)!.push({ event: ev, date: occ });
+      }
+    }
+    for (const list of m.values()) {
+      list.sort((a, b) => {
+        const ta = a.event.time ?? "";
+        const tb = b.event.time ?? "";
+        return ta.localeCompare(tb);
+      });
+    }
+    return m;
+  }, [filteredEvents, days]);
 
   const tasksByDay = React.useMemo(() => {
     const m = new Map<string, Task[]>();
@@ -112,7 +166,8 @@ export const CalendarRoot: React.FC = () => {
   const move = (delta: number) => {
     const next = new Date(cursor);
     if (mode === "month") next.setMonth(next.getMonth() + delta);
-    else next.setDate(next.getDate() + delta * 7);
+    else if (mode === "week") next.setDate(next.getDate() + delta * 7);
+    else next.setDate(next.getDate() + delta);
     setCursor(next);
   };
 
@@ -124,11 +179,30 @@ export const CalendarRoot: React.FC = () => {
 
   const toolbar = (
     <>
+      <div className="kp-segmented">
+        {(["day", "week", "month"] as const).map((m) => (
+          <button
+            key={m}
+            className={`kp-segmented__btn ${mode === m ? "is-active" : ""}`}
+            onClick={() => {
+              // Cursor was set to the 1st of the month on mount, which is
+              // fine for month/week but means day view lands on day 1 instead
+              // of today. Snap to today whenever the user enters day mode.
+              if (m === "day" && mode !== "day") setCursor(new Date());
+              setMode(m);
+            }}
+            title={m}
+          >
+            <Icon
+              name={m === "month" ? "calendarMonth" : m === "week" ? "calendarWeek" : "calendarDay"}
+              size={13}
+            />
+            <span>{m}</span>
+          </button>
+        ))}
+      </div>
       <button className="kp-btn kp-btn--ghost" onClick={() => move(-1)} title="Previous">
         <Icon name="chevronLeft" size={14} />
-      </button>
-      <button className="kp-btn kp-btn--ghost" onClick={() => move(1)} title="Next">
-        <Icon name="chevronRight" size={14} />
       </button>
       <button
         className="kp-btn kp-btn--ghost"
@@ -136,20 +210,9 @@ export const CalendarRoot: React.FC = () => {
       >
         Today
       </button>
-      <span className="kp-cal__title">
-        {mode === "month" ? fmtMonth(cursor) : `Week of ${format(days[0], "MMM d, yyyy")}`}
-      </span>
-      <span className="kp-toolbar__sep" />
-      {(["month", "week"] as const).map((m) => (
-        <button
-          key={m}
-          className={`kp-btn kp-btn--ghost ${mode === m ? "is-active" : ""}`}
-          onClick={() => setMode(m)}
-        >
-          <Icon name="calendar" size={13} />
-          <span>{m}</span>
-        </button>
-      ))}
+      <button className="kp-btn kp-btn--ghost" onClick={() => move(1)} title="Next">
+        <Icon name="chevronRight" size={14} />
+      </button>
     </>
   );
 
@@ -157,35 +220,66 @@ export const CalendarRoot: React.FC = () => {
     <div className="kp-view kp-view--calendar">
       <FilterBar activeView="calendar" toolbar={toolbar} />
 
-      <div className="kp-cal__weekheader">
-        {weekdayHeaders.map((d) => (
-          <div key={d} className="kp-cal__weekday">
-            {d}
-          </div>
-        ))}
+      <div className="kp-cal__titlerow">
+        <span className="kp-cal__title">
+          {mode === "month"
+            ? fmtMonth(cursor)
+            : mode === "week"
+            ? `Week of ${format(days[0], "MMM d, yyyy")}`
+            : format(days[0], "EEE, MMM d, yyyy")}
+        </span>
       </div>
 
-      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <div className={`kp-cal__grid ${mode === "week" ? "kp-cal__grid--week" : ""}`}>
-          {days.map((day) => {
-            const iso = fmtISO(day);
-            const tasks = tasksByDay.get(iso) ?? [];
-            const logs = logsByDay.get(iso) ?? [];
-            return (
-              <DayCell
-                key={iso}
-                date={day}
-                iso={iso}
-                tasks={tasks}
-                logs={logs}
-                inMonth={isSameMonth(day, cursor)}
-                onCreate={() => openQuickCreate({ due: iso })}
-                projectsMap={projectsMap}
-              />
-            );
-          })}
-        </div>
-      </DndContext>
+      {mode === "day" ? (
+        (() => {
+          const iso = fmtISO(days[0]);
+          return (
+            <DayView
+              date={days[0]}
+              iso={iso}
+              tasks={tasksByDay.get(iso) ?? []}
+              logs={logsByDay.get(iso) ?? []}
+              events={eventsByDay.get(iso) ?? []}
+              projectsMap={projectsMap}
+              onCreate={() => openQuickCreate({ due: iso })}
+            />
+          );
+        })()
+      ) : (
+        <>
+          <div className="kp-cal__weekheader">
+            {weekdayHeaders.map((d) => (
+              <div key={d} className="kp-cal__weekday">
+                {d}
+              </div>
+            ))}
+          </div>
+
+          <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+            <div className={`kp-cal__grid ${mode === "week" ? "kp-cal__grid--week" : ""}`}>
+              {days.map((day) => {
+                const iso = fmtISO(day);
+                const tasks = tasksByDay.get(iso) ?? [];
+                const logs = logsByDay.get(iso) ?? [];
+                const events = eventsByDay.get(iso) ?? [];
+                return (
+                  <DayCell
+                    key={iso}
+                    date={day}
+                    iso={iso}
+                    tasks={tasks}
+                    logs={logs}
+                    events={events}
+                    inMonth={isSameMonth(day, cursor)}
+                    onCreate={() => openQuickCreate({ due: iso })}
+                    projectsMap={projectsMap}
+                  />
+                );
+              })}
+            </div>
+          </DndContext>
+        </>
+      )}
     </div>
   );
 };
@@ -203,11 +297,17 @@ function firstOfMonth(d: Date): Date {
   return r;
 }
 
+interface EventOccurrence {
+  event: Event;
+  date: Date;
+}
+
 interface DayCellProps {
   date: Date;
   iso: string;
   tasks: Task[];
   logs: Log[];
+  events: EventOccurrence[];
   inMonth: boolean;
   onCreate: () => void;
   projectsMap: Record<string, import("../schema/types").Project>;
@@ -218,6 +318,7 @@ const DayCell: React.FC<DayCellProps> = ({
   iso,
   tasks,
   logs,
+  events,
   inMonth,
   onCreate,
   projectsMap,
@@ -236,6 +337,14 @@ const DayCell: React.FC<DayCellProps> = ({
         <span className="kp-cal__date">{date.getDate()}</span>
       </div>
       <div className="kp-cal__chips">
+        {events.map((occ, i) => (
+          <EventCalChip
+            key={`${occ.event.id}-${i}`}
+            event={occ.event}
+            date={occ.date}
+            projectsMap={projectsMap}
+          />
+        ))}
         {tasks.map((task) => (
           <CalChip key={task.id} task={task} projectsMap={projectsMap} />
         ))}
@@ -243,6 +352,219 @@ const DayCell: React.FC<DayCellProps> = ({
           <LogCalChip key={log.id} log={log} projectsMap={projectsMap} />
         ))}
       </div>
+    </div>
+  );
+};
+
+const HOUR_HEIGHT = 56;
+
+interface DayViewProps {
+  date: Date;
+  iso: string;
+  tasks: Task[];
+  logs: Log[];
+  events: EventOccurrence[];
+  projectsMap: Record<string, import("../schema/types").Project>;
+  onCreate: () => void;
+}
+
+const DayView: React.FC<DayViewProps> = ({
+  date,
+  tasks,
+  logs,
+  events,
+  projectsMap,
+  onCreate,
+}) => {
+  const allDayEvents = events.filter((o) => !o.event.time);
+  const timedEvents = events.filter((o) => o.event.time);
+  const isToday = isSameDay(date, new Date());
+
+  const [now, setNow] = React.useState(() => new Date());
+  React.useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowTop = (nowMinutes / 60) * HOUR_HEIGHT;
+
+  const gridRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!gridRef.current) return;
+    const target = isToday ? Math.max(0, nowTop - 80) : 8 * HOUR_HEIGHT;
+    gridRef.current.scrollTop = target;
+    // Only scroll on first mount per date
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date.toDateString()]);
+
+  return (
+    <div className="kp-cal__day" onDoubleClick={onCreate}>
+      <div className="kp-cal__day-allday">
+        <div className="kp-cal__day-allday-label">All-day</div>
+        <div className="kp-cal__day-allday-items">
+          {allDayEvents.length === 0 && tasks.length === 0 && logs.length === 0 && (
+            <span className="kp-cal__day-empty">—</span>
+          )}
+          {allDayEvents.map((occ, i) => (
+            <EventCalChip
+              key={`${occ.event.id}-${i}`}
+              event={occ.event}
+              date={occ.date}
+              projectsMap={projectsMap}
+            />
+          ))}
+          {tasks.map((task) => (
+            <CalChip key={task.id} task={task} projectsMap={projectsMap} />
+          ))}
+          {logs
+            .filter((l) => !l.timestamp.includes("T"))
+            .map((log) => (
+              <LogCalChip key={log.id} log={log} projectsMap={projectsMap} />
+            ))}
+        </div>
+      </div>
+      <div className="kp-cal__day-grid" ref={gridRef}>
+        <div
+          className="kp-cal__day-grid-inner"
+          style={{ height: HOUR_HEIGHT * 24 }}
+        >
+          {Array.from({ length: 24 }, (_, h) => (
+            <div key={h} className="kp-cal__day-hour" style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }}>
+              <span className="kp-cal__day-hour-label">
+                {String(h).padStart(2, "0")}:00
+              </span>
+            </div>
+          ))}
+          {timedEvents.map((occ, i) => (
+            <DayTimedEvent
+              key={`${occ.event.id}-${i}`}
+              event={occ.event}
+              projectsMap={projectsMap}
+            />
+          ))}
+          {logs
+            .filter((l) => l.timestamp.includes("T"))
+            .map((log) => (
+              <DayTimedLog key={log.id} log={log} projectsMap={projectsMap} />
+            ))}
+          {isToday && nowTop >= 0 && nowTop <= HOUR_HEIGHT * 24 && (
+            <div className="kp-cal__day-now" style={{ top: nowTop }} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DayTimedEvent: React.FC<{
+  event: Event;
+  projectsMap: Record<string, import("../schema/types").Project>;
+}> = ({ event, projectsMap }) => {
+  const { eventService } = usePlugin();
+  const project = event.project
+    ? Object.values(projectsMap).find((p) => p.name === event.project)
+    : undefined;
+  const startMin = parseTimeToMin(event.time) ?? 0;
+  const endMin = parseTimeToMin(event.endTime) ?? startMin + 30;
+  const top = (startMin / 60) * HOUR_HEIGHT;
+  const height = Math.max(20, ((endMin - startMin) / 60) * HOUR_HEIGHT);
+  const color = project?.color ?? "var(--kp-accent)";
+  const timeLabel = event.endTime ? `${event.time}–${event.endTime}` : event.time!;
+  return (
+    <div
+      className="kp-cal__day-event"
+      style={{
+        top,
+        height,
+        borderColor: color,
+        background: `color-mix(in oklab, ${color} 18%, var(--kp-bg))`,
+      }}
+      title={`${timeLabel} · ${event.title}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        const overrideMode = e.metaKey || e.ctrlKey ? "tab" : undefined;
+        void eventService.openInNewLeaf(event, overrideMode);
+      }}
+    >
+      <Icon name="calendar" size={11} className="kp-cal__day-event-icon" />
+      <span className="kp-cal__day-event-time">{timeLabel}</span>
+      <span className="kp-cal__day-event-title">{event.title}</span>
+    </div>
+  );
+};
+
+const DayTimedLog: React.FC<{
+  log: Log;
+  projectsMap: Record<string, import("../schema/types").Project>;
+}> = ({ log, projectsMap }) => {
+  const { logService } = usePlugin();
+  const project = log.project
+    ? Object.values(projectsMap).find((p) => p.name === log.project)
+    : undefined;
+  const time = log.timestamp.length >= 16 ? log.timestamp.slice(11, 16) : "00:00";
+  const startMin = parseTimeToMin(time) ?? 0;
+  const top = (startMin / 60) * HOUR_HEIGHT;
+  const color = project?.color ?? "var(--background-modifier-border)";
+  const label = log.excerpt ?? `Log @ ${time}`;
+  return (
+    <div
+      className="kp-cal__day-log"
+      style={{ top, borderColor: color }}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        const overrideMode = e.metaKey || e.ctrlKey ? "tab" : undefined;
+        void logService.openInNewLeaf(log, overrideMode);
+      }}
+    >
+      <Icon name="notebook" size={11} className="kp-cal__day-event-icon" />
+      <span className="kp-cal__day-event-time">{time}</span>
+      <span className="kp-cal__day-event-title">{label}</span>
+    </div>
+  );
+};
+
+function parseTimeToMin(t: string | undefined): number | null {
+  if (!t) return null;
+  const m = t.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+const EventCalChip: React.FC<{
+  event: Event;
+  date: Date;
+  projectsMap: Record<string, import("../schema/types").Project>;
+}> = ({ event, projectsMap }) => {
+  const { eventService } = usePlugin();
+  const project = event.project
+    ? Object.values(projectsMap).find((p) => p.name === event.project)
+    : undefined;
+  const isAllDay = !event.time;
+  const timeLabel = event.time
+    ? event.endTime
+      ? `${event.time}–${event.endTime}`
+      : event.time
+    : "";
+  const label = timeLabel ? `${timeLabel} · ${event.title}` : event.title;
+  const style: React.CSSProperties = {
+    borderColor: project?.color ?? "var(--background-modifier-border)",
+  };
+  return (
+    <div
+      className={`kp-cal__chip kp-cal__chip--event ${isAllDay ? "kp-cal__chip--allday" : ""}`}
+      style={style}
+      title={label}
+      onClick={(e) => {
+        if (e.defaultPrevented) return;
+        if ((e.target as HTMLElement).closest("[data-no-open]")) return;
+        e.stopPropagation();
+        const overrideMode = e.metaKey || e.ctrlKey ? "tab" : undefined;
+        void eventService.openInNewLeaf(event, overrideMode);
+      }}
+    >
+      <Icon name="calendar" size={11} className="kp-cal__chip-icon" />
+      <span className="kp-cal__chip-title">{label}</span>
     </div>
   );
 };

@@ -4,21 +4,21 @@ import { usePlugin } from "./context";
 import { FilterBar } from "./shared/FilterBar";
 import { applyFilter } from "../filter/filterEngine";
 import { Icon, IconName } from "./shared/Icon";
-import type { Log, Milestone, Project, Task } from "../schema/types";
+import type { Event, Log, Milestone, Project, Task } from "../schema/types";
+import { expandOccurrences } from "../utils/recurrence";
 
 type Zoom = "day" | "week" | "month";
 type GroupBy = "project" | "milestone";
 
 const ROW_HEIGHT = 36;
 const HEADER_HEIGHT = 48;
-const SIDEBAR_WIDTH = 200;
 
 const DAY_WIDTHS: Record<Zoom, number> = { day: 64, week: 36, month: 16 };
 
 interface Bar {
   id: string;
   path: string;
-  kind: "task" | "milestone" | "log";
+  kind: "task" | "milestone" | "log" | "event";
   label: string;
   startISO: string;
   endISO: string;
@@ -28,11 +28,12 @@ interface Bar {
 }
 
 export const TimelineRoot: React.FC = () => {
-  const { store, settings, taskService, milestoneService, logService } = usePlugin();
+  const { store, settings, taskService, milestoneService, logService, eventService } = usePlugin();
   const tasksMap = store((s) => s.tasks);
   const projectsMap = store((s) => s.projects);
   const milestonesMap = store((s) => s.milestones);
   const logsMap = store((s) => s.logs);
+  const eventsMap = store((s) => s.events);
   const filter = store((s) => s.filter);
 
   const [zoom, setZoom] = React.useState<Zoom>("week");
@@ -64,6 +65,33 @@ export const TimelineRoot: React.FC = () => {
     });
   }, [logsMap, filter]);
 
+  const filteredEvents = React.useMemo(() => {
+    if (!filter.includeEvents) return [];
+    return Object.values(eventsMap).filter((ev) => {
+      if (filter.projects.length && (!ev.project || !filter.projects.includes(ev.project)))
+        return false;
+      if (filter.milestones.length && (!ev.milestone || !filter.milestones.includes(ev.milestone)))
+        return false;
+      if (filter.tags.length) {
+        const tagSet = new Set(ev.tags);
+        if (!filter.tags.every((t) => tagSet.has(t))) return false;
+      }
+      return true;
+    });
+  }, [eventsMap, filter]);
+
+  const eventOccurrences = React.useMemo(() => {
+    const today = startOfDay(new Date());
+    const rangeStart = addDays(today, -180);
+    const rangeEnd = addDays(today, 540);
+    const out: { event: Event; date: Date }[] = [];
+    for (const ev of filteredEvents) {
+      const dates = expandOccurrences(ev, rangeStart, rangeEnd);
+      for (const d of dates) out.push({ event: ev, date: d });
+    }
+    return out;
+  }, [filteredEvents]);
+
   const allMilestones = React.useMemo(() => Object.values(milestonesMap), [milestonesMap]);
   const filteredMilestones = React.useMemo(() => {
     return allMilestones.filter((m) => {
@@ -82,6 +110,7 @@ export const TimelineRoot: React.FC = () => {
         datedTasks,
         filteredMilestones,
         filteredLogs,
+        eventOccurrences,
         projectsMap,
         milestonesMap,
         settings.priorities
@@ -91,6 +120,7 @@ export const TimelineRoot: React.FC = () => {
       datedTasks,
       filteredMilestones,
       filteredLogs,
+      eventOccurrences,
       projectsMap,
       milestonesMap,
       settings.priorities,
@@ -184,6 +214,12 @@ export const TimelineRoot: React.FC = () => {
         if (mode === "move" || mode === "resize-end") {
           await milestoneService.setDue(milestone, finalDraft.endISO);
         }
+      } else if (bar.kind === "event") {
+        const ev = eventsMap[bar.path];
+        if (!ev) return;
+        if (mode !== "move") return;
+        if (ev.recurrence) return; // don't move a single occurrence of a series
+        await eventService.setDate(ev, finalDraft.startISO);
       } else {
         const log = logsMap[bar.path];
         if (!log) return;
@@ -242,27 +278,35 @@ export const TimelineRoot: React.FC = () => {
   };
   const toolbar = (
     <>
-      {(["project", "milestone"] as GroupBy[]).map((g) => (
-        <button
-          key={g}
-          className={`kp-btn kp-btn--ghost ${groupBy === g ? "is-active" : ""}`}
-          onClick={() => setGroupBy(g)}
-        >
-          <Icon name={groupIcon[g]} size={13} />
-          <span>{g}</span>
-        </button>
-      ))}
-      <span className="kp-toolbar__sep" />
-      {(["day", "week", "month"] as Zoom[]).map((z) => (
-        <button
-          key={z}
-          className={`kp-btn kp-btn--ghost ${zoom === z ? "is-active" : ""}`}
-          onClick={() => setZoom(z)}
-        >
-          {z}
-        </button>
-      ))}
-      <span className="kp-toolbar__sep" />
+      <div className="kp-segmented">
+        {(["project", "milestone"] as GroupBy[]).map((g) => (
+          <button
+            key={g}
+            className={`kp-segmented__btn ${groupBy === g ? "is-active" : ""}`}
+            onClick={() => setGroupBy(g)}
+            title={`Group by ${g}`}
+          >
+            <Icon name={groupIcon[g]} size={13} />
+            <span>{g}</span>
+          </button>
+        ))}
+      </div>
+      <div className="kp-segmented">
+        {(["day", "week", "month"] as Zoom[]).map((z) => (
+          <button
+            key={z}
+            className={`kp-segmented__btn ${zoom === z ? "is-active" : ""}`}
+            onClick={() => setZoom(z)}
+            title={`Zoom: ${z}`}
+          >
+            <Icon
+              name={z === "month" ? "calendarMonth" : z === "week" ? "calendarWeek" : "calendarDay"}
+              size={13}
+            />
+            <span>{z}</span>
+          </button>
+        ))}
+      </div>
       <button className="kp-btn kp-btn--ghost" onClick={scrollToToday}>
         Today
       </button>
@@ -275,7 +319,7 @@ export const TimelineRoot: React.FC = () => {
 
       <div className="kp-tl__scroll" ref={scrollRef}>
         <div className="kp-tl__container" ref={containerRef}>
-          <div className="kp-tl__sidebar" style={{ width: SIDEBAR_WIDTH }}>
+          <div className="kp-tl__sidebar">
             <div className="kp-tl__sidebar-head" style={{ height: HEADER_HEIGHT }}>
               {groupBy === "project" ? "Project" : "Milestone"}
             </div>
@@ -334,8 +378,12 @@ export const TimelineRoot: React.FC = () => {
                     const isNarrow = width < 56;
                     const isMilestone = bar.kind === "milestone";
                     const isLog = bar.kind === "log";
+                    const isEvent = bar.kind === "event";
+                    const isPoint = isLog || isEvent;
                     const iconName: IconName = isMilestone
                       ? "flag"
+                      : isEvent
+                      ? "calendar"
                       : isLog
                       ? "notebook"
                       : "check";
@@ -344,7 +392,9 @@ export const TimelineRoot: React.FC = () => {
                         key={bar.id}
                         className={`kp-tl__bar ${isNarrow ? "kp-tl__bar--narrow" : ""} ${
                           isMilestone ? "kp-tl__bar--milestone" : ""
-                        } ${isLog ? "kp-tl__bar--log" : ""}`}
+                        } ${isLog ? "kp-tl__bar--log" : ""} ${
+                          isEvent ? "kp-tl__bar--event" : ""
+                        }`}
                         style={{
                           left,
                           width,
@@ -364,13 +414,16 @@ export const TimelineRoot: React.FC = () => {
                           } else if (bar.kind === "milestone") {
                             const m = milestonesMap[bar.path];
                             if (m) void milestoneService.openInNewLeaf(m, overrideMode);
+                          } else if (bar.kind === "event") {
+                            const ev = eventsMap[bar.path];
+                            if (ev) void eventService.openInNewLeaf(ev, overrideMode);
                           } else {
                             const l = logsMap[bar.path];
                             if (l) void logService.openInNewLeaf(l, overrideMode);
                           }
                         }}
                       >
-                        {!isLog && (
+                        {!isPoint && (
                           <div
                             className="kp-tl__bar-handle kp-tl__bar-handle--start"
                             onPointerDown={(e) => {
@@ -391,7 +444,7 @@ export const TimelineRoot: React.FC = () => {
                             {bar.priorityLabel}
                           </span>
                         )}
-                        {!isLog && (
+                        {!isPoint && (
                           <div
                             className="kp-tl__bar-handle kp-tl__bar-handle--end"
                             onPointerDown={(e) => {
@@ -424,7 +477,7 @@ export const TimelineRoot: React.FC = () => {
 
 interface DraftBar {
   barPath: string;
-  barKind: "task" | "milestone" | "log";
+  barKind: "task" | "milestone" | "log" | "event";
   mode: "move" | "resize-start" | "resize-end";
   startISO: string;
   endISO: string;
@@ -443,6 +496,7 @@ function buildRows(
   tasks: Task[],
   milestones: Milestone[],
   logs: Log[],
+  eventOccurrences: { event: Event; date: Date }[],
   projectsMap: Record<string, Project>,
   milestonesMap: Record<string, Milestone>,
   priorities: { id: string; label: string; color: string }[]
@@ -462,15 +516,23 @@ function buildRows(
       if (!logByProject.has(key)) logByProject.set(key, []);
       logByProject.get(key)!.push(l);
     }
+    const eventByProject = new Map<string, { event: Event; date: Date }[]>();
+    for (const occ of eventOccurrences) {
+      const key = occ.event.project ?? "Unassigned";
+      if (!eventByProject.has(key)) eventByProject.set(key, []);
+      eventByProject.get(key)!.push(occ);
+    }
     const projectKeys = new Set<string>([
       ...taskByProject.keys(),
       ...logByProject.keys(),
+      ...eventByProject.keys(),
     ]);
     return Array.from(projectKeys).map((name) => {
       const project = Object.values(projectsMap).find((p) => p.name === name);
       const color = project?.color ?? "#3b82f6";
       const taskList = taskByProject.get(name) ?? [];
       const logList = logByProject.get(name) ?? [];
+      const evList = eventByProject.get(name) ?? [];
       const taskBars = taskList
         .slice()
         .sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""))
@@ -479,11 +541,15 @@ function buildRows(
         .slice()
         .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
         .map((l) => logToBar(l, color));
+      const evBars = evList
+        .slice()
+        .sort((a, b) => a.date.getTime() - b.date.getTime())
+        .map((occ, i) => eventToBar(occ.event, occ.date, color, i));
       return {
         id: `project:${name}`,
         label: name,
         color,
-        bars: [...taskBars, ...logBars],
+        bars: [...taskBars, ...logBars, ...evBars],
       };
     });
   }
@@ -537,6 +603,25 @@ function taskToBar(
     color: projectColor,
     priorityLabel: pri?.label,
     priorityColor: pri?.color,
+  };
+}
+
+function eventToBar(ev: Event, date: Date, color: string, idx: number): Bar {
+  const iso = fmtISO(date);
+  const timeLabel = ev.time
+    ? ev.endTime
+      ? `${ev.time}–${ev.endTime}`
+      : ev.time
+    : "";
+  const label = timeLabel ? `${timeLabel} · ${ev.title}` : ev.title;
+  return {
+    id: `${ev.id}#${idx}`,
+    path: ev.path,
+    kind: "event",
+    label,
+    startISO: iso,
+    endISO: iso,
+    color,
   };
 }
 

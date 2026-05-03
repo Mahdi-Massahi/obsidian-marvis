@@ -75,7 +75,7 @@ export function formatAge(fromMs: number, nowMs: number = Date.now()): string {
   const sec = Math.floor(diff / 1000);
   if (sec < 45) return "now";
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}min`;
+  if (min < 60) return `${min}m`;
   const hr = Math.floor(min / 60);
   if (hr < 24) return `${hr}h`;
   const day = Math.floor(hr / 24);

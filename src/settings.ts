@@ -25,7 +25,7 @@ export interface KanbanPlusSettings {
   telegramChatId: string;
   telegramOffset: number;
   marvisSkillTemplate: string;
-  nextCode: { task: number; log: number; milestone: number; project: number };
+  nextCode: { task: number; log: number; milestone: number; project: number; event: number };
 }
 
 export const DEFAULT_SETTINGS: KanbanPlusSettings = {
@@ -43,7 +43,7 @@ export const DEFAULT_SETTINGS: KanbanPlusSettings = {
   telegramChatId: "",
   telegramOffset: 0,
   marvisSkillTemplate: DEFAULT_MARVIS_SKILL,
-  nextCode: { task: 1, log: 1, milestone: 1, project: 1 },
+  nextCode: { task: 1, log: 1, milestone: 1, project: 1, event: 1 },
 };
 
 export class KanbanPlusSettingTab extends PluginSettingTab {

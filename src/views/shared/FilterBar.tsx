@@ -31,6 +31,25 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
   const milestones = store((s) => s.milestones);
   const tasks = store((s) => s.tasks);
   const setFilter = store((s) => s.setFilter);
+  const [filterModalOpen, setFilterModalOpen] = React.useState(false);
+  const [searchModalOpen, setSearchModalOpen] = React.useState(false);
+  const searchModalInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (searchModalOpen) {
+      setTimeout(() => searchModalInputRef.current?.focus(), 50);
+    }
+  }, [searchModalOpen]);
+
+  const activeFilterCount =
+    filter.projects.length +
+    filter.milestones.length +
+    filter.statuses.length +
+    filter.priorities.length +
+    filter.tags.length +
+    (filter.includeLogs ? 1 : 0) +
+    (filter.includeEvents ? 1 : 0) +
+    (filter.includeArchived ? 1 : 0);
 
   const projectNames = React.useMemo(
     () => Object.values(projects).map((p) => p.name).sort(),
@@ -115,6 +134,17 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
 
       <div className="kp-filterbar__row kp-filterbar__row--chips">
         {toolbar && <div className="kp-filterbar__toolbar">{toolbar}</div>}
+        <button
+          className={`kp-iconbtn kp-iconbtn--round kp-filterbar__filtertrigger ${activeFilterCount ? "is-selected" : ""}`}
+          title="Filters"
+          aria-label="Filters"
+          onClick={() => setFilterModalOpen(true)}
+        >
+          <Icon name="filter" size={15} />
+          {activeFilterCount > 0 && (
+            <span className="kp-filterbar__filtertrigger-count">{activeFilterCount}</span>
+          )}
+        </button>
         <div className="kp-filterbar__chips">
           <ChipGroup
             label="Project"
@@ -165,6 +195,16 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
               <span>Logs</span>
             </button>
           )}
+          {(activeView === "calendar" || activeView === "timeline") && (
+            <button
+              className={`kp-chipgroup__trigger ${filter.includeEvents ? "is-selected" : ""}`}
+              onClick={() => setFilter({ includeEvents: !filter.includeEvents })}
+              title="Toggle event visibility"
+            >
+              <Icon name="calendar" size={13} />
+              <span>Events</span>
+            </button>
+          )}
           <button
             className={`kp-chipgroup__trigger ${filter.includeArchived ? "is-selected" : ""}`}
             onClick={() => setFilter({ includeArchived: !filter.includeArchived })}
@@ -174,6 +214,274 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
             <span>Archived</span>
           </button>
         </div>
+      </div>
+
+      {ReactDOM.createPortal(
+        <div className="kp-portal">
+          <nav className="kp-mobnav kp-mobnav--views" aria-label="Marvis views">
+            {VIEWS.map((v) => (
+              <button
+                key={v.id}
+                className={`kp-mobnav__btn ${activeView === v.id ? "is-active" : ""}`}
+                onClick={() => switchView(v.id)}
+                title={v.label}
+                aria-label={v.label}
+              >
+                <Icon name={v.icon} size={20} />
+              </button>
+            ))}
+          </nav>
+          <div className="kp-mobnav__right">
+            <nav className="kp-mobnav kp-mobnav--search" aria-label="Search">
+              <button
+                className={`kp-mobnav__btn ${filter.search ? "is-active" : ""}`}
+                title="Search"
+                aria-label="Search"
+                onClick={() => setSearchModalOpen(true)}
+              >
+                <Icon name="search" size={20} />
+              </button>
+            </nav>
+            <nav className="kp-mobnav kp-mobnav--actions" aria-label="Marvis actions">
+              <button
+                className="kp-mobnav__btn kp-mobnav__btn--accent"
+                title="Create new"
+                aria-label="Create new"
+                onClick={() => openCreateMenu()}
+              >
+                <Icon name="plus" size={20} />
+              </button>
+            </nav>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {searchModalOpen && ReactDOM.createPortal(
+        <div className="kp-portal">
+          <div
+            className="kp-searchmodal__overlay"
+            onClick={() => setSearchModalOpen(false)}
+          />
+          <div className="kp-searchmodal" role="dialog" aria-label="Search">
+            <input
+              ref={searchModalInputRef}
+              type="search"
+              className="kp-searchmodal__input"
+              placeholder="Search tasks…"
+              value={filter.search}
+              onChange={(e) => setFilter({ search: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" || e.key === "Enter") {
+                  setSearchModalOpen(false);
+                }
+              }}
+            />
+            {filter.search && (
+              <button
+                className="kp-iconbtn"
+                aria-label="Clear"
+                onClick={() => setFilter({ search: "" })}
+              >
+                <Icon name="x" size={14} />
+              </button>
+            )}
+            <button
+              className="kp-btn kp-btn--ghost"
+              onClick={() => setSearchModalOpen(false)}
+            >
+              Done
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {filterModalOpen && ReactDOM.createPortal(
+        <div className="kp-portal">
+          <div
+            className="kp-filtermodal__overlay"
+            onClick={() => setFilterModalOpen(false)}
+          />
+          <div className="kp-filtermodal" role="dialog" aria-label="Filters">
+            <div className="kp-filtermodal__header">
+              <span className="kp-filtermodal__title">Filters</span>
+              <button
+                className="kp-iconbtn"
+                aria-label="Close"
+                onClick={() => setFilterModalOpen(false)}
+              >
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+            <div className="kp-filtermodal__body">
+              <FilterSection
+                label="Project"
+                options={projectNames}
+                selected={filter.projects}
+                onToggle={(v) => setFilter({ projects: toggle(filter.projects, v) })}
+                colors={projectColors}
+              />
+              <FilterSection
+                label="Milestone"
+                options={milestoneNames}
+                selected={filter.milestones}
+                onToggle={(v) => setFilter({ milestones: toggle(filter.milestones, v) })}
+              />
+              <FilterSection
+                label="Status"
+                options={settings.statuses.map((s) => s.id)}
+                labels={Object.fromEntries(settings.statuses.map((s) => [s.id, s.label]))}
+                selected={filter.statuses}
+                onToggle={(v) => setFilter({ statuses: toggle(filter.statuses, v) })}
+                colors={statusColors}
+              />
+              <FilterSection
+                label="Priority"
+                options={settings.priorities.map((p) => p.id)}
+                labels={Object.fromEntries(settings.priorities.map((p) => [p.id, p.label]))}
+                selected={filter.priorities}
+                onToggle={(v) => setFilter({ priorities: toggle(filter.priorities, v) })}
+                colors={priorityColors}
+                colorMode="text"
+              />
+              {allTags.length > 0 && (
+                <FilterSection
+                  label="Tag"
+                  options={allTags}
+                  selected={filter.tags}
+                  onToggle={(v) => setFilter({ tags: toggle(filter.tags, v) })}
+                  prefix="#"
+                />
+              )}
+              <div className="kp-filtermodal__toggles">
+                {(activeView === "calendar" || activeView === "timeline") && (
+                  <label className="kp-filtermodal__toggle">
+                    <input
+                      type="checkbox"
+                      checked={filter.includeLogs}
+                      onChange={() => setFilter({ includeLogs: !filter.includeLogs })}
+                    />
+                    <Icon name="notebook" size={13} />
+                    <span>Logs</span>
+                  </label>
+                )}
+                {(activeView === "calendar" || activeView === "timeline") && (
+                  <label className="kp-filtermodal__toggle">
+                    <input
+                      type="checkbox"
+                      checked={filter.includeEvents}
+                      onChange={() => setFilter({ includeEvents: !filter.includeEvents })}
+                    />
+                    <Icon name="calendar" size={13} />
+                    <span>Events</span>
+                  </label>
+                )}
+                <label className="kp-filtermodal__toggle">
+                  <input
+                    type="checkbox"
+                    checked={filter.includeArchived}
+                    onChange={() => setFilter({ includeArchived: !filter.includeArchived })}
+                  />
+                  <Icon name="archive" size={13} />
+                  <span>Archived</span>
+                </label>
+              </div>
+            </div>
+            {activeFilterCount > 0 && (
+              <div className="kp-filtermodal__footer">
+                <button
+                  className="kp-btn kp-btn--ghost"
+                  onClick={() =>
+                    setFilter({
+                      projects: [],
+                      milestones: [],
+                      statuses: [],
+                      priorities: [],
+                      tags: [],
+                      includeLogs: false,
+                      includeEvents: false,
+                      includeArchived: false,
+                    })
+                  }
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
+interface FilterSectionProps {
+  label: string;
+  options: string[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  labels?: Record<string, string>;
+  prefix?: string;
+  colors?: Record<string, string>;
+  colorMode?: "dot" | "text";
+}
+
+const FilterSection: React.FC<FilterSectionProps> = ({
+  label,
+  options,
+  selected,
+  onToggle,
+  labels,
+  prefix,
+  colors,
+  colorMode = "dot",
+}) => {
+  if (options.length === 0) return null;
+  const iconName = CHIP_ICONS[label];
+  return (
+    <div className="kp-filtermodal__section">
+      <div className="kp-filtermodal__sectionhead">
+        {iconName && <Icon name={iconName} size={13} />}
+        <span>{label}</span>
+        {selected.length > 0 && (
+          <span className="kp-chipgroup__count">{selected.length}</span>
+        )}
+      </div>
+      <div className="kp-filtermodal__options">
+        {options.map((opt) => {
+          const c = colors?.[opt];
+          const showDot = c && colorMode === "dot";
+          const labelStyle =
+            c && colorMode === "text"
+              ? { color: c, fontWeight: 700, letterSpacing: "-1px" as const }
+              : undefined;
+          const isSelected = selected.includes(opt);
+          return (
+            <label
+              key={opt}
+              className={`kp-filtermodal__option ${isSelected ? "is-selected" : ""}`}
+            >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => onToggle(opt)}
+              />
+              {showDot && (
+                <span
+                  className="kp-table__color-dot"
+                  style={{ background: c }}
+                  aria-hidden
+                />
+              )}
+              <span style={labelStyle}>
+                {prefix ?? ""}
+                {labels?.[opt] ?? opt}
+              </span>
+            </label>
+          );
+        })}
       </div>
     </div>
   );

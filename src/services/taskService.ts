@@ -39,6 +39,10 @@ export class TaskService {
     return normalizePath(`${this.projects.projectFolder(projectName)}/archive`);
   }
 
+  attachmentsFolder(projectName: string): string {
+    return normalizePath(`${this.tasksFolder(projectName)}/attachments`);
+  }
+
   private sanitizeFileName(name: string): string {
     return name
       .replace(/[\\/:*?"<>|#^[\]]/g, "")
@@ -159,7 +163,6 @@ export class TaskService {
     await this.projects.ensureFolder(archiveFolder);
     const newPath = normalizePath(`${archiveFolder}/${file.name}`);
     await updateFrontmatter(this.app, file, (fm) => {
-      fm["status"] = "done";
       fm["archived"] = true;
     });
     const refreshed = this.app.vault.getAbstractFileByPath(file.path);

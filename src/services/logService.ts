@@ -23,6 +23,10 @@ export class LogService {
     return normalizePath(`${this.projects.projectFolder(projectName)}/logs`);
   }
 
+  attachmentsFolder(projectName: string): string {
+    return normalizePath(`${this.logFolder(projectName)}/attachments`);
+  }
+
   logFilePath(projectName: string, filename: string): string {
     return normalizePath(`${this.logFolder(projectName)}/${filename}.md`);
   }

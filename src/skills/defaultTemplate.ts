@@ -18,6 +18,8 @@ every other \`.md\` in this \`skills/\` folder for project-specific knowledge.
 - \`milestones/*.md\` — milestones (\`kind: milestone\`).
 - \`logs/*.md\` — time-stamped log entries (\`kind: log\`); filename is the
   timestamp \`YYYY-MM-DD-HH-mm-ss.md\`.
+- \`events/*.md\` — calendar entries (\`kind: event\`); filename is
+  \`YYYY-MM-DD-<slug>.md\`. May be recurring via an iCal RRULE.
 - \`archive/*.md\` — completed/archived items. **Do not unarchive without an
   explicit user request.**
 - \`skills/*.md\` — agent guidance (you are reading one of these). Add more
@@ -70,6 +72,37 @@ created: 2026-05-12
 \`\`\`
 
 Body is freeform markdown — embeds (\`![[file.png]]\`, \`![[clip.mp3]]\`) work.
+
+### Event (\`kind: event\`)
+
+Calendar-style entries. Live in \`events/*.md\` under each project folder
+(or under the catch-all \`_project/events/\` if no project is set). Filename
+convention: \`YYYY-MM-DD-<slug>.md\`.
+
+\`\`\`yaml
+---
+kind: event
+project: "[[<project>]]"          # optional; "_project" is the default
+title: "Standup"
+date: 2026-05-12                  # required, YYYY-MM-DD
+time: "10:00"                     # optional; omit for all-day
+endTime: "10:30"                  # optional
+recurrence: "FREQ=WEEKLY;BYDAY=MO,WE"   # optional, RFC 5545 RRULE
+tags: [meeting]
+extId: "abc123@google.com"        # optional, set when imported from a feed
+source: "google:user@x.com"       # optional, only set by importers
+created: 2026-05-12
+---
+\`\`\`
+
+- Recurrence is an iCal RRULE string — same format Google Calendar API and
+  Microsoft Graph emit. One file per series; views expand occurrences only
+  within the visible range.
+- Events render in Calendar, Timeline and the Events table — never in
+  Kanban (events aren't workflow items).
+- A timed event without \`endTime\` is treated as a point in time. With
+  \`endTime\`, it has a duration in the calendar tooltip.
+- Body is freeform markdown — same embedding rules as logs.
 
 ## Wikilink rules
 

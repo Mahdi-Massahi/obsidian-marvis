@@ -1,4 +1,4 @@
-export type Kind = "task" | "project" | "milestone" | "log";
+export type Kind = "task" | "project" | "milestone" | "log" | "event";
 
 export type Status = string;
 export type Priority = string;
@@ -88,6 +88,26 @@ export interface Log {
   code?: string;
 }
 
+export interface Event {
+  id: string;
+  path: string;
+  name: string;
+  project?: string;
+  milestone?: string;
+  title: string;
+  date: string;             // YYYY-MM-DD (start of series)
+  time?: string;            // HH:mm
+  endTime?: string;         // HH:mm
+  recurrence?: string;      // RRULE string (RFC 5545)
+  tags: string[];
+  extId?: string;           // external calendar UID (Google/Outlook)
+  source?: string;          // e.g. "google:user@x.com"
+  created?: string;
+  excerpt?: string;
+  body?: string;
+  code?: string;
+}
+
 export type ViewKind = "kanban" | "timeline" | "calendar" | "table";
 
 export interface FilterState {
@@ -100,6 +120,7 @@ export interface FilterState {
   search: string;
   includeArchived: boolean;
   includeLogs: boolean;
+  includeEvents: boolean;
   preset?: string;
 }
 
@@ -147,4 +168,5 @@ export const EMPTY_FILTER: FilterState = {
   search: "",
   includeArchived: false,
   includeLogs: true,
+  includeEvents: true,
 };

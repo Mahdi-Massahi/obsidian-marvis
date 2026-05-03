@@ -30,6 +30,35 @@ const ICONS = {
       <path d="M3 10h18" />
     </>
   ),
+  calendarMonth: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4" />
+      <path d="M8 2v4" />
+      <path d="M3 10h18" />
+      <path d="M3 16h18" />
+      <path d="M9 10v12" />
+      <path d="M15 10v12" />
+    </>
+  ),
+  calendarWeek: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4" />
+      <path d="M8 2v4" />
+      <path d="M3 10h18" />
+      <path d="M9 10v12" />
+      <path d="M15 10v12" />
+    </>
+  ),
+  calendarDay: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4" />
+      <path d="M8 2v4" />
+      <path d="M3 10h18" />
+    </>
+  ),
   table: (
     <>
       <path d="M12 3v18" />

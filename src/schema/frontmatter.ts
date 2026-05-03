@@ -1,5 +1,5 @@
 import { App, TFile } from "obsidian";
-import type { Task, Project, Milestone, Log, Kind } from "./types";
+import type { Task, Project, Milestone, Log, Event, Kind } from "./types";
 import { DEFAULT_PROJECT_COLOR } from "./types";
 
 export const WIKILINK_RE = /^\[\[(.+?)(?:\|.+?)?\]\]$/;
@@ -88,7 +88,14 @@ export function todayISO(): string {
 export function getKind(fm: Record<string, unknown> | null | undefined): Kind | null {
   if (!fm) return null;
   const k = asString(fm["kind"]);
-  if (k === "task" || k === "project" || k === "milestone" || k === "log") return k;
+  if (
+    k === "task" ||
+    k === "project" ||
+    k === "milestone" ||
+    k === "log" ||
+    k === "event"
+  )
+    return k;
   return null;
 }
 
@@ -204,6 +211,46 @@ export function parseLog(file: TFile, fm: Record<string, unknown>): Log {
     created: asDate(fm["created"]),
     code: asString(fm["code"]),
   };
+}
+
+export function parseEvent(file: TFile, fm: Record<string, unknown>): Event {
+  const base = fileBaseName(file.path);
+  const date = asDate(fm["date"]) ?? extractDateFromFilename(base) ?? formatDateISO(new Date());
+  return {
+    id: file.path,
+    path: file.path,
+    name: base,
+    project: stripWikilink(fm["project"]),
+    milestone: stripWikilink(fm["milestone"]),
+    title: asString(fm["title"]) ?? humanizeFromFilename(base),
+    date,
+    time: asTimeOfDay(fm["time"]),
+    endTime: asTimeOfDay(fm["endTime"]),
+    recurrence: asString(fm["recurrence"]),
+    tags: asTags(fm["tags"]),
+    extId: asString(fm["extId"]),
+    source: asString(fm["source"]),
+    created: asDate(fm["created"]),
+    code: asString(fm["code"]),
+  };
+}
+
+function extractDateFromFilename(base: string): string | undefined {
+  const m = base.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : undefined;
+}
+
+function humanizeFromFilename(base: string): string {
+  const stripped = base.replace(/^\d{4}-\d{2}-\d{2}-?/, "");
+  return stripped.replace(/[-_]+/g, " ").trim() || base;
+}
+
+export function asTimeOfDay(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const m = value.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return undefined;
+  const h = Math.min(23, Number(m[1]));
+  return `${h.toString().padStart(2, "0")}:${m[2]}`;
 }
 
 export function parseMilestone(file: TFile, fm: Record<string, unknown>): Milestone {

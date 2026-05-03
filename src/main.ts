@@ -7,8 +7,10 @@ import { ProjectService } from "./services/projectService";
 import { MilestoneService } from "./services/milestoneService";
 import { TaskService } from "./services/taskService";
 import { LogService } from "./services/logService";
+import { EventService } from "./services/eventService";
 import { TelegramService } from "./services/telegramService";
 import { PlannerView, VIEW_TYPE_KANBAN_PLUS } from "./views/PlannerView";
+import { TaskActionBar } from "./views/shared/TaskActionBar";
 import { registerCommands } from "./commands";
 import type { ViewKind } from "./schema/types";
 
@@ -20,7 +22,9 @@ export default class KanbanPlusPlugin extends Plugin {
   milestoneService!: MilestoneService;
   taskService!: TaskService;
   logService!: LogService;
+  eventService!: EventService;
   telegramService!: TelegramService;
+  taskActionBar!: TaskActionBar;
 
   private openViews = new Set<PlannerView>();
 
@@ -68,6 +72,13 @@ export default class KanbanPlusPlugin extends Plugin {
       sidebarCache,
       () => this.allocateCode("log")
     );
+    this.eventService = new EventService(
+      this.app,
+      this.projectService,
+      getOpenMode,
+      sidebarCache,
+      () => this.allocateCode("event")
+    );
     this.telegramService = new TelegramService(
       this.app,
       this,
@@ -86,6 +97,8 @@ export default class KanbanPlusPlugin extends Plugin {
 
     registerCommands(this);
     this.registerTaskContextMenu();
+    this.taskActionBar = new TaskActionBar(this);
+    this.taskActionBar.start();
 
     this.addRibbonIcon("kanban-square", "Open Marvis", () => {
       void this.activateView(this.settings.defaultView);
@@ -95,6 +108,7 @@ export default class KanbanPlusPlugin extends Plugin {
   }
 
   onunload(): void {
+    this.taskActionBar?.stop();
     this.indexer?.stop();
   }
 
@@ -128,21 +142,23 @@ export default class KanbanPlusPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
-  async allocateCode(kind: "task" | "log" | "milestone" | "project"): Promise<string> {
+  async allocateCode(kind: "task" | "log" | "milestone" | "project" | "event"): Promise<string> {
     if (!this.settings.nextCode) {
-      this.settings.nextCode = { task: 1, log: 1, milestone: 1, project: 1 };
+      this.settings.nextCode = { task: 1, log: 1, milestone: 1, project: 1, event: 1 };
     }
+    if (this.settings.nextCode.event == null) this.settings.nextCode.event = 1;
     const n = this.settings.nextCode[kind] ?? 1;
     this.settings.nextCode[kind] = n + 1;
     await this.saveSettings();
-    const prefix = { task: "T", log: "L", milestone: "M", project: "P" }[kind];
+    const prefix = { task: "T", log: "L", milestone: "M", project: "P", event: "E" }[kind];
     return `${prefix}-${n}`;
   }
 
-  bumpCodeCounter(kind: "task" | "log" | "milestone" | "project", to: number): void {
+  bumpCodeCounter(kind: "task" | "log" | "milestone" | "project" | "event", to: number): void {
     if (!this.settings.nextCode) {
-      this.settings.nextCode = { task: 1, log: 1, milestone: 1, project: 1 };
+      this.settings.nextCode = { task: 1, log: 1, milestone: 1, project: 1, event: 1 };
     }
+    if (this.settings.nextCode.event == null) this.settings.nextCode.event = 1;
     if (to > this.settings.nextCode[kind]) {
       this.settings.nextCode[kind] = to;
     }
@@ -233,4 +249,5 @@ const DEFAULT_SETTINGS_FILTER = {
   search: "",
   includeArchived: false,
   includeLogs: true,
+  includeEvents: true,
 };

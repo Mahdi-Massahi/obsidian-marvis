@@ -170,6 +170,144 @@
   box-shadow: var(--kp-shadow-sm);
 }
 
+/* =====================================================
+   Attachment chips — used inside the create modal's Images field.
+   ===================================================== */
+
+.kp-attach__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0 8px;
+}
+
+.kp-attach__list:empty {
+  display: none;
+}
+
+.kp-attach__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 2px 2px 10px;
+  border-radius: var(--kp-radius-pill);
+  background: var(--kp-bg-hover);
+  border: 1px solid var(--kp-border);
+  color: var(--kp-text);
+  font-size: var(--kp-text-xs);
+  max-width: 100%;
+}
+
+.kp-attach__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.kp-attach__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--kp-text-faint);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.kp-attach__remove .kp-icon,
+.kp-attach__remove svg {
+  width: 10px;
+  height: 10px;
+}
+
+.kp-attach__remove:hover {
+  background: var(--kp-bg);
+  color: var(--kp-text);
+}
+
+.kp-attach__zone {
+  border-radius: var(--kp-radius);
+  transition: outline-color var(--kp-trans), background var(--kp-trans);
+  outline: 2px dashed transparent;
+  outline-offset: -4px;
+}
+
+.kp-attach__zone.is-dropzone {
+  outline-color: var(--kp-accent);
+  background: var(--kp-bg-hover);
+}
+
+/* =====================================================
+   Task action bar — sticky toolbar injected at the top of any task file's
+   .view-content (Reading + Live-Preview + Source). Buttons reuse
+   .kp-btn / .kp-btn--ghost so no new tokens are needed.
+   ===================================================== */
+
+.kp-task-actionbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--kp-border);
+  background: var(--kp-bg);
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  flex-wrap: wrap;
+}
+
+.kp-task-actionbar__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+
+.kp-task-actionbar__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--kp-radius-pill);
+  background: var(--kp-bg-soft);
+  color: var(--kp-text-muted);
+  font-size: var(--kp-text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kp-task-actionbar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kp-task-actionbar .kp-btn--danger {
+  color: var(--text-error, #e26060);
+}
+
+.kp-task-actionbar .kp-btn--danger:hover {
+  background: rgba(226, 96, 96, 0.12);
+  color: var(--text-error, #e26060);
+}
+
+@media (max-width: 760px) {
+  .kp-task-actionbar {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .kp-task-actionbar .kp-btn {
+    padding: 6px 10px;
+    font-size: var(--kp-text-sm);
+  }
+}
+
 .kp-btn--ghost {
   --btn-border: transparent;
   color: var(--kp-text-muted);
@@ -260,6 +398,416 @@
   margin-left: auto;
 }
 
+/* The mobile filter-modal trigger is hidden by default and only shown at
+   ≤760px (where the inline .kp-filterbar__chips is hidden in turn). The
+   .kp-filterbar prefix bumps specificity above the generic .kp-iconbtn. */
+.kp-filterbar .kp-filterbar__filtertrigger,
+.kp-filterbar .kp-filterbar__searchtrigger {
+  display: none;
+}
+
+/* =====================================================
+   Mobile bottom nav — replaces Obsidian's default mobile navbar while a
+   Marvis view is active. Rendered via portal to body so it floats above
+   everything.
+   ===================================================== */
+
+.kp-mobnav {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  /* Hide Obsidian's default mobile navbar while a Marvis leaf is active. */
+  body:has(.workspace-leaf.mod-active .kp-host) .mobile-navbar,
+  body:has(.workspace-leaf.mod-active .kp-host) .mobile-toolbar {
+    display: none !important;
+  }
+
+  .kp-mobnav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom, 0px) - 4px);
+    padding: 4px 6px;
+    background: var(--kp-bg-soft);
+    border: 1px solid var(--kp-border);
+    border-radius: var(--kp-radius-pill);
+    box-shadow: var(--kp-shadow-md);
+    z-index: 900;
+    backdrop-filter: blur(12px);
+  }
+
+  .kp-mobnav--views {
+    left: 8px;
+  }
+
+  .kp-mobnav__right {
+    position: fixed;
+    right: 8px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) - 4px);
+    display: flex;
+    gap: 6px;
+    z-index: 900;
+  }
+
+  .kp-mobnav__right .kp-mobnav {
+    position: static;
+  }
+
+  /* Isolated single-button pills: drop the grouping pill background — render
+     just the circular button on its own. */
+  .kp-mobnav--search,
+  .kp-mobnav--actions {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    backdrop-filter: none;
+  }
+
+  /* Bring the standalone circle buttons up to the height of the views pill. */
+  .kp-mobnav--search .kp-mobnav__btn,
+  .kp-mobnav--actions .kp-mobnav__btn {
+    width: 48px;
+    height: 48px;
+    box-shadow: var(--kp-shadow-md);
+    background: var(--kp-bg-soft);
+  }
+
+  .kp-mobnav--actions .kp-mobnav__btn--accent {
+    background: var(--kp-accent);
+  }
+
+  .kp-mobnav__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    background-color: transparent;
+    color: var(--kp-text-muted);
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    transition: background var(--kp-trans), color var(--kp-trans);
+    box-shadow: none;
+  }
+
+  .kp-mobnav__btn:hover {
+    color: var(--kp-text);
+  }
+
+  .kp-mobnav__btn.is-active {
+    background: var(--kp-bg);
+    color: var(--kp-text);
+    box-shadow: inset 0 0 0 1px var(--kp-accent);
+  }
+
+  .kp-mobnav__btn--accent {
+    background: var(--kp-accent);
+    color: var(--kp-on-accent);
+  }
+
+  .kp-mobnav__btn--accent:hover {
+    background: var(--kp-accent-hover);
+    color: var(--kp-on-accent);
+  }
+
+  .kp-mobnav__count {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 4px;
+    border-radius: 7px;
+    font-size: 9px;
+    line-height: 14px;
+    background: var(--kp-accent);
+    color: var(--kp-on-accent);
+    font-weight: 600;
+  }
+
+  /* On mobile, the view-switcher and Create (+) move into the floating
+     bottom nav. Telegram pull and filter trigger remain on top. */
+  .kp-filterbar__row > .kp-viewswitcher,
+  .kp-filterbar__row > .kp-iconbtn--accent {
+    display: none;
+  }
+
+  /* Reorder merged-row children: segmented toolbar first, telegram next,
+     filter trigger pushed to the far right. */
+  .kp-filterbar__toolbar {
+    order: 1;
+  }
+
+  .kp-filterbar__row > .kp-iconbtn {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .kp-filterbar .kp-filterbar__filtertrigger {
+    order: 3;
+    margin-left: 0;
+  }
+
+  /* Show the filter-modal trigger on top. */
+  .kp-filterbar .kp-filterbar__searchtrigger,
+  .kp-filterbar .kp-filterbar__filtertrigger {
+    display: inline-flex;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    aspect-ratio: 1;
+  }
+
+  .kp-filterbar .kp-filterbar__searchtrigger {
+    margin-left: auto;
+  }
+
+  /* Merge rows 1 & 2 into a single horizontal row. `display: contents`
+     hoists each row's children directly into .kp-filterbar's flex layout. */
+  .kp-filterbar {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+  }
+
+  .kp-filterbar__row,
+  .kp-filterbar__row--chips {
+    display: contents;
+  }
+
+  /* The chips wrapper is hidden but the filter-trigger sits next to it; nothing
+     to do, the wrapper already has display: none. */
+
+  /* Hide the top search field on mobile — search is in the bottom nav and
+     opens its own modal, so the field saves space here. */
+  .kp-filterbar .kp-search--anchored {
+    display: none;
+  }
+
+  /* Reserve room above the floating bottom nav. */
+  .kp-view {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  }
+}
+
+/* =====================================================
+   Mobile filter modal — bottom sheet with vertical filter sections
+   ===================================================== */
+
+.kp-filtermodal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  animation: kp-fade-in 0.15s ease-out;
+}
+
+.kp-filtermodal {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 85dvh;
+  background: var(--kp-bg);
+  border-top-left-radius: var(--kp-radius-lg);
+  border-top-right-radius: var(--kp-radius-lg);
+  box-shadow: var(--kp-shadow-lg);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  animation: kp-slide-up 0.2s ease-out;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@keyframes kp-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes kp-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.kp-filtermodal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--kp-border);
+  flex-shrink: 0;
+}
+
+.kp-filtermodal__title {
+  font-weight: 600;
+  font-size: var(--kp-text-md);
+  color: var(--kp-text);
+}
+
+.kp-filtermodal__body {
+  overflow-y: auto;
+  padding: 8px 16px 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+.kp-filtermodal__section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--kp-border);
+}
+
+.kp-filtermodal__section:last-of-type {
+  border-bottom: none;
+}
+
+.kp-filtermodal__sectionhead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--kp-text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--kp-text-muted);
+  margin-bottom: 8px;
+}
+
+.kp-filtermodal__sectionhead .kp-chipgroup__count {
+  margin-left: auto;
+}
+
+.kp-filtermodal__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kp-filtermodal__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--kp-radius-pill);
+  background: var(--kp-bg-soft);
+  color: var(--kp-text-muted);
+  font-size: var(--kp-text-sm);
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.kp-filtermodal__option input {
+  display: none;
+}
+
+.kp-filtermodal__option.is-selected {
+  background: var(--kp-bg);
+  color: var(--kp-text);
+  border-color: var(--kp-accent);
+  font-weight: 600;
+}
+
+.kp-filtermodal__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 12px;
+}
+
+.kp-filtermodal__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--kp-radius-pill);
+  background: var(--kp-bg-soft);
+  color: var(--kp-text-muted);
+  font-size: var(--kp-text-sm);
+  cursor: pointer;
+}
+
+.kp-filtermodal__toggle input {
+  display: none;
+}
+
+.kp-filtermodal__toggle:has(input:checked) {
+  background: var(--kp-bg);
+  color: var(--kp-text);
+  box-shadow: inset 0 0 0 1px var(--kp-accent);
+  font-weight: 600;
+}
+
+.kp-filtermodal__footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--kp-border);
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+/* =====================================================
+   Mobile search modal — top sheet with input
+   ===================================================== */
+
+.kp-searchmodal__overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--kp-bg);
+  z-index: 1000;
+}
+
+.kp-searchmodal {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--kp-bg);
+  border: 1px solid var(--kp-border);
+  border-radius: var(--kp-radius-pill);
+  box-shadow: var(--kp-shadow-lg);
+  z-index: 1001;
+  animation: kp-slide-down 0.18s ease-out;
+}
+
+@keyframes kp-slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.kp-searchmodal__icon {
+  flex-shrink: 0;
+  color: var(--kp-text-muted);
+}
+
+.kp-searchmodal__input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--kp-text);
+  font-family: inherit;
+  font-size: var(--kp-text-md);
+  outline: none;
+  padding: 4px 0;
+  min-width: 0;
+}
+
+.kp-searchmodal__input::placeholder {
+  color: var(--kp-text-faint);
+}
+
 
 .kp-toolbar__label {
   display: inline-flex;
@@ -276,6 +824,60 @@
   height: 16px;
   background: var(--kp-border);
   margin: 0 var(--kp-space-1);
+}
+
+/* Generic segmented pill — same visual language as the view-switcher.
+   Used by view-specific toolbars (e.g. kanban groupBy). */
+
+.kp-segmented {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--kp-bg-soft);
+  border-radius: var(--kp-radius-pill);
+  padding: 3px;
+}
+
+.kp-segmented .kp-segmented__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  background-color: transparent;
+  color: var(--kp-text-muted);
+  border-radius: var(--kp-radius-pill);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--kp-text-sm);
+  font-weight: 500;
+  line-height: 1.5;
+  box-shadow: none;
+  transition: background var(--kp-trans), color var(--kp-trans);
+}
+
+.kp-segmented__btn .kp-icon {
+  color: var(--kp-text-faint);
+  transition: color var(--kp-trans);
+}
+
+.kp-segmented__btn:hover {
+  color: var(--kp-text);
+}
+
+.kp-segmented__btn:hover .kp-icon {
+  color: var(--kp-text-muted);
+}
+
+.kp-segmented .kp-segmented__btn.is-active {
+  background: var(--kp-bg);
+  color: var(--kp-text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--kp-accent);
+}
+
+.kp-segmented__btn.is-active .kp-icon {
+  color: var(--kp-text);
 }
 
 /* View switcher — segmented pill: shared rounded container, active pops out */
@@ -548,6 +1150,16 @@
   border-color: var(--kp-border);
   box-shadow: var(--kp-shadow-sm);
   transform: translateY(-1px);
+}
+
+.kp-card.is-flash {
+  animation: kp-card-flash 1.4s ease-out;
+}
+
+@keyframes kp-card-flash {
+  0%   { box-shadow: 0 0 0 0 var(--kp-accent); }
+  20%  { box-shadow: 0 0 0 4px var(--kp-accent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 .kp-card:active {
@@ -940,6 +1552,223 @@
   margin-bottom: 14px;
 }
 
+/* Mobile-friendly create modal — tighter spacing, smaller fields, single-row
+   settings, scrollable when the keyboard cuts the viewport. */
+@media (max-width: 760px) {
+  /* Full-height bottom-aligned sheet so the modal anchors to the top of the
+     viewport (no empty space above) and any cut-off items become reachable
+     by scrolling within the modal body. Using `dvh` so the modal shrinks
+     when the on-screen keyboard appears (iOS Safari + Obsidian mobile). */
+  body:has(.kp-create-menu) .modal {
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .kp-create-menu {
+    padding: 12px 14px 12px !important;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  /* Title sits inline with the modal-close (X) button at top. */
+  .kp-create-menu h2 {
+    margin: 0 0 10px;
+    padding-right: 40px;
+    font-size: var(--kp-text-md);
+    line-height: 32px;
+  }
+
+  .kp-create-menu .kp-create-menu__tabs {
+    margin-bottom: 10px;
+  }
+
+  /* Show text labels on the create-modal tabs — there's plenty of width. */
+  .kp-create-menu .kp-create-menu__tabs .kp-viewswitcher__btn span {
+    display: inline !important;
+  }
+
+  /* Form scrolls inside the sheet so the keyboard never hides fields. The
+     deep bottom padding gives the focused-input scrollIntoView room to lift
+     each field clear of the keyboard, even the last one in the list. */
+  .kp-create-menu .kp-create-menu__form {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 2px 60vh;
+    scroll-padding-bottom: 50vh;
+  }
+
+  /* Top tab row spans the full modal width so all four tabs spread out. */
+  .kp-create-menu .kp-create-menu__tabs {
+    display: flex;
+    width: 100%;
+  }
+
+  .kp-create-menu .kp-create-menu__tabs .kp-viewswitcher__btn {
+    flex: 1;
+    justify-content: center;
+    transition: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .kp-create-menu .kp-create-menu__tabs .kp-viewswitcher__btn:active,
+  .kp-create-menu .kp-create-menu__tabs .kp-viewswitcher__btn:focus,
+  .kp-create-menu .kp-create-menu__tabs .kp-viewswitcher__btn:focus-visible {
+    outline: none;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  .kp-create-menu .kp-create-menu__tabs .kp-viewswitcher__btn.is-active,
+  .kp-create-menu .kp-create-menu__tabs .kp-viewswitcher__btn.is-active:active,
+  .kp-create-menu .kp-create-menu__tabs .kp-viewswitcher__btn.is-active:focus {
+    background: var(--kp-bg-hover) !important;
+    background-color: var(--kp-bg-hover) !important;
+  }
+
+  /* Color picker rendered as a circular swatch on the right. */
+  .kp-create-menu .setting-item-control input[type="color"] {
+    width: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    border: 2px solid var(--kp-border) !important;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    overflow: hidden;
+    margin-left: auto;
+  }
+
+  .kp-create-menu .setting-item-control input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+
+  .kp-create-menu .setting-item-control input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+  }
+
+  /* Hide Obsidian's default close (X) button — Cancel button covers that. */
+  body:has(.kp-create-menu) .modal-close-button {
+    display: none !important;
+  }
+
+  /* Hide the floating bottom nav while any Marvis modal — or any Obsidian
+     popover/context menu (e.g. long-press card options) — is open so it
+     doesn't compete for attention with the active surface. */
+  body:has(.kp-create-menu) .kp-mobnav,
+  body:has(.kp-create-menu) .kp-mobnav__right,
+  body:has(.kp-filtermodal) .kp-mobnav,
+  body:has(.kp-filtermodal) .kp-mobnav__right,
+  body:has(.kp-searchmodal) .kp-mobnav,
+  body:has(.kp-searchmodal) .kp-mobnav__right,
+  body:has(.menu) .kp-mobnav,
+  body:has(.menu) .kp-mobnav__right {
+    display: none !important;
+  }
+
+  .kp-create-menu .setting-item {
+    display: flex !important;
+    padding: 6px 0 !important;
+    border: none !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  .kp-create-menu .setting-item + .setting-item {
+    border-top: 1px solid var(--kp-border) !important;
+  }
+
+  .kp-create-menu .setting-item-info {
+    flex: 0 0 70px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .kp-create-menu .setting-item-name {
+    font-size: var(--kp-text-sm);
+    font-weight: 500;
+    color: var(--kp-text-muted);
+  }
+
+  .kp-create-menu .setting-item-description {
+    display: none !important;
+  }
+
+  .kp-create-menu .setting-item-control {
+    flex: 1 !important;
+    justify-content: flex-end !important;
+    gap: 6px;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+  }
+
+  .kp-create-menu .setting-item-control input,
+  .kp-create-menu .setting-item-control select,
+  .kp-create-menu .setting-item-control textarea {
+    width: calc(100% - 4px) !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    margin-right: 2px !important;
+    padding: 4px 10px !important;
+    font-size: var(--kp-text-sm) !important;
+    box-sizing: border-box !important;
+    line-height: 1.2 !important;
+  }
+
+  /* iOS Safari paints date/time inputs with its own coloring + centered
+     placeholder. Override to match the rest of the form. */
+  .kp-create-menu .setting-item-control input[type="time"],
+  .kp-create-menu .setting-item-control input[type="date"],
+  .kp-create-menu .setting-item-control input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    color: var(--kp-text) !important;
+    text-align: left !important;
+  }
+
+  .kp-create-menu .setting-item-control input[type="time"]::-webkit-date-and-time-value,
+  .kp-create-menu .setting-item-control input[type="date"]::-webkit-date-and-time-value,
+  .kp-create-menu .setting-item-control input[type="datetime-local"]::-webkit-date-and-time-value {
+    text-align: left;
+    color: var(--kp-text);
+  }
+
+  .kp-create-menu .setting-item-control textarea {
+    height: auto !important;
+    min-height: 80px !important;
+    max-height: none !important;
+  }
+
+  /* Action row (Cancel / CTA) sticks to the modal bottom on mobile so the
+     keyboard never hides them. */
+  .kp-create-menu .setting-item:last-child {
+    border-top: 1px solid var(--kp-border);
+    padding-top: 12px;
+    margin-top: 6px;
+    justify-content: flex-end;
+  }
+
+  .kp-create-menu .setting-item:last-child .setting-item-info {
+    display: none;
+  }
+}
+
 .kp-create-menu .kp-create-menu__tabicon {
   display: inline-flex;
   align-items: center;
@@ -1279,8 +2108,17 @@
 .kp-cal__title {
   font-weight: 600;
   color: var(--kp-text);
-  flex: 1;
   font-size: var(--kp-text-lg);
+}
+
+.kp-cal__titlerow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px var(--kp-space-4);
+  border-bottom: 1px solid var(--kp-border);
+  background: var(--kp-bg);
+  flex-shrink: 0;
 }
 
 .kp-cal__modes {
@@ -1440,6 +2278,172 @@
   opacity: 0.92;
 }
 
+.kp-cal__chip--event {
+  background: color-mix(in oklab, var(--kp-accent) 18%, var(--kp-bg));
+  border-style: solid;
+  font-weight: 500;
+}
+
+/* =====================================================
+   Day view — single-day hour grid with all-day strip on top.
+   ===================================================== */
+
+.kp-cal__day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--kp-bg);
+}
+
+.kp-cal__day-allday {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--kp-border);
+  background: var(--kp-bg-soft);
+  min-height: 44px;
+}
+
+.kp-cal__day-allday-label {
+  width: 56px;
+  font-size: var(--kp-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--kp-text-muted);
+  font-weight: 600;
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+
+.kp-cal__day-allday-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+
+.kp-cal__day-empty {
+  color: var(--kp-text-faint);
+  font-size: var(--kp-text-sm);
+}
+
+.kp-cal__day-grid {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+
+.kp-cal__day-grid-inner {
+  position: relative;
+  padding-left: 56px;
+}
+
+.kp-cal__day-hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--kp-border);
+}
+
+.kp-cal__day-hour-label {
+  position: absolute;
+  left: 8px;
+  top: -8px;
+  font-size: var(--kp-text-xs);
+  color: var(--kp-text-muted);
+  background: var(--kp-bg);
+  padding: 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kp-cal__day-event {
+  position: absolute;
+  left: 60px;
+  right: 12px;
+  border-left: 3px solid var(--kp-accent);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: var(--kp-text-xs);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  z-index: 2;
+  box-shadow: var(--kp-shadow-xs);
+}
+
+.kp-cal__day-event:hover {
+  filter: brightness(1.05);
+  z-index: 3;
+}
+
+.kp-cal__day-event-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.kp-cal__day-event-time {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.kp-cal__day-event-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.kp-cal__day-log {
+  position: absolute;
+  left: 60px;
+  right: 12px;
+  height: 22px;
+  border-left: 3px solid var(--kp-text-faint);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: var(--kp-text-xs);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  z-index: 2;
+  background: color-mix(in oklab, var(--kp-bg) 92%, transparent);
+  font-style: italic;
+  opacity: 0.92;
+}
+
+.kp-cal__day-now {
+  position: absolute;
+  left: 56px;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--kp-accent);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.kp-cal__day-now::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--kp-accent);
+}
+
+.kp-cal__chip--event.kp-cal__chip--allday {
+  font-weight: 600;
+}
+
 .kp-cal__chip-icon {
   flex-shrink: 0;
   opacity: 0.75;
@@ -1489,6 +2493,23 @@
   background: var(--kp-bg);
   z-index: 5;
   border-right: 1px solid var(--kp-border);
+  width: 200px;
+}
+
+@media (max-width: 760px) {
+  .kp-tl__sidebar {
+    width: 110px;
+  }
+
+  .kp-tl__sidebar-head,
+  .kp-tl__sidebar-row {
+    padding-left: var(--kp-space-2);
+    padding-right: var(--kp-space-2);
+  }
+
+  .kp-tl__sidebar-row {
+    font-size: var(--kp-text-sm);
+  }
 }
 
 .kp-tl__sidebar-head {
@@ -1683,6 +2704,11 @@
 .kp-tl__bar:hover {
   filter: brightness(1.1);
   z-index: 3;
+}
+
+.kp-tl__bar--event {
+  border-style: solid;
+  cursor: pointer;
 }
 
 .kp-tl__bar-pri {
@@ -1885,9 +2911,185 @@
    ===================================================== */
 
 @media (max-width: 760px) {
+  /* Edge-to-edge layout — kill Obsidian's mobile view-content padding so
+     Marvis content can use the full screen width. */
+  body:has(.workspace-leaf.mod-active .kp-host) .view-content {
+    padding: 0 !important;
+  }
+
+  .kp-kanban__board {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .kp-cal__weekheader,
+  .kp-cal__grid,
+  .kp-tbl,
+  .kp-tl__scroll {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
   .kp-filterbar {
-    padding: 8px 10px;
+    padding: 6px 8px;
     gap: 6px;
+    /* Obsidian mobile sets --input-height to 36-44px and applies it to every
+       button/input via global rules; scope it down here so our compact bar
+       isn't blown out. */
+    --input-height: 32px;
+  }
+
+  .kp-filterbar button,
+  .kp-filterbar input {
+    min-height: 0 !important;
+  }
+
+  .kp-filterbar .kp-viewswitcher__btn,
+  .kp-filterbar .kp-chipgroup__trigger,
+  .kp-filterbar .kp-search,
+  .kp-filterbar .kp-search__input {
+    height: auto !important;
+  }
+
+  .kp-filterbar .kp-iconbtn {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .kp-filterbar__row {
+    gap: 6px;
+  }
+
+  /* Compact controls on mobile so the top bar doesn't eat vertical space.
+     Override Obsidian's mobile --input-height (typically 36-44px) by setting
+     explicit min-height: 0 on every interactive element in the bar. */
+  .kp-filterbar button,
+  .kp-filterbar input,
+  .kp-filterbar .kp-search,
+  .kp-filterbar .kp-viewswitcher {
+    min-height: 0;
+  }
+
+  .kp-iconbtn {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+  }
+
+  .kp-iconbtn .kp-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .kp-viewswitcher {
+    padding: 1px;
+    gap: 1px;
+  }
+
+  .kp-viewswitcher .kp-viewswitcher__btn {
+    padding: 6px 8px;
+    font-size: var(--kp-text-xs);
+    gap: 4px;
+    line-height: 1.2;
+  }
+
+  /* Apply the same compact treatment to the generic segmented pill. */
+  .kp-segmented {
+    padding: 2px;
+    gap: 1px;
+  }
+
+  .kp-segmented .kp-segmented__btn {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    padding: 8px 10px;
+    font-size: var(--kp-text-sm);
+    gap: 4px;
+    line-height: 1.2;
+    justify-content: center;
+  }
+
+  .kp-segmented .kp-segmented__btn .kp-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Match height for ghost toolbar buttons (e.g. prev / next / Today in
+     Calendar and Timeline views). */
+  .kp-filterbar__toolbar .kp-btn--ghost {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    padding: 8px 10px;
+  }
+
+  .kp-filterbar__toolbar .kp-btn--ghost .kp-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .kp-segmented .kp-segmented__btn span {
+    display: none;
+  }
+
+  .kp-search {
+    padding: 1px 8px;
+    font-size: var(--kp-text-sm);
+    line-height: 1.2;
+  }
+
+  .kp-search__input {
+    font-size: var(--kp-text-sm);
+    line-height: 1.2;
+  }
+
+  /* On mobile, the inline chip filters are replaced by a single filter-trigger
+     button that opens a modal containing the same filters in a vertical list. */
+  .kp-filterbar__chips {
+    display: none;
+  }
+
+  .kp-filterbar__filtertrigger {
+    position: relative;
+  }
+
+  .kp-filterbar__filtertrigger.is-selected {
+    color: var(--kp-text);
+    box-shadow: inset 0 0 0 1px var(--kp-accent);
+  }
+
+  .kp-filterbar__filtertrigger-count {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 4px;
+    border-radius: 7px;
+    font-size: 9px;
+    line-height: 14px;
+    background: var(--kp-accent);
+    color: var(--kp-on-accent);
+    font-weight: 600;
+  }
+
+  .kp-filterbar .kp-chipgroup__trigger > span:not(.kp-chipgroup__count) {
+    display: none;
+  }
+
+  /* Float the selection-count badge on the corner so the trigger stays
+     perfectly circular. */
+  .kp-filterbar .kp-chipgroup__trigger .kp-chipgroup__count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 4px;
+    border-radius: 7px;
+    font-size: 9px;
+    line-height: 14px;
+    background: var(--kp-accent);
+    color: var(--kp-on-accent);
   }
 
   /* Stop wrapping the chip + toolbar row; let it scroll horizontally so the
@@ -1941,7 +3143,7 @@
   }
 
   .kp-viewswitcher .kp-viewswitcher__btn {
-    padding: 4px 9px;
+    padding: 6px 8px;
   }
 
   /* Drop the "Zoom" word label in the timeline toolbar. */

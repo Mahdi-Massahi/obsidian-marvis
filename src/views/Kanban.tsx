@@ -132,18 +132,19 @@ export const KanbanRoot: React.FC = () => {
     milestone: "flag",
   };
   const toolbar = (
-    <>
+    <div className="kp-segmented">
       {(["status", "priority", "milestone"] as GroupBy[]).map((g) => (
         <button
           key={g}
-          className={`kp-btn kp-btn--ghost ${groupBy === g ? "is-active" : ""}`}
+          className={`kp-segmented__btn ${groupBy === g ? "is-active" : ""}`}
           onClick={() => setGroupBy(g)}
+          title={`Group by ${g}`}
         >
           <Icon name={groupIcon[g]} size={13} />
           <span>{g}</span>
         </button>
       ))}
-    </>
+    </div>
   );
 
   return (

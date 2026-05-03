@@ -17,10 +17,29 @@ interface Props {
 export const TaskCard: React.FC<Props> = ({ task, compact, draggableProps, innerRef, style }) => {
   const { app, settings, taskService, store } = usePlugin();
   const projects = store((s) => s.projects);
+  const focusTaskPath = store((s) => s.focusTaskPath);
+  const focusTask = store((s) => s.focusTask);
   const project = task.project ? Object.values(projects).find((p) => p.name === task.project) : undefined;
   const status = settings.statuses.find((s) => s.id === task.status);
   const priority = settings.priorities.find((p) => p.id === task.priority);
   const due = parseDate(task.due);
+
+  const cardElRef = React.useRef<HTMLDivElement | null>(null);
+  const [isFlashing, setIsFlashing] = React.useState(false);
+
+  React.useEffect(() => {
+    if (focusTaskPath !== task.path) return;
+    const el = cardElRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    setIsFlashing(true);
+    const flashTimer = window.setTimeout(() => setIsFlashing(false), 1500);
+    const clearTimer = window.setTimeout(() => focusTask(null), 200);
+    return () => {
+      window.clearTimeout(flashTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [focusTaskPath, task.path, focusTask]);
 
   const longPressFiredRef = React.useRef(false);
   const longPressTimerRef = React.useRef<number | null>(null);
@@ -114,6 +133,10 @@ export const TaskCard: React.FC<Props> = ({ task, compact, draggableProps, inner
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // On iOS / mobile WebKit a long-press on a touch device fires our 500ms
+    // timer AND a synthesized `contextmenu` event after it — without this
+    // guard the options menu would open twice.
+    if (longPressFiredRef.current) return;
     buildAndShowMenu(e.clientX, e.clientY);
   };
 
@@ -155,8 +178,12 @@ export const TaskCard: React.FC<Props> = ({ task, compact, draggableProps, inner
 
   return (
     <div
-      ref={innerRef}
-      className={`kp-card ${compact ? "kp-card--compact" : ""}`}
+      ref={(el) => {
+        cardElRef.current = el;
+        innerRef?.(el);
+      }}
+      data-task-path={task.path}
+      className={`kp-card ${compact ? "kp-card--compact" : ""} ${isFlashing ? "is-flash" : ""}`}
       style={cardStyle}
       onClick={onClick}
       onContextMenu={onContextMenu}
