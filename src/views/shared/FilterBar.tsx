@@ -1,12 +1,17 @@
 import * as React from "react";
 import * as ReactDOM from "react-dom";
+import { Notice } from "obsidian";
 import { usePlugin } from "../context";
 import type { ViewKind } from "../../schema/types";
 import { Icon, IconName } from "./Icon";
+import { macCalendarProvider } from "../../services/calendar/macCalendarProvider";
 
 interface Props {
   activeView: ViewKind;
   toolbar?: React.ReactNode;
+  // Explicit override for the calendar-sync button. When unset, the button
+  // shows on calendar + timeline views (which always render events).
+  showCalendarSync?: boolean;
 }
 
 const VIEWS: { id: ViewKind; label: string; icon: IconName }[] = [
@@ -24,8 +29,39 @@ const CHIP_ICONS: Record<string, IconName> = {
   Tag: "hash",
 };
 
-export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
-  const { store, settings, switchView, openCreateMenu } = usePlugin();
+export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSync }) => {
+  const { store, settings, switchView, openCreateMenu, calendarSyncEngine } = usePlugin();
+  const [isSyncing, setIsSyncing] = React.useState(false);
+
+  const calendarSyncEnabled =
+    (showCalendarSync ?? (activeView === "calendar" || activeView === "timeline")) &&
+    macCalendarProvider.isAvailable();
+
+  const runCalendarSync = async () => {
+    if (isSyncing) return;
+    const block = settings.calendarSync?.macos;
+    if (!block?.token) {
+      new Notice("Connect Apple Calendar in Marvis settings first.");
+      return;
+    }
+    if (block.selectedCalendars.length === 0) {
+      new Notice("No calendars selected — pick one in Settings → Calendar sync.");
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const r = await calendarSyncEngine.syncAllSelected(macCalendarProvider);
+      new Notice(
+        `Calendar sync: +${r.created} ~${r.updated} ⌫${r.archived}` +
+          (r.failed ? ` · ${r.failed} failed` : "")
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      new Notice(`Calendar sync failed: ${msg}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   const filter = store((s) => s.filter);
   const projects = store((s) => s.projects);
   const milestones = store((s) => s.milestones);
@@ -107,6 +143,19 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar }) => {
         >
           <Icon name="plus" size={15} />
         </button>
+        {calendarSyncEnabled && (
+          <button
+            className={`kp-iconbtn kp-iconbtn--round kp-iconbtn--calsync ${
+              isSyncing ? "is-syncing" : ""
+            }`}
+            title="Sync Apple Calendar"
+            aria-label="Sync Apple Calendar"
+            disabled={isSyncing}
+            onClick={() => void runCalendarSync()}
+          >
+            <Icon name="cloudDownload" size={15} />
+          </button>
+        )}
 
         <div className="kp-search kp-search--anchored">
           <Icon name="search" size={14} className="kp-search__icon" />

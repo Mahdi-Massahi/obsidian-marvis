@@ -3124,6 +3124,19 @@
   }
 }
 
+/* Calendar sync icon button — pulses while a sync is in flight. */
+.kp-iconbtn--calsync.is-syncing {
+  pointer-events: none;
+  opacity: 0.7;
+}
+.kp-iconbtn--calsync.is-syncing .kp-icon {
+  animation: kp-calsync-spin 0.9s linear infinite;
+  transform-origin: center;
+}
+@keyframes kp-calsync-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Calendar-list swatch in settings — a small dot before the calendar title
    that picks up Apple's per-calendar color so duplicate-name calendars are
    distinguishable at a glance. */

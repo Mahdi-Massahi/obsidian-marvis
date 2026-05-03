@@ -38,7 +38,11 @@ export const TableRoot: React.FC = () => {
 
   return (
     <div className="kp-view kp-view--table">
-      <FilterBar activeView="table" toolbar={toolbar} />
+      <FilterBar
+        activeView="table"
+        toolbar={toolbar}
+        showCalendarSync={tab === "events"}
+      />
       {tab === "tasks" && <TaskTable />}
       {tab === "projects" && <ProjectTable />}
       {tab === "milestones" && <MilestoneTable />}
