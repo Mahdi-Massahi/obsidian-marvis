@@ -120,6 +120,7 @@ export class PlannerView extends ItemView {
       calendarSyncEngine: this.plugin.calendarSyncEngine,
       assistantSession: this.plugin.assistantSession,
       settings: this.plugin.settings,
+      savePluginSettings: () => this.plugin.saveSettings(),
       switchView: (kind: ViewKind) => this.switchKind(kind),
       openQuickCreate: this.openQuickCreate,
       openCreateMenu: this.openCreateMenu,

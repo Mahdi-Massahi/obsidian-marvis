@@ -16,6 +16,23 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "milestone", label: "Milestone", icon: "flag" },
 ];
 
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+
+function formatLocalDateTimeInput(d: Date): string {
+  return (
+    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` +
+    `T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+  );
+}
+
+function parseLocalDateTimeInput(value: string): Date | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? undefined : d;
+}
+
 export class CreateMenuModal extends Modal {
   private plugin: KanbanPlusPlugin;
   private tab: Tab = "task";
@@ -92,6 +109,7 @@ export class CreateMenuModal extends Modal {
       status: statuses[1]?.id ?? statuses[0]?.id ?? "todo",
       priority: "",
       due: "",
+      tags: "",
       attachments: [] as File[],
     };
 
@@ -127,6 +145,9 @@ export class CreateMenuModal extends Modal {
       t.inputEl.type = "date";
       t.onChange((v) => (state.due = v));
     });
+    new Setting(this.formEl).setName("Tags").addText((t) => {
+      t.setPlaceholder("comma-separated").onChange((v) => (state.tags = v));
+    });
 
     this.renderAttachmentsField(state);
 
@@ -138,6 +159,10 @@ export class CreateMenuModal extends Modal {
       }
       try {
         const projectName = state.project || "Inbox";
+        const tags = state.tags
+          .split(/[,\s]+/)
+          .map((t) => t.replace(/^#/, "").trim())
+          .filter(Boolean);
         const refs = await this.persistAttachments(
           state.attachments,
           this.plugin.taskService.attachmentsFolder(projectName)
@@ -149,6 +174,7 @@ export class CreateMenuModal extends Modal {
           status: state.status,
           priority: state.priority || undefined,
           due: state.due || undefined,
+          tags: tags.length ? tags : undefined,
           body,
         });
         new Notice(`Task "${title}" created`);
@@ -168,6 +194,7 @@ export class CreateMenuModal extends Modal {
       project: projects[0] ?? "",
       tags: "",
       body: "",
+      timestamp: formatLocalDateTimeInput(new Date()),
       attachments: [] as File[],
     };
 
@@ -184,6 +211,14 @@ export class CreateMenuModal extends Modal {
       dd.setValue(state.project);
       dd.onChange((v) => (state.project = v));
     });
+    new Setting(this.formEl)
+      .setName("When")
+      .setDesc("Defaults to now.")
+      .addText((t) => {
+        t.inputEl.type = "datetime-local";
+        t.inputEl.step = "1";
+        t.setValue(state.timestamp).onChange((v) => (state.timestamp = v));
+      });
     new Setting(this.formEl).setName("Tags").addText((t) => {
       t.setPlaceholder("comma-separated").onChange((v) => (state.tags = v));
     });
@@ -212,9 +247,11 @@ export class CreateMenuModal extends Modal {
         const refsBlock = refs.map((r) => `![[${r}]]`).join("\n");
         const bodyParts = [state.body.trim(), refsBlock].filter(Boolean);
         const body = bodyParts.length ? bodyParts.join("\n\n") : undefined;
+        const ts = parseLocalDateTimeInput(state.timestamp);
         await this.plugin.logService.createLog(state.project, {
           body,
           tags: tags.length ? tags : undefined,
+          timestamp: ts,
         });
         new Notice(`Log added to ${state.project}`);
         this.close();
@@ -232,7 +269,8 @@ export class CreateMenuModal extends Modal {
     const milestones = Object.values(this.plugin.store.getState().milestones)
       .map((m) => ({ name: m.name, project: m.project }))
       .sort((a, b) => a.name.localeCompare(b.name));
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
     const state = {
       title: "",
       date: todayIso,
@@ -263,8 +301,14 @@ export class CreateMenuModal extends Modal {
     });
 
     new Setting(this.formEl).setName("Date").addText((t) => {
-      t.inputEl.type = "date";
-      t.setValue(state.date).onChange((v) => (state.date = v));
+      t.inputEl.type = "datetime-local";
+      t.inputEl.step = "1";
+      t.setValue(`${state.date}T${state.time}:00`).onChange((v) => {
+        if (!v) return;
+        const [d, time] = v.split("T");
+        state.date = d;
+        if (time) state.time = time.slice(0, 5);
+      });
     });
 
     let timeRow: Setting | null = null;

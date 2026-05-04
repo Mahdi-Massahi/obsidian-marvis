@@ -248,12 +248,12 @@ export const TaskCard: React.FC<Props> = ({ task, compact, draggableProps, inner
           {task.milestone && (
             <span className="kp-chip kp-chip--milestone">
               <Icon name="flag" size={11} />
-              {task.milestone}
+              <span className="kp-chip__label">{task.milestone}</span>
             </span>
           )}
           {task.tags.slice(0, compact ? 1 : 3).map((tag) => (
             <span key={tag} className="kp-chip kp-chip--tag">
-              #{tag}
+              <span className="kp-chip__label">#{tag}</span>
             </span>
           ))}
           {task.updated && (

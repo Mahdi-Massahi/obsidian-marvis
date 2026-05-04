@@ -3,6 +3,7 @@ import type { SidebarLeafCache } from "./utils/openFile";
 import {
   DEFAULT_ASSISTANT_SETTINGS,
   DEFAULT_SETTINGS,
+  DEFAULT_VIEW_STATE,
   KanbanPlusSettings,
   KanbanPlusSettingTab,
 } from "./settings";
@@ -143,6 +144,14 @@ export default class KanbanPlusPlugin extends Plugin {
       this.settings.assistant = { ...DEFAULT_ASSISTANT_SETTINGS };
     } else {
       this.settings.assistant = { ...DEFAULT_ASSISTANT_SETTINGS, ...this.settings.assistant };
+    }
+    if (!this.settings.viewState) {
+      this.settings.viewState = {
+        ...DEFAULT_VIEW_STATE,
+        kanbanGroupBy: this.settings.defaultKanbanGroupBy ?? DEFAULT_VIEW_STATE.kanbanGroupBy,
+      };
+    } else {
+      this.settings.viewState = { ...DEFAULT_VIEW_STATE, ...this.settings.viewState };
     }
     // Migrate older installs that don't yet carry the `review` status. Splice
     // it in between in-progress and blocked so the natural workflow order is

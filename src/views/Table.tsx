@@ -6,6 +6,7 @@ import { MilestoneTable } from "./table/MilestoneTable";
 import { LogTable } from "./table/LogTable";
 import { EventTable } from "./table/EventTable";
 import { Icon, IconName } from "./shared/Icon";
+import { usePersistedViewState } from "./context";
 
 type Tab = "tasks" | "projects" | "milestones" | "events" | "logs";
 
@@ -18,7 +19,7 @@ const TABS: { id: Tab; label: string; icon: IconName }[] = [
 ];
 
 export const TableRoot: React.FC = () => {
-  const [tab, setTab] = React.useState<Tab>("tasks");
+  const [tab, setTab] = usePersistedViewState("tableTab");
 
   const toolbar = (
     <div className="kp-segmented">

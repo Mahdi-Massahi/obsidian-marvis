@@ -13,7 +13,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { usePlugin } from "./context";
+import { usePersistedViewState, usePlugin } from "./context";
 import { FilterBar } from "./shared/FilterBar";
 import { TaskCard } from "./shared/TaskCard";
 import { Icon, IconName } from "./shared/Icon";
@@ -29,7 +29,7 @@ export const KanbanRoot: React.FC = () => {
   const filter = store((s) => s.filter);
   const milestones = store((s) => s.milestones);
 
-  const [groupBy, setGroupBy] = React.useState<GroupBy>(settings.defaultKanbanGroupBy);
+  const [groupBy, setGroupBy] = usePersistedViewState("kanbanGroupBy");
   const [activeId, setActiveId] = React.useState<string | null>(null);
 
   const allTasks = React.useMemo(() => Object.values(tasksMap), [tasksMap]);

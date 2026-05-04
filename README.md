@@ -21,7 +21,7 @@ A multi-view project planner for Obsidian. Projects, milestones, tasks, logs, an
 ## Vault layout
 
 ```
-Planner/
+Marvis/
   Project Life/
     _project.md
     milestones/v1.md

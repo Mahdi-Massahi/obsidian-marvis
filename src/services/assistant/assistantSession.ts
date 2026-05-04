@@ -78,9 +78,12 @@ You have read and write access to ${name ? `${name}'s` : "the user's"} projects,
 - Resolve relative dates ("today", "tomorrow", "Friday", "next week") against today's date above. Today is ${todayISO}, tomorrow is ${tomorrowISO}. Do not invent dates.
 - The user's text messages may arrive prefixed with [YYYY-MM-DD HH:mm:ss] indicating exactly when they were sent. Treat that timestamp as authoritative for "now" within the conversation if it differs from the session-start time above.
 - Before making any change to the vault (creating tasks/milestones/projects/logs/events, updating tasks, archiving items), briefly state intent in one sentence, then call the tool. The user sees a confirmation modal — never assume approval. If a tool returns declined: true, accept it without arguing and offer alternatives.
+- After a write tool resolves with ok: true, acknowledge in ONE short sentence ("Done.", "Created.", "Logged.", "Updated."). Optionally include just the title or a single anchor (date/project) — never the full field list. The user already saw every field in the approval modal, so do not read back priority, due date, tags, status, project, etc. unless they explicitly ask "what did you set?". Same rule for batches: one acknowledgement covers the batch.
 - Never invent project names, task titles, paths, or item ids. Only reference items returned by tools. If unsure, call list_* or search_vault first.
 - Use ISO YYYY-MM-DD for dates in tool arguments.
 - When creating a task or log without an explicit project, default to "Inbox".
+- When creating tasks, logs, or events, always populate the body field with the substantive content the user gave you — notes, context, acceptance criteria, what happened, agenda, links, attendees. The title is a one-line label; the body is where the actual information lives. For logs especially, the body is the main payload — never create a log with only a title. Only leave body empty if the user genuinely gave nothing beyond a title.
+- When calling create_task, classify the task and include exactly one of \`bug\`, \`feature\`, \`improvement\`, or \`idea\` in \`tags\`: \`bug\` for something broken or wrong ("X is failing", "fix Y", "Z doesn't work"), \`feature\` for a concrete new capability to build ("add", "support", "implement"), \`improvement\` for refining/polishing something that already exists ("make X faster", "tweak Y", "clean up Z", "better wording for…"), \`idea\` for an exploratory or half-formed thought ("maybe we could…", "what if…", brainstorm-style). When unsure between feature and idea, prefer \`idea\`; when unsure between feature and improvement, ask whether the thing already exists — if yes, \`improvement\`. Preserve any additional tags the user mentioned alongside the classification tag.
 - Keep spoken replies under ~3 sentences unless asked for more detail. For long lists, summarize as counts ("you have five tasks due today — want me to read them?") and read on request.`;
 
   if (opts.override && opts.override.trim()) {
@@ -109,6 +112,7 @@ export class AssistantSession {
   private tickHandle: number | null = null;
   private opts: SessionOptions = {};
   private pendingTools = new Map<string, ClientFunctionCall>();
+  private toolQueue: Promise<void> = Promise.resolve();
   private inputBuffer = "";
   private outputBuffer = "";
   private lastSpokenAt = 0;
@@ -185,6 +189,7 @@ export class AssistantSession {
     }
     this.startedAt = null;
     this.pendingTools.clear();
+    this.toolQueue = Promise.resolve();
     this.inputBuffer = "";
     this.outputBuffer = "";
     if (!silent) this.setState("idle");
@@ -258,7 +263,14 @@ export class AssistantSession {
       if (isFinal) this.flushOutputBuffer();
     });
     client.on("toolCall", (calls) => {
-      void this.handleToolCalls(calls);
+      // Serialize batches: if Gemini emits a second toolCall while the first
+      // batch's confirmation modal is still open, the second handler must wait
+      // — otherwise modals stack and an already-resolved approval can reappear
+      // behind a newer one.
+      this.toolQueue = this.toolQueue.then(() => this.handleToolCalls(calls));
+      this.toolQueue.catch((err) => {
+        console.error("handleToolCalls failed", err);
+      });
     });
     client.on("toolCallCancelled", (ids) => {
       for (const id of ids) this.pendingTools.delete(id);
@@ -291,11 +303,24 @@ export class AssistantSession {
   }
 
   private async handleToolCalls(calls: ClientFunctionCall[]): Promise<void> {
+    // Drop any call whose id is already in flight. Gemini Live can resend the
+    // same toolCall (e.g. after a session-resumption hiccup before our
+    // sendToolResponses lands), and we don't want to re-prompt the user for
+    // an approval they've already given.
+    const fresh = calls.filter((c) => !c.id || !this.pendingTools.has(c.id));
+    if (fresh.length === 0) return;
+
+    // Commit any pre-amble the model said (or user input we haven't finalized)
+    // before we record tool-call entries — otherwise the transcript shows the
+    // tool line above the spoken text that introduced it.
+    if (this.inputBuffer.trim()) this.flushInputBuffer();
+    if (this.outputBuffer.trim()) this.flushOutputBuffer();
+
     const wasState = this.state;
-    if (calls.some((c) => isWriteTool(c.name))) this.setState("awaiting-confirmation");
+    if (fresh.some((c) => isWriteTool(c.name))) this.setState("awaiting-confirmation");
 
     const responses: FunctionResponseItem[] = [];
-    for (const call of calls) {
+    for (const call of fresh) {
       if (call.id) this.pendingTools.set(call.id, call);
       const response = await dispatch(
         call,

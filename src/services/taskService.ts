@@ -210,5 +210,11 @@ export function listProjectFolders(app: App, root: string): string[] {
   if (!(folder instanceof TFolder)) return [];
   return folder.children
     .filter((c): c is TFolder => c instanceof TFolder)
+    .filter((c) => {
+      const projectFile = app.vault.getAbstractFileByPath(
+        normalizePath(`${c.path}/_project.md`)
+      );
+      return projectFile instanceof TFile;
+    })
     .map((c) => c.name);
 }

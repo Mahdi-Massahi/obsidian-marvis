@@ -114,7 +114,7 @@ export class CalendarSyncEngine {
             time: remoteEvent.time,
             endTime: remoteEvent.endTime,
             recurrence: remoteEvent.recurrence,
-            description: remoteEvent.description,
+            description: remoteEvent.description ?? null,
             responseStatus: remoteEvent.responseStatus ?? null,
           });
           result.updated += 1;
@@ -180,7 +180,7 @@ export class CalendarSyncEngine {
   }
 
   private hasChanged(
-    local: { title: string; date: string; time?: string; endTime?: string; recurrence?: string; responseStatus?: string },
+    local: { title: string; date: string; time?: string; endTime?: string; recurrence?: string; responseStatus?: string; body?: string },
     remote: RemoteEvent
   ): boolean {
     if (local.title !== remote.title) return true;
@@ -189,6 +189,7 @@ export class CalendarSyncEngine {
     if ((local.endTime ?? "") !== (remote.endTime ?? "")) return true;
     if ((local.recurrence ?? "") !== (remote.recurrence ?? "")) return true;
     if ((local.responseStatus ?? "") !== (remote.responseStatus ?? "")) return true;
+    if ((local.body ?? "").trim() !== (remote.description ?? "").trim()) return true;
     return false;
   }
 

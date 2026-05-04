@@ -648,7 +648,11 @@ register({
       due: { type: "string", description: "YYYY-MM-DD" },
       start: { type: "string", description: "YYYY-MM-DD" },
       tags: { type: "array", items: { type: "string" } },
-      body: { type: "string" },
+      body: {
+        type: "string",
+        description:
+          "Markdown body of the task. Capture any notes, context, acceptance criteria, links, or details the user mentioned. Don't leave empty when the user gave content beyond the title.",
+      },
     },
   },
   write: true,
@@ -781,7 +785,11 @@ register({
     required: ["project"],
     properties: {
       project: { type: "string" },
-      body: { type: "string" },
+      body: {
+        type: "string",
+        description:
+          "Markdown body of the log entry — the actual content. Write what happened, decisions made, or observations the user shared, in the user's voice. This is the main payload of a log; don't leave it empty.",
+      },
       tags: { type: "array", items: { type: "string" } },
       timestamp: {
         type: "string",
@@ -820,7 +828,11 @@ register({
       recurrence: { type: "string", description: "RRULE string (RFC 5545)" },
       project: { type: "string" },
       tags: { type: "array", items: { type: "string" } },
-      body: { type: "string" },
+      body: {
+        type: "string",
+        description:
+          "Markdown body of the event — notes, agenda, location details, attendees, links, or any context the user mentioned. Don't leave empty when the user gave content beyond the title.",
+      },
     },
   },
   write: true,

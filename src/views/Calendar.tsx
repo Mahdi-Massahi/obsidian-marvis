@@ -9,7 +9,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { usePlugin } from "./context";
+import { usePersistedViewState, usePlugin } from "./context";
 import { FilterBar } from "./shared/FilterBar";
 import { applyFilter } from "../filter/filterEngine";
 import { Icon } from "./shared/Icon";
@@ -56,7 +56,7 @@ export const CalendarRoot: React.FC = () => {
     d.setDate(1);
     return d;
   });
-  const [mode, setMode] = React.useState<"month" | "week" | "day">("month");
+  const [mode, setMode] = usePersistedViewState("calendarMode");
 
   const weeks = React.useMemo(
     () => monthGrid(cursor, settings.weekStartsOn),

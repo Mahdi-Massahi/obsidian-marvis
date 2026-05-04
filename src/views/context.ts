@@ -1,3 +1,4 @@
+import * as React from "react";
 import { createContext, useContext } from "react";
 import type { App } from "obsidian";
 import type { PlannerStore } from "../index/store";
@@ -8,7 +9,7 @@ import type { LogService } from "../services/logService";
 import type { EventService } from "../services/eventService";
 import type { CalendarSyncEngine } from "../services/calendar/syncEngine";
 import type { AssistantSession } from "../services/assistant/assistantSession";
-import type { KanbanPlusSettings } from "../settings";
+import type { KanbanPlusSettings, ViewStateSettings } from "../settings";
 
 export interface PluginContextValue {
   app: App;
@@ -21,6 +22,7 @@ export interface PluginContextValue {
   calendarSyncEngine: CalendarSyncEngine;
   assistantSession: AssistantSession;
   settings: KanbanPlusSettings;
+  savePluginSettings: () => Promise<void>;
   switchView: (kind: "kanban" | "timeline" | "calendar" | "table") => void;
   openQuickCreate: (defaults?: Partial<{ due: string; project: string }>) => void;
   openCreateMenu: () => void;
@@ -34,4 +36,22 @@ export function usePlugin(): PluginContextValue {
   const ctx = useContext(PluginContext);
   if (!ctx) throw new Error("PluginContext not provided");
   return ctx;
+}
+
+export function usePersistedViewState<K extends keyof ViewStateSettings>(
+  key: K
+): [ViewStateSettings[K], (value: ViewStateSettings[K]) => void] {
+  const { settings, savePluginSettings } = usePlugin();
+  const [value, setValue] = React.useState<ViewStateSettings[K]>(
+    settings.viewState[key]
+  );
+  const update = React.useCallback(
+    (next: ViewStateSettings[K]) => {
+      setValue(next);
+      settings.viewState[key] = next;
+      void savePluginSettings();
+    },
+    [key, settings, savePluginSettings]
+  );
+  return [value, update];
 }

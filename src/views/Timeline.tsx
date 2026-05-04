@@ -1,6 +1,6 @@
 import * as React from "react";
 import { addDays, fmtISO, format, isSameDay, parseDate, startOfDay } from "../utils/dates";
-import { usePlugin } from "./context";
+import { usePersistedViewState, usePlugin } from "./context";
 import { FilterBar } from "./shared/FilterBar";
 import { applyFilter } from "../filter/filterEngine";
 import { Icon, IconName } from "./shared/Icon";
@@ -38,8 +38,8 @@ export const TimelineRoot: React.FC = () => {
   const eventsMap = store((s) => s.events);
   const filter = store((s) => s.filter);
 
-  const [zoom, setZoom] = React.useState<Zoom>("week");
-  const [groupBy, setGroupBy] = React.useState<GroupBy>("project");
+  const [zoom, setZoom] = usePersistedViewState("timelineZoom");
+  const [groupBy, setGroupBy] = usePersistedViewState("timelineGroupBy");
 
   const allTasks = React.useMemo(() => Object.values(tasksMap), [tasksMap]);
   const filteredTasks = React.useMemo(() => applyFilter(allTasks, filter), [allTasks, filter]);

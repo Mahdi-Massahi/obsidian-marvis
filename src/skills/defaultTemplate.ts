@@ -112,7 +112,7 @@ created: 2026-05-12
 ## Wikilink rules
 
 - Use the **bare folder/file name** in wikilinks: \`[[marvis]]\`, not
-  \`[[Planner/marvis/_project]]\`.
+  \`[[Marvis/marvis/_project]]\`.
 - No \`.md\` extension.
 - The plugin parses the inner text via \`stripWikilink\`; pathy links work but
   bare names are preferred.
@@ -218,7 +218,7 @@ Filename = current local timestamp \`YYYY-MM-DD-HH-mm-ss.md\` (must match
 ## Hard rules
 
 - **Don't unarchive** anything in \`archive/\` without explicit confirmation.
-- **Don't touch other projects** in the surrounding \`Planner/\` (you only
+- **Don't touch other projects** in the surrounding \`Marvis/\` (you only
   see this one via the symlink).
 - **Don't write secrets** (tokens, API keys, passwords) into any task or log
   body. If the user shares one for context, omit it from anything you save.

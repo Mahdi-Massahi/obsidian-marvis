@@ -26,6 +26,17 @@ const STATE_LABEL: Record<SessionState, string> = {
   error: "Error",
 };
 
+const VOICE_PROMPT: Record<SessionState, string> = {
+  idle: "Tap to talk",
+  connecting: "Connecting…",
+  listening: "Listening — tap to stop",
+  thinking: "Thinking…",
+  speaking: "Speaking…",
+  "awaiting-confirmation": "Awaiting confirmation…",
+  reconnecting: "Reconnecting…",
+  error: "Tap to retry",
+};
+
 const SESSION_DURATION_MS = 15 * 60 * 1000;
 
 function fmtClock(ms: number): string {
@@ -169,43 +180,51 @@ export const AssistantPanel: React.FC<Props> = ({ open, onClose, session }) => {
         </div>
 
         <footer className="kp-assistant__footer">
-          <button
-            className={`kp-assistant__mic kp-assistant__mic--${state}`}
-            onClick={() => void startStop()}
-            title={isActive ? "End session" : "Start session"}
-            aria-label={isActive ? "End session" : "Start session"}
-          >
-            <Icon name={isActive ? "micOff" : "mic"} size={20} />
-          </button>
-          {state === "speaking" && (
+          <div className="kp-assistant__voicewell">
+            {state === "speaking" ? (
+              <button
+                className="kp-assistant__bigmic kp-assistant__bigmic--stop"
+                onClick={() => session.cancel()}
+                title="Interrupt"
+                aria-label="Interrupt"
+              >
+                <Icon name="pause" size={32} />
+              </button>
+            ) : (
+              <button
+                className={`kp-assistant__bigmic kp-assistant__bigmic--${state} ${isActive ? "is-active" : ""}`}
+                onClick={() => void startStop()}
+                title={isActive ? "End session" : "Start session"}
+                aria-label={isActive ? "End session" : "Start session"}
+              >
+                <Icon name="mic" size={32} />
+              </button>
+            )}
+            <div className="kp-assistant__voicestate" aria-live="polite">
+              {VOICE_PROMPT[state]}
+            </div>
+          </div>
+          <div className="kp-assistant__textrow">
+            <input
+              type="text"
+              className="kp-assistant__textinput"
+              placeholder="Type a message…"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitText();
+              }}
+            />
             <button
-              className="kp-btn kp-btn--ghost"
-              onClick={() => session.cancel()}
-              title="Stop talking"
+              className="kp-iconbtn"
+              title="Send"
+              aria-label="Send"
+              onClick={submitText}
+              disabled={!textInput.trim()}
             >
-              <Icon name="pause" size={13} />
-              <span>Interrupt</span>
+              <Icon name="send" size={14} />
             </button>
-          )}
-          <input
-            type="text"
-            className="kp-assistant__textinput"
-            placeholder="Type a message…"
-            value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submitText();
-            }}
-          />
-          <button
-            className="kp-iconbtn"
-            title="Send"
-            aria-label="Send"
-            onClick={submitText}
-            disabled={!textInput.trim()}
-          >
-            <Icon name="send" size={14} />
-          </button>
+          </div>
         </footer>
       </div>
     </div>,

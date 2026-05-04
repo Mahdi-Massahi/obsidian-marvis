@@ -434,7 +434,9 @@
     border: 1px solid var(--kp-border);
     border-radius: var(--kp-radius-pill);
     box-shadow: var(--kp-shadow-md);
-    z-index: 900;
+    /* Sit above workspace content but below Obsidian's mobile drawer overlay
+       so drawers naturally cover the floating nav when they slide in. */
+    z-index: 5;
     backdrop-filter: blur(12px);
   }
 
@@ -448,7 +450,7 @@
     bottom: calc(env(safe-area-inset-bottom, 0px) - 4px);
     display: flex;
     gap: 6px;
-    z-index: 900;
+    z-index: 5;
   }
 
   .kp-mobnav__right .kp-mobnav {
@@ -1189,6 +1191,7 @@
   gap: 4px;
   align-items: center;
   margin-top: 4px;
+  min-width: 0;
 }
 
 .kp-card__excerpt {
@@ -1285,6 +1288,17 @@
   background: var(--kp-bg-soft);
   color: var(--kp-text-muted);
   border: 1px solid transparent;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kp-chip__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .kp-chip--priority {
@@ -3438,11 +3452,120 @@
 
 .kp-assistant__footer {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 14px 12px 12px;
   border-top: 1px solid var(--background-modifier-border);
   background: var(--background-secondary);
+}
+
+.kp-assistant__voicewell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0 6px;
+  position: relative;
+}
+
+.kp-assistant__bigmic {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.06s ease, box-shadow 0.25s ease, border-color 0.18s ease;
+}
+.kp-assistant__bigmic:hover { background: var(--background-modifier-hover); }
+.kp-assistant__bigmic:active { transform: scale(0.96); }
+.kp-assistant__bigmic.is-active {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+  box-shadow:
+    0 0 0 2px rgba(239, 68, 68, 0.3),
+    0 0 14px 3px rgba(239, 68, 68, 0.5);
+  animation: kp-assistant-glow 1.6s ease-in-out infinite;
+}
+.kp-assistant__bigmic--listening {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+@keyframes kp-assistant-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px rgba(239, 68, 68, 0.25),
+      0 0 10px 2px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(239, 68, 68, 0.35),
+      0 0 18px 5px rgba(239, 68, 68, 0.65);
+  }
+}
+.kp-assistant__bigmic--thinking {
+  background: color-mix(in oklab, #f59e0b 32%, var(--background-primary));
+  color: var(--text-normal);
+}
+.kp-assistant__bigmic--speaking {
+  background: #10b981;
+  color: #fff;
+  border-color: #10b981;
+  box-shadow:
+    0 0 0 2px rgba(16, 185, 129, 0.3),
+    0 0 14px 3px rgba(16, 185, 129, 0.5);
+}
+.kp-assistant__bigmic--stop {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+  box-shadow:
+    0 0 0 2px rgba(59, 130, 246, 0.3),
+    0 0 14px 3px rgba(59, 130, 246, 0.5);
+}
+.kp-assistant__bigmic--stop:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+.kp-assistant__bigmic--connecting,
+.kp-assistant__bigmic--reconnecting {
+  background: color-mix(in oklab, #6366f1 28%, var(--background-primary));
+  color: var(--text-normal);
+  animation: kp-assistant-pulse 1.4s ease-in-out infinite;
+}
+.kp-assistant__bigmic--awaiting-confirmation {
+  background: color-mix(in oklab, #a855f7 28%, var(--background-primary));
+  color: var(--text-normal);
+}
+.kp-assistant__bigmic--error {
+  background: color-mix(in oklab, #ef4444 24%, var(--background-primary));
+  color: var(--text-normal);
+}
+
+.kp-assistant__voicestate {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.kp-assistant__interrupt {
+  position: absolute;
+  right: 8px;
+  top: 28px;
+}
+
+.kp-assistant__textrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .kp-assistant__mic {

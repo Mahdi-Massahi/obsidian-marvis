@@ -48,6 +48,14 @@ export interface AssistantSettings {
   userName: string;
 }
 
+export interface ViewStateSettings {
+  kanbanGroupBy: "status" | "priority" | "milestone";
+  calendarMode: "month" | "week" | "day";
+  timelineZoom: "day" | "week" | "month";
+  timelineGroupBy: "project" | "milestone";
+  tableTab: "tasks" | "projects" | "milestones" | "events" | "logs";
+}
+
 export interface KanbanPlusSettings {
   rootFolder: string;
   statuses: StatusDef[];
@@ -62,7 +70,16 @@ export interface KanbanPlusSettings {
   nextCode: { task: number; log: number; milestone: number; project: number; event: number };
   calendarSync: CalendarSyncSettings;
   assistant: AssistantSettings;
+  viewState: ViewStateSettings;
 }
+
+export const DEFAULT_VIEW_STATE: ViewStateSettings = {
+  kanbanGroupBy: "status",
+  calendarMode: "month",
+  timelineZoom: "week",
+  timelineGroupBy: "project",
+  tableTab: "tasks",
+};
 
 export const DEFAULT_ASSISTANT_SETTINGS: AssistantSettings = {
   enabled: false,
@@ -75,7 +92,7 @@ export const DEFAULT_ASSISTANT_SETTINGS: AssistantSettings = {
 };
 
 export const DEFAULT_SETTINGS: KanbanPlusSettings = {
-  rootFolder: "Planner",
+  rootFolder: "Marvis",
   statuses: DEFAULT_STATUSES,
   priorities: DEFAULT_PRIORITIES,
   defaultView: "kanban",
@@ -90,6 +107,7 @@ export const DEFAULT_SETTINGS: KanbanPlusSettings = {
     macos: { availableCalendars: [], selectedCalendars: [] },
   },
   assistant: DEFAULT_ASSISTANT_SETTINGS,
+  viewState: DEFAULT_VIEW_STATE,
 };
 
 function sanitizeProjectName(name: string): string {
@@ -121,14 +139,14 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
     containerEl.createEl("h2", { text: "Marvis settings" });
 
     new Setting(containerEl)
-      .setName("Planner root folder")
+      .setName("Marvis root folder")
       .setDesc("All projects, milestones and tasks live under this folder.")
       .addText((text) =>
         text
-          .setPlaceholder("Planner")
+          .setPlaceholder("Marvis")
           .setValue(this.plugin.settings.rootFolder)
           .onChange(async (value) => {
-            this.plugin.settings.rootFolder = value.trim() || "Planner";
+            this.plugin.settings.rootFolder = value.trim() || "Marvis";
             await this.plugin.saveSettings();
             this.plugin.indexer?.reindex();
           })
@@ -489,7 +507,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(container)
       .setName("Enable assistant")
-      .setDesc("Show the mic button in the planner toolbar.")
+      .setDesc("Show the mic button in the Marvis toolbar.")
       .addToggle((tog) =>
         tog.setValue(a.enabled).onChange(async (v) => {
           a.enabled = v;
@@ -555,7 +573,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(container)
       .setName("Persist transcripts")
-      .setDesc("Save each session as Planner/_chats/<datetime>.md.")
+      .setDesc("Save each session as Marvis/_chats/<datetime>.md.")
       .addToggle((tog) =>
         tog.setValue(a.persistTranscripts).onChange(async (v) => {
           a.persistTranscripts = v;
