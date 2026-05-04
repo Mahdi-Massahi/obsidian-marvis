@@ -15,6 +15,7 @@ import {
   TokenSet,
 } from "./services/calendar/types";
 import { macCalendarProvider } from "./services/calendar/macCalendarProvider";
+import { testGeminiConnection } from "./services/assistant/assistantSession";
 
 export interface CalendarProviderSettings {
   token?: TokenSet;
@@ -34,6 +35,19 @@ export interface CalendarSyncSettings {
   macos: CalendarProviderSettings;
 }
 
+export type AssistantVoice = "Aoede" | "Charon" | "Fenrir" | "Kore" | "Puck";
+
+export interface AssistantSettings {
+  enabled: boolean;
+  apiKey: string;
+  model: string;
+  voice: AssistantVoice;
+  systemInstructionOverride?: string;
+  showTimer: boolean;
+  persistTranscripts: boolean;
+  userName: string;
+}
+
 export interface KanbanPlusSettings {
   rootFolder: string;
   statuses: StatusDef[];
@@ -47,7 +61,18 @@ export interface KanbanPlusSettings {
   marvisSkillTemplate: string;
   nextCode: { task: number; log: number; milestone: number; project: number; event: number };
   calendarSync: CalendarSyncSettings;
+  assistant: AssistantSettings;
 }
+
+export const DEFAULT_ASSISTANT_SETTINGS: AssistantSettings = {
+  enabled: false,
+  apiKey: "",
+  model: "gemini-3.1-flash-live-preview",
+  voice: "Kore",
+  showTimer: true,
+  persistTranscripts: true,
+  userName: "",
+};
 
 export const DEFAULT_SETTINGS: KanbanPlusSettings = {
   rootFolder: "Planner",
@@ -64,6 +89,7 @@ export const DEFAULT_SETTINGS: KanbanPlusSettings = {
   calendarSync: {
     macos: { availableCalendars: [], selectedCalendars: [] },
   },
+  assistant: DEFAULT_ASSISTANT_SETTINGS,
 };
 
 function sanitizeProjectName(name: string): string {
@@ -182,6 +208,8 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
       );
 
     this.renderCalendarSync(containerEl);
+
+    this.renderAssistant(containerEl);
 
     containerEl.createEl("h3", { text: "Coding-agent skills" });
     containerEl.createEl("p", {
@@ -445,6 +473,144 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
       );
       void _projects;
     }
+  }
+
+  private renderAssistant(container: HTMLElement): void {
+    container.createEl("h3", { text: "AI assistant (Gemini Live)" });
+    container.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Voice-first conversational assistant. Audio leaves your device and is sent " +
+        "to Google's Gemini Live API. Every change to your vault is gated by a " +
+        "confirmation modal.",
+    });
+
+    const a = this.plugin.settings.assistant;
+
+    new Setting(container)
+      .setName("Enable assistant")
+      .setDesc("Show the mic button in the planner toolbar.")
+      .addToggle((tog) =>
+        tog.setValue(a.enabled).onChange(async (v) => {
+          a.enabled = v;
+          await this.plugin.saveSettings();
+          this.plugin.refreshViews();
+        })
+      );
+
+    new Setting(container)
+      .setName("Gemini API key")
+      .setDesc("Your own Google AI Studio key. Stored locally in data.json.")
+      .addText((t) => {
+        t.inputEl.type = "password";
+        t.setPlaceholder("AIza…")
+          .setValue(a.apiKey)
+          .onChange(async (v) => {
+            a.apiKey = v.trim();
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(container)
+      .setName("Your name")
+      .setDesc("How Marvis should address you. Injected into the system prompt.")
+      .addText((t) =>
+        t
+          .setPlaceholder("e.g. Mahdi")
+          .setValue(a.userName)
+          .onChange(async (v) => {
+            a.userName = v.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(container)
+      .setName("Model")
+      .addDropdown((dd) =>
+        dd
+          .addOption("gemini-3.1-flash-live-preview", "gemini-3.1-flash-live-preview")
+          .addOption(
+            "gemini-2.5-flash-preview-native-audio-dialog",
+            "gemini-2.5-flash-preview-native-audio-dialog"
+          )
+          .addOption("gemini-2.0-flash-exp", "gemini-2.0-flash-exp")
+          .setValue(a.model)
+          .onChange(async (v) => {
+            a.model = v;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(container)
+      .setName("Voice")
+      .addDropdown((dd) => {
+        for (const v of ["Aoede", "Charon", "Fenrir", "Kore", "Puck"] as const) {
+          dd.addOption(v, v);
+        }
+        dd.setValue(a.voice).onChange(async (v) => {
+          a.voice = v as typeof a.voice;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(container)
+      .setName("Persist transcripts")
+      .setDesc("Save each session as Planner/_chats/<datetime>.md.")
+      .addToggle((tog) =>
+        tog.setValue(a.persistTranscripts).onChange(async (v) => {
+          a.persistTranscripts = v;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(container)
+      .setName("Show session timer")
+      .setDesc("Gemini Live caps audio sessions at 15 minutes.")
+      .addToggle((tog) =>
+        tog.setValue(a.showTimer).onChange(async (v) => {
+          a.showTimer = v;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(container)
+      .setName("System instruction (override)")
+      .setDesc(
+        "Leave blank to use the bundled Marvis prompt. Custom prompts are appended to the model setup."
+      )
+      .addTextArea((t) => {
+        t.setValue(a.systemInstructionOverride ?? "").onChange(async (v) => {
+          a.systemInstructionOverride = v.trim() ? v : undefined;
+          await this.plugin.saveSettings();
+        });
+        t.inputEl.rows = 4;
+        t.inputEl.style.width = "100%";
+        t.inputEl.style.fontFamily = "var(--font-monospace)";
+        t.inputEl.style.fontSize = "12px";
+      });
+
+    new Setting(container).addButton((b) =>
+      b.setButtonText("Test connection").onClick(async () => {
+        if (!a.apiKey.trim()) {
+          new Notice("Set an API key first.");
+          return;
+        }
+        b.setButtonText("Testing…").setDisabled(true);
+        try {
+          await testGeminiConnection({
+            apiKey: a.apiKey,
+            model: a.model,
+            voice: a.voice,
+          });
+          new Notice("Gemini Live: setupComplete received. ✔");
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          new Notice(`Test failed: ${msg}`);
+        } finally {
+          b.setButtonText("Test connection").setDisabled(false);
+        }
+      })
+    );
   }
 
   private renderVocabulary<T extends { id: string; label: string; color: string }>(

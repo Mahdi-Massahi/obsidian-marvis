@@ -187,6 +187,7 @@ export class Indexer {
       if (child instanceof TFile && child.extension === "md") visit(child);
       else if (child instanceof TFolder) {
         if (child.name === "skills") continue;
+        if (child.name === "_chats") continue;
         this.walk(child, visit);
       }
       else if ((child as TAbstractFile) && (child as TFolder).children) {

@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import { Notice } from "obsidian";
+import { Notice, Platform } from "obsidian";
 import { usePlugin } from "../context";
 import type { ViewKind } from "../../schema/types";
 import { Icon, IconName } from "./Icon";
@@ -30,8 +30,17 @@ const CHIP_ICONS: Record<string, IconName> = {
 };
 
 export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSync }) => {
-  const { store, settings, switchView, openCreateMenu, calendarSyncEngine } = usePlugin();
+  const {
+    store,
+    settings,
+    switchView,
+    openCreateMenu,
+    calendarSyncEngine,
+    toggleAssistant,
+    isAssistantOpen,
+  } = usePlugin();
   const [isSyncing, setIsSyncing] = React.useState(false);
+  const assistantEnabled = !!settings.assistant?.enabled;
 
   const calendarSyncEnabled =
     (showCalendarSync ?? (activeView === "calendar" || activeView === "timeline")) &&
@@ -163,7 +172,6 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
             <Icon name="cloudDownload" size={15} />
           </button>
         )}
-
         <div className="kp-search kp-search--anchored">
           <Icon name="search" size={14} className="kp-search__icon" />
           <input
@@ -174,6 +182,18 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
             onChange={(e) => setFilter({ search: e.target.value })}
           />
         </div>
+        {assistantEnabled && !Platform.isMobile && (
+          <button
+            className={`kp-iconbtn kp-iconbtn--round kp-iconbtn--assistant ${
+              isAssistantOpen ? "is-active" : ""
+            }`}
+            title="Marvis assistant"
+            aria-label="Marvis assistant"
+            onClick={() => toggleAssistant()}
+          >
+            <Icon name="sparkles" size={15} />
+          </button>
+        )}
       </div>
 
       <div className="kp-filterbar__row kp-filterbar__row--chips">
@@ -189,6 +209,16 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
             <span className="kp-filterbar__filtertrigger-count">{activeFilterCount}</span>
           )}
         </button>
+        {Platform.isMobile && (
+          <button
+            className={`kp-iconbtn kp-iconbtn--round kp-filterbar__searchtrigger ${filter.search ? "is-selected" : ""}`}
+            title="Search"
+            aria-label="Search"
+            onClick={() => setSearchModalOpen(true)}
+          >
+            <Icon name="search" size={15} />
+          </button>
+        )}
         <div className="kp-filterbar__chips">
           <ChipGroup
             label="Project"
@@ -277,17 +307,17 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
             ))}
           </nav>
           <div className="kp-mobnav__right">
-            <nav className="kp-mobnav kp-mobnav--search" aria-label="Search">
-              <button
-                className={`kp-mobnav__btn ${filter.search ? "is-active" : ""}`}
-                title="Search"
-                aria-label="Search"
-                onClick={() => setSearchModalOpen(true)}
-              >
-                <Icon name="search" size={20} />
-              </button>
-            </nav>
             <nav className="kp-mobnav kp-mobnav--actions" aria-label="Marvis actions">
+              {assistantEnabled && (
+                <button
+                  className={`kp-mobnav__btn kp-mobnav__btn--accent ${isAssistantOpen ? "is-active" : ""}`}
+                  title="Marvis assistant"
+                  aria-label="Marvis assistant"
+                  onClick={() => toggleAssistant()}
+                >
+                  <Icon name="sparkles" size={20} />
+                </button>
+              )}
               <button
                 className="kp-mobnav__btn kp-mobnav__btn--accent"
                 title="Create new"

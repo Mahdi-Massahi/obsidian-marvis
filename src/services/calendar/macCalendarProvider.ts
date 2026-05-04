@@ -1,9 +1,4 @@
 import { Platform } from "obsidian";
-import { execFile } from "child_process";
-import { promisify } from "util";
-import * as os from "os";
-import * as path from "path";
-import * as fs from "fs";
 import {
   CalendarProvider,
   RemoteCalendar,
@@ -12,14 +7,48 @@ import {
   TokenSet,
 } from "./types";
 
-const execFileAsync = promisify(execFile);
+// Apple Calendar lives behind Node built-ins (`child_process`, `os`, `fs`,
+// `path`). Importing those at the top of the module would crash on Obsidian
+// Mobile, where Capacitor has no Node runtime — and that crash takes the
+// whole plugin bundle down. Instead we lazy-require them inside the methods
+// that actually run (all gated by `isAvailable()`), so this file is safe to
+// import on every platform.
 
-// Calendar.app's local store. We read with -readonly so concurrent use
-// by Calendar.app itself is safe (the DB uses WAL mode).
-const CALENDAR_DB = path.join(
-  os.homedir(),
-  "Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb"
-);
+interface NodeBindings {
+  execFileAsync: (cmd: string, args: string[], opts?: { maxBuffer?: number }) =>
+    Promise<{ stdout: string; stderr: string }>;
+  existsSync: (p: string) => boolean;
+  calendarDb: string;
+}
+
+let cachedNode: NodeBindings | null = null;
+
+function loadNode(): NodeBindings {
+  if (cachedNode) return cachedNode;
+  // Use indirect `require` so esbuild leaves the calls intact (these modules
+  // are in the `external` list) and they're only executed at runtime on
+  // platforms where they exist.
+  const req: NodeRequire = (globalThis as unknown as { require: NodeRequire }).require;
+  if (typeof req !== "function") {
+    throw new Error("Apple Calendar provider requires desktop Obsidian.");
+  }
+  const cp = req("child_process") as typeof import("child_process");
+  const util = req("util") as typeof import("util");
+  const os = req("os") as typeof import("os");
+  const path = req("path") as typeof import("path");
+  const fs = req("fs") as typeof import("fs");
+  cachedNode = {
+    execFileAsync: util.promisify(cp.execFile) as NodeBindings["execFileAsync"],
+    existsSync: fs.existsSync,
+    // Calendar.app's local store. We read with -readonly so concurrent use
+    // by Calendar.app itself is safe (the DB uses WAL mode).
+    calendarDb: path.join(
+      os.homedir(),
+      "Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb"
+    ),
+  };
+  return cachedNode;
+}
 
 // Apple's CFAbsoluteTime epoch: 2001-01-01T00:00:00Z. SQLite REAL columns
 // store seconds since that. Add this to convert to Unix epoch seconds.
@@ -41,11 +70,16 @@ export const macCalendarProvider: CalendarProvider = {
   label: "Apple Calendar",
 
   isAvailable(): boolean {
-    return Platform.isDesktopApp && process.platform === "darwin";
+    if (!Platform.isDesktopApp) return false;
+    // Don't trip over the lazy require on non-desktop / non-darwin: only ask
+    // the platform if the desktop guard already passed.
+    const p = (globalThis as unknown as { process?: { platform?: string } }).process;
+    return p?.platform === "darwin";
   },
 
   async connect(): Promise<TokenSet> {
-    if (!fs.existsSync(CALENDAR_DB)) {
+    const node = loadNode();
+    if (!node.existsSync(node.calendarDb)) {
       throw new Error(
         "Calendar.app database not found. Open Calendar.app once so macOS provisions it, then retry."
       );
@@ -301,10 +335,11 @@ function formatLocalTime(d: Date): string {
 }
 
 async function runSqlite<T>(sql: string): Promise<T[]> {
+  const node = loadNode();
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await node.execFileAsync(
       "sqlite3",
-      ["-readonly", "-json", CALENDAR_DB, sql],
+      ["-readonly", "-json", node.calendarDb, sql],
       { maxBuffer: 64 * 1024 * 1024 }
     );
     const trimmed = stdout.trim();

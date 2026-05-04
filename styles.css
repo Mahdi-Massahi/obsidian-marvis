@@ -1674,6 +1674,8 @@
   body:has(.kp-filtermodal) .kp-mobnav__right,
   body:has(.kp-searchmodal) .kp-mobnav,
   body:has(.kp-searchmodal) .kp-mobnav__right,
+  body:has(.kp-assistant) .kp-mobnav,
+  body:has(.kp-assistant) .kp-mobnav__right,
   body:has(.menu) .kp-mobnav,
   body:has(.menu) .kp-mobnav__right {
     display: none !important;
@@ -3270,3 +3272,366 @@
   gap: 2px;
 }
 
+
+/* ─────────────────────────────────────────────────────────────────────────
+   AI Assistant — voice-first conversational panel (Gemini Live).
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Toolbar mic button */
+.kp-iconbtn--assistant.is-active {
+  background: color-mix(in oklab, var(--interactive-accent) 22%, var(--background-secondary));
+  color: var(--interactive-accent);
+}
+.kp-iconbtn--assistant.is-active:hover {
+  background: color-mix(in oklab, var(--interactive-accent) 32%, var(--background-secondary));
+}
+
+/* Right-side drawer panel */
+.kp-assistant {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  /* Sit below Obsidian's modal layer (--layer-modal ≈ 60) so the assistant
+     confirmation modal appears above this panel rather than behind it. */
+  z-index: var(--layer-popover, 30);
+  overflow: hidden;
+  animation: kp-assistant-slide 0.18s ease-out;
+}
+@keyframes kp-assistant-slide {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.kp-assistant__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+
+.kp-assistant__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+}
+.kp-assistant__pill::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.kp-assistant__pill--idle { color: var(--text-muted); }
+.kp-assistant__pill--connecting,
+.kp-assistant__pill--reconnecting {
+  color: #6366f1;
+  animation: kp-assistant-pulse 1.2s ease-in-out infinite;
+}
+.kp-assistant__pill--listening {
+  color: #ef4444;
+  animation: kp-assistant-pulse 1.4s ease-in-out infinite;
+}
+.kp-assistant__pill--thinking { color: #f59e0b; }
+.kp-assistant__pill--speaking { color: #10b981; }
+.kp-assistant__pill--awaiting-confirmation { color: #a855f7; }
+.kp-assistant__pill--error { color: #ef4444; }
+
+@keyframes kp-assistant-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+.kp-assistant__timer {
+  font-family: var(--font-monospace);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.kp-assistant__timer.is-warn { color: #f59e0b; }
+.kp-assistant__timer.is-critical { color: #ef4444; font-weight: 600; }
+
+.kp-assistant__spacer { flex: 1; }
+
+.kp-assistant__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--background-primary);
+}
+
+.kp-assistant__hint {
+  margin: auto;
+  max-width: 280px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.kp-assistant__bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 92%;
+  word-wrap: break-word;
+}
+.kp-assistant__bubble-time {
+  font-family: var(--font-monospace);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.kp-assistant__bubble-text { white-space: pre-wrap; }
+
+.kp-assistant__bubble--user {
+  align-self: flex-end;
+  background: color-mix(in oklab, var(--interactive-accent) 14%, var(--background-secondary));
+  color: var(--text-normal);
+}
+.kp-assistant__bubble--assistant {
+  align-self: flex-start;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+}
+.kp-assistant__bubble--tool {
+  align-self: stretch;
+  background: color-mix(in oklab, #a855f7 12%, var(--background-secondary));
+  font-style: italic;
+  font-size: 12px;
+}
+.kp-assistant__bubble--toolresult {
+  align-self: stretch;
+  background: color-mix(in oklab, #10b981 12%, var(--background-secondary));
+  font-size: 12px;
+}
+.kp-assistant__bubble--note {
+  align-self: stretch;
+  background: var(--background-modifier-hover);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.kp-assistant__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+
+.kp-assistant__mic {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.06s ease;
+}
+.kp-assistant__mic:hover { background: var(--background-modifier-hover); }
+.kp-assistant__mic:active { transform: scale(0.96); }
+.kp-assistant__mic--listening {
+  background: color-mix(in oklab, #ef4444 28%, var(--background-primary));
+  color: #fff;
+  animation: kp-assistant-pulse 1.2s ease-in-out infinite;
+}
+.kp-assistant__mic--thinking {
+  background: color-mix(in oklab, #f59e0b 24%, var(--background-primary));
+  color: var(--text-normal);
+}
+.kp-assistant__mic--speaking {
+  background: color-mix(in oklab, #10b981 28%, var(--background-primary));
+  color: #fff;
+}
+.kp-assistant__mic--connecting,
+.kp-assistant__mic--reconnecting,
+.kp-assistant__mic--awaiting-confirmation {
+  background: color-mix(in oklab, #6366f1 24%, var(--background-primary));
+  color: var(--text-normal);
+}
+
+.kp-assistant__textinput {
+  flex: 1;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 13px;
+}
+.kp-assistant__textinput:focus { outline: 1px solid var(--interactive-accent); }
+
+/* Confirmation modal for write tool calls */
+.kp-assistant-confirm .modal-content,
+.modal.kp-assistant-confirm .modal-content {
+  max-width: 460px;
+}
+.kp-assistant-confirm__preview {
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--background-secondary);
+  padding: 10px 12px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.kp-assistant-confirm__details {
+  margin-top: 10px;
+  font-size: 12px;
+}
+.kp-assistant-confirm__details summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.kp-assistant-confirm__details pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  max-height: 200px;
+  overflow: auto;
+}
+.kp-assistant-confirm__details code {
+  font-family: var(--font-monospace);
+  font-size: 11px;
+  white-space: pre;
+}
+
+/* New rich-context layout: stacked "Proposed" + "Current X" + "Target project"
+   sections rendered as label/value pairs. */
+.kp-assistant-confirm__section {
+  margin-top: 12px;
+}
+.kp-assistant-confirm__section-heading {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.kp-assistant-confirm__fields {
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  column-gap: 12px;
+  row-gap: 4px;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.kp-assistant-confirm__fields dt {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.kp-assistant-confirm__fields dd {
+  margin: 0;
+  color: var(--text-normal);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* Mobile: full-screen panel respecting safe-area, beefier tap targets,
+   compact header that doesn't wrap, generously-padded footer. */
+@media (max-width: 700px) {
+  .kp-assistant {
+    top: env(safe-area-inset-top, 0px);
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    animation: none;
+  }
+  .kp-assistant__header {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .kp-assistant__pill {
+    font-size: 10px;
+    padding: 4px 10px;
+  }
+  /* On narrow screens just show elapsed time — the full mm:ss / mm:ss (left
+     mm:ss) wraps awkwardly. Color states already convey urgency. */
+  .kp-assistant__timer {
+    font-size: 11px;
+    max-width: 5ch;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
+  .kp-assistant__body {
+    padding: 14px;
+    gap: 10px;
+  }
+  .kp-assistant__bubble {
+    font-size: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+  .kp-assistant__bubble-time {
+    font-size: 11px;
+  }
+  .kp-assistant__footer {
+    gap: 10px;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  .kp-assistant__mic {
+    width: 52px;
+    height: 52px;
+    flex: 0 0 auto;
+  }
+  .kp-assistant__textinput {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 44px;
+    font-size: 15px;
+    padding: 0 14px;
+  }
+  /* Make the send button in the footer a comfortable 44px tap target. */
+  .kp-assistant__footer > .kp-iconbtn {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+  }
+  .kp-assistant__header > .kp-iconbtn {
+    width: 38px;
+    height: 38px;
+  }
+}

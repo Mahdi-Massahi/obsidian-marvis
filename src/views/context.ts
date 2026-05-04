@@ -7,6 +7,7 @@ import type { MilestoneService } from "../services/milestoneService";
 import type { LogService } from "../services/logService";
 import type { EventService } from "../services/eventService";
 import type { CalendarSyncEngine } from "../services/calendar/syncEngine";
+import type { AssistantSession } from "../services/assistant/assistantSession";
 import type { KanbanPlusSettings } from "../settings";
 
 export interface PluginContextValue {
@@ -18,10 +19,13 @@ export interface PluginContextValue {
   logService: LogService;
   eventService: EventService;
   calendarSyncEngine: CalendarSyncEngine;
+  assistantSession: AssistantSession;
   settings: KanbanPlusSettings;
   switchView: (kind: "kanban" | "timeline" | "calendar" | "table") => void;
   openQuickCreate: (defaults?: Partial<{ due: string; project: string }>) => void;
   openCreateMenu: () => void;
+  toggleAssistant: () => void;
+  isAssistantOpen: boolean;
 }
 
 export const PluginContext = createContext<PluginContextValue | null>(null);

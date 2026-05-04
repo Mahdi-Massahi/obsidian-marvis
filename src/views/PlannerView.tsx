@@ -10,6 +10,7 @@ import { CalendarRoot } from "./Calendar";
 import { TimelineRoot } from "./Timeline";
 import { QuickCreateModal, QuickCreateDefaults } from "./shared/QuickCreateModal";
 import { CreateMenuModal } from "./shared/CreateMenuModal";
+import { AssistantPanel } from "./AssistantPanel";
 
 export const VIEW_TYPE_KANBAN_PLUS = "marvis-view";
 
@@ -21,6 +22,7 @@ export class PlannerView extends ItemView {
   private plugin: KanbanPlusPlugin;
   private root: Root | null = null;
   private kind: ViewKind;
+  private assistantOpen = false;
 
   constructor(leaf: WorkspaceLeaf, plugin: KanbanPlusPlugin, initialKind: ViewKind) {
     super(leaf);
@@ -93,6 +95,18 @@ export class PlannerView extends ItemView {
     new CreateMenuModal(this.app, this.plugin).open();
   };
 
+  private toggleAssistant = () => {
+    this.assistantOpen = !this.assistantOpen;
+    if (!this.assistantOpen) void this.plugin.assistantSession.stop();
+    this.render();
+  };
+
+  private closeAssistant = () => {
+    this.assistantOpen = false;
+    void this.plugin.assistantSession.stop();
+    this.render();
+  };
+
   private render(): void {
     if (!this.root) return;
     const ctx = {
@@ -104,14 +118,22 @@ export class PlannerView extends ItemView {
       logService: this.plugin.logService,
       eventService: this.plugin.eventService,
       calendarSyncEngine: this.plugin.calendarSyncEngine,
+      assistantSession: this.plugin.assistantSession,
       settings: this.plugin.settings,
       switchView: (kind: ViewKind) => this.switchKind(kind),
       openQuickCreate: this.openQuickCreate,
       openCreateMenu: this.openCreateMenu,
+      toggleAssistant: this.toggleAssistant,
+      isAssistantOpen: this.assistantOpen,
     };
     this.root.render(
       <PluginContext.Provider value={ctx}>
         {renderRoot(this.kind)}
+        <AssistantPanel
+          open={this.assistantOpen}
+          onClose={this.closeAssistant}
+          session={this.plugin.assistantSession}
+        />
       </PluginContext.Provider>
     );
   }

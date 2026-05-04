@@ -249,6 +249,45 @@ const ICONS = {
       <rect x="6" y="13" width="4" height="3" rx="0.5" fill="currentColor" stroke="none" />
     </>
   ),
+  mic: (
+    <>
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <path d="M12 18v3" />
+    </>
+  ),
+  micOff: (
+    <>
+      <path d="M2 2 22 22" />
+      <path d="M9 9v3a3 3 0 0 0 5.12 2.12" />
+      <path d="M15 9.34V5a3 3 0 0 0-5.94-.6" />
+      <path d="M5 11a7 7 0 0 0 11.34 5.46" />
+      <path d="M19 11a7 7 0 0 0-.11-1.23" />
+      <path d="M12 18v3" />
+    </>
+  ),
+  pause: (
+    <>
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+    </>
+  ),
+  externalLink: (
+    <>
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+      <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+    </>
+  ),
+  sparkles: (
+    <>
+      <path d="M9.94 9.94 4 12l5.94 2.06L12 20l2.06-5.94L20 12l-5.94-2.06L12 4z" />
+      <path d="M19 4v3" />
+      <path d="M19 11v2" />
+      <path d="M21 5h-3" />
+      <path d="M5 17v3" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof ICONS;

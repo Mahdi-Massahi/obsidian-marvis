@@ -1,6 +1,11 @@
 import { Plugin, WorkspaceLeaf } from "obsidian";
 import type { SidebarLeafCache } from "./utils/openFile";
-import { DEFAULT_SETTINGS, KanbanPlusSettings, KanbanPlusSettingTab } from "./settings";
+import {
+  DEFAULT_ASSISTANT_SETTINGS,
+  DEFAULT_SETTINGS,
+  KanbanPlusSettings,
+  KanbanPlusSettingTab,
+} from "./settings";
 import { Indexer } from "./index/indexer";
 import { createPlannerStore, PlannerStore } from "./index/store";
 import { ProjectService } from "./services/projectService";
@@ -9,6 +14,8 @@ import { TaskService } from "./services/taskService";
 import { LogService } from "./services/logService";
 import { EventService } from "./services/eventService";
 import { CalendarSyncEngine } from "./services/calendar/syncEngine";
+import { ChatTranscriptService } from "./services/assistant/chatTranscriptService";
+import { AssistantSession } from "./services/assistant/assistantSession";
 import { PlannerView, VIEW_TYPE_KANBAN_PLUS } from "./views/PlannerView";
 import { TaskActionBar } from "./views/shared/TaskActionBar";
 import { registerCommands } from "./commands";
@@ -24,6 +31,8 @@ export default class KanbanPlusPlugin extends Plugin {
   logService!: LogService;
   eventService!: EventService;
   calendarSyncEngine!: CalendarSyncEngine;
+  chatTranscriptService!: ChatTranscriptService;
+  assistantSession!: AssistantSession;
   taskActionBar!: TaskActionBar;
 
   private openViews = new Set<PlannerView>();
@@ -84,6 +93,11 @@ export default class KanbanPlusPlugin extends Plugin {
       this.eventService,
       this.projectService
     );
+    this.chatTranscriptService = new ChatTranscriptService(
+      this.app,
+      () => this.settings.rootFolder
+    );
+    this.assistantSession = new AssistantSession(this, this.chatTranscriptService);
 
     this.indexer = new Indexer(this.app, this.store, () => this.settings.rootFolder);
     this.app.workspace.onLayoutReady(() => this.indexer.start());
@@ -108,6 +122,7 @@ export default class KanbanPlusPlugin extends Plugin {
   onunload(): void {
     this.taskActionBar?.stop();
     this.indexer?.stop();
+    void this.assistantSession?.stop();
   }
 
   async loadSettings(): Promise<void> {
@@ -124,6 +139,11 @@ export default class KanbanPlusPlugin extends Plugin {
     const stale = this.settings.calendarSync as unknown as Record<string, unknown>;
     delete stale["outlook"];
     delete stale["google"];
+    if (!this.settings.assistant) {
+      this.settings.assistant = { ...DEFAULT_ASSISTANT_SETTINGS };
+    } else {
+      this.settings.assistant = { ...DEFAULT_ASSISTANT_SETTINGS, ...this.settings.assistant };
+    }
     // Migrate older installs that don't yet carry the `review` status. Splice
     // it in between in-progress and blocked so the natural workflow order is
     // preserved.
