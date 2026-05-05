@@ -110,6 +110,7 @@ export interface Event {
   extId?: string;           // external calendar UID
   source?: string;          // e.g. "macos:<calendarId>"
   responseStatus?: ResponseStatus; // RSVP for the user, when known
+  extHash?: string;         // hash of normalized synced fields, for fast diff
   created?: string;
   excerpt?: string;
   body?: string;

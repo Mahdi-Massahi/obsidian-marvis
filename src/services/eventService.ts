@@ -33,6 +33,7 @@ export interface CreateEventInput {
   extId?: string;
   source?: string;
   responseStatus?: ResponseStatus;
+  extHash?: string;
 }
 
 export class EventService {
@@ -100,6 +101,7 @@ export class EventService {
     if (input.extId) fmLines.push(`extId: ${JSON.stringify(input.extId)}`);
     if (input.source) fmLines.push(`source: ${JSON.stringify(input.source)}`);
     if (input.responseStatus) fmLines.push(`responseStatus: ${input.responseStatus}`);
+    if (input.extHash) fmLines.push(`extHash: ${JSON.stringify(input.extHash)}`);
     if (code) fmLines.push(`code: ${code}`);
     fmLines.push(`created: ${todayISO()}`, "---", "", input.body ?? "", "");
 
@@ -167,6 +169,7 @@ export class EventService {
       recurrence?: string | null;
       description?: string | null;
       responseStatus?: ResponseStatus | null;
+      extHash?: string | null;
     }
   ): Promise<void> {
     const file = this.getFile(event);
@@ -191,6 +194,10 @@ export class EventService {
       if (patch.responseStatus !== undefined) {
         if (patch.responseStatus === null) delete fm["responseStatus"];
         else fm["responseStatus"] = patch.responseStatus;
+      }
+      if (patch.extHash !== undefined) {
+        if (patch.extHash === null || patch.extHash === "") delete fm["extHash"];
+        else fm["extHash"] = patch.extHash;
       }
     });
     // Rename the file if date or title changed.

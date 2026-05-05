@@ -3177,17 +3177,79 @@
 }
 
 /* Calendar sync icon button — pulses while a sync is in flight. */
+.kp-iconbtn--calsync {
+  position: relative;
+}
 .kp-iconbtn--calsync.is-syncing {
   pointer-events: none;
-  opacity: 0.7;
 }
-.kp-iconbtn--calsync.is-syncing .kp-icon {
-  animation: kp-calsync-spin 0.9s linear infinite;
-  transform-origin: center;
+/* Progress ring around the sync button. The conic-gradient sweeps from 0 to
+   `--kp-progress * 1turn`; a radial mask carves out the centre to leave a
+   thin ring. The icon itself stays still — the ring carries the motion. */
+.kp-iconbtn--calsync.is-syncing::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(
+    var(--interactive-accent) calc(var(--kp-progress, 0) * 1turn),
+    rgba(99, 102, 241, 0.2) 0
+  );
+  -webkit-mask: radial-gradient(circle, transparent 56%, #000 58%);
+  mask: radial-gradient(circle, transparent 56%, #000 58%);
+  transition: background 0.15s linear;
 }
-@keyframes kp-calsync-spin {
-  to { transform: rotate(360deg); }
+
+/* Sync-result modal */
+.kp-calsync-result .modal-content,
+.modal.kp-calsync-result .modal-content {
+  max-width: 520px;
 }
+.kp-calsync-result__summary {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 4px 0 12px;
+}
+.kp-calsync-result__empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  padding: 12px;
+  border-radius: 8px;
+}
+.kp-calsync-result__section {
+  margin-top: 14px;
+}
+.kp-calsync-result__section h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
+.kp-calsync-result__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.kp-calsync-result__list li {
+  padding: 6px 10px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.kp-calsync-result__list li:last-child {
+  border-bottom: none;
+}
+.kp-calsync-result__created h3 { color: #10b981; }
+.kp-calsync-result__updated h3 { color: #f59e0b; }
+.kp-calsync-result__archived h3 { color: #6366f1; }
+.kp-calsync-result__failed h3 { color: #ef4444; }
 
 /* Calendar-list swatch in settings — a small dot before the calendar title
    that picks up Apple's per-calendar color so duplicate-name calendars are

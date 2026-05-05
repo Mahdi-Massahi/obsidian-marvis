@@ -5,6 +5,7 @@ import { usePlugin } from "../context";
 import type { ViewKind } from "../../schema/types";
 import { Icon, IconName } from "./Icon";
 import { macCalendarProvider } from "../../services/calendar/macCalendarProvider";
+import { CalendarSyncResultModal } from "./CalendarSyncResultModal";
 
 interface Props {
   activeView: ViewKind;
@@ -31,6 +32,7 @@ const CHIP_ICONS: Record<string, IconName> = {
 
 export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSync }) => {
   const {
+    app,
     store,
     settings,
     switchView,
@@ -40,6 +42,7 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
     isAssistantOpen,
   } = usePlugin();
   const [isSyncing, setIsSyncing] = React.useState(false);
+  const [syncProgress, setSyncProgress] = React.useState(0);
   const assistantEnabled = !!settings.assistant?.enabled;
 
   const calendarSyncEnabled =
@@ -58,17 +61,21 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
       return;
     }
     setIsSyncing(true);
+    setSyncProgress(0);
     try {
-      const r = await calendarSyncEngine.syncAllSelected(macCalendarProvider);
-      new Notice(
-        `Calendar sync: +${r.created} ~${r.updated} -${r.archived}` +
-          (r.failed ? ` · ${r.failed} failed` : "")
+      const r = await calendarSyncEngine.syncAllSelected(
+        macCalendarProvider,
+        (done, total) => {
+          setSyncProgress(total > 0 ? done / total : 0);
+        }
       );
+      new CalendarSyncResultModal(app, "Calendar sync", r).open();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       new Notice(`Calendar sync failed: ${msg}`);
     } finally {
       setIsSyncing(false);
+      setSyncProgress(0);
     }
   };
   const filter = store((s) => s.filter);
@@ -168,6 +175,11 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
             aria-label="Sync Apple Calendar"
             disabled={isSyncing}
             onClick={() => void runCalendarSync()}
+            style={
+              isSyncing
+                ? ({ "--kp-progress": syncProgress } as React.CSSProperties)
+                : undefined
+            }
           >
             <Icon name="cloudDownload" size={15} />
           </button>

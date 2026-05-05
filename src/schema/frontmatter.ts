@@ -231,6 +231,7 @@ export function parseEvent(file: TFile, fm: Record<string, unknown>): Event {
     extId: asString(fm["extId"]),
     source: asString(fm["source"]),
     responseStatus: asResponseStatus(fm["responseStatus"]),
+    extHash: asString(fm["extHash"]),
     created: asDate(fm["created"]),
     code: asString(fm["code"]),
   };

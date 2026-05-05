@@ -16,6 +16,7 @@ import {
 } from "./services/calendar/types";
 import { macCalendarProvider } from "./services/calendar/macCalendarProvider";
 import { testGeminiConnection } from "./services/assistant/assistantSession";
+import { CalendarSyncResultModal } from "./views/shared/CalendarSyncResultModal";
 
 export interface CalendarProviderSettings {
   token?: TokenSet;
@@ -388,10 +389,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
           .onClick(async () => {
             try {
               const r = await engine.syncAllSelected(provider);
-              new Notice(
-                `Sync: +${r.created} ~${r.updated} ⌫${r.archived}` +
-                  (r.failed ? ` · ${r.failed} failed` : "")
-              );
+              new CalendarSyncResultModal(this.app, "Calendar sync", r).open();
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
               new Notice(`Sync failed: ${msg}`);
@@ -478,10 +476,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
                 provider,
                 cal.id
               );
-              new Notice(
-                `${cal.displayName}: +${r.created} ~${r.updated} ⌫${r.archived}` +
-                  (r.failed ? ` · ${r.failed} failed` : "")
-              );
+              new CalendarSyncResultModal(this.app, cal.displayName, r).open();
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
               new Notice(`Sync failed: ${msg}`);
