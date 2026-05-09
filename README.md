@@ -6,23 +6,23 @@
 
 A multi-view project planner for Obsidian. Projects, milestones, tasks, logs, and events are real markdown notes; views (Kanban, Timeline, Calendar, Table) sit on top.
 
-![`docs/screenshots/`](./docs/screenshots/mainscreen.png).
+![`docs/screenshots/`](./docs/screenshots/mainscreen.png)
 
 ## Highlights
 
-### Four views, one source of truth
+### 🖥️ Four views, one source of truth
 **Kanban**, **Timeline** (Gantt), **Calendar**, and **Table** all render the same data — every project, milestone, task, log, and event is a real markdown note with frontmatter. Drag-and-drop, filtering by project / milestone / status / priority / tag / date, and fuzzy text search work consistently across all four.
 
-### Live voice AI assistant
+### 🦜 Live voice AI assistant
 Talk to your planner — voice or text — via **Google Gemini Live**. Knows your projects and the note you have open, so *"add a task here, high priority, due Friday"* or *"what's on my plate today?"* just works. Every vault write is gated by a confirmation modal. Bring your own Gemini API key; nothing is proxied.
 
-### Apple Calendar sync (macOS)
+### 📆 Apple Calendar sync (macOS)
 Pull any of your Apple Calendars into the vault as real Marvis events — markdown notes that participate in every view. One-way (external → vault), idempotent, recurrence-aware, with invitation status surfaced visually.
 
-### Coding agents as project managers
+### 🦾 Coding agents as project managers
 Symlink a Marvis project folder into your code repo and the bundled **`marvis-project` skill** teaches Claude Code, Cursor, etc. how to pick tasks, update status, and append work logs against your real planning notes. Because every task is its own file, you can run **multiple assistant sessions in parallel** on different tasks — nothing collides.
 
-### Mobile-ready
+### 📱 Mobile-ready
 Every view works on Obsidian iOS and Android. The toolbar collapses into a mobile nav bar, filters and create flows open as full-screen modals, and tap targets are sized for thumbs. macOS-only features (Apple Calendar sync) hide themselves on other platforms.
 
 ## Features
