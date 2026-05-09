@@ -294,10 +294,13 @@ export default class KanbanPlusPlugin extends Plugin {
       for (const leaf of existing) leaf.detach();
       return;
     }
-    const leaf = this.app.workspace.getRightLeaf(false);
-    if (!leaf) return;
-    await leaf.setViewState({ type: VIEW_TYPE_MARVIS_ASSISTANT, active: true });
-    this.app.workspace.revealLeaf(leaf);
+    // ensureSideLeaf adds the view as a tab in the right sidebar instead of
+    // splitting beside whatever leaf is already there — prevents the "narrow
+    // sliver beside another pane" layout that getRightLeaf(false) can produce.
+    await this.app.workspace.ensureSideLeaf(VIEW_TYPE_MARVIS_ASSISTANT, "right", {
+      active: true,
+      reveal: true,
+    });
   }
 }
 

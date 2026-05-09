@@ -242,7 +242,7 @@ export const AssistantPanel: React.FC<Props> = ({ onClose, session }) => {
               }}
             />
             <button
-              className="kp-iconbtn"
+              className="kp-iconbtn kp-iconbtn--round kp-assistant__send"
               title="Send"
               aria-label="Send"
               onClick={submitText}

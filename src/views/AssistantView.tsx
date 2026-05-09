@@ -31,7 +31,9 @@ export class AssistantView extends ItemView {
   async onOpen(): Promise<void> {
     this.containerEl.children[1].empty();
     this.containerEl.children[1].addClass("kp-host");
-    const mount = this.containerEl.children[1].createDiv({ cls: "kp-mount" });
+    const mount = this.containerEl.children[1].createDiv({
+      cls: "kp-mount kp-mount--assistant",
+    });
     this.root = createRoot(mount);
     this.render();
   }

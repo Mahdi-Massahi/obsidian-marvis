@@ -3414,18 +3414,24 @@
 
 /* Right-side drawer panel */
 .kp-assistant {
-  background: var(--background-primary);
+  background: var(--background-secondary);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 /* Embedded variant: fills the host leaf so the assistant docks naturally
-   inside Obsidian's sidebar layout (no fixed positioning, no overlay). */
+   inside Obsidian's sidebar layout (no fixed positioning, no overlay).
+   Absolute positioning on the kp-mount parent (which is `position: relative`
+   when used by AssistantView via the kp-mount--assistant modifier) is the
+   most robust way to ignore Obsidian's view-content padding/layout quirks. */
 .kp-assistant--embedded {
-  flex: 1;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+
+.kp-mount--assistant {
+  position: relative;
 }
 
 .kp-assistant__header {
@@ -3434,7 +3440,6 @@
   gap: 8px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
 }
 
 .kp-assistant__pill {
@@ -3494,7 +3499,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--background-primary);
 }
 
 .kp-assistant__hint {
@@ -3560,7 +3564,6 @@
   gap: 10px;
   padding: 14px 12px 12px;
   border-top: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
 }
 
 .kp-assistant__voicewell {
@@ -3718,6 +3721,19 @@
 }
 .kp-assistant__textinput:focus { outline: 1px solid var(--interactive-accent); }
 
+/* Send button — circle that matches the textinput's height so the row aligns
+   cleanly. The base .kp-iconbtn has aspect-ratio: 1 plus an explicit width;
+   override the width so it tracks height instead. */
+.kp-assistant__send {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+}
+.kp-assistant__send:hover {
+  background: var(--background-modifier-hover);
+}
+
 /* Confirmation modal for write tool calls */
 .kp-assistant-confirm .modal-content,
 .modal.kp-assistant-confirm .modal-content {
@@ -3850,8 +3866,9 @@
     font-size: 15px;
     padding: 0 14px;
   }
-  /* Make the send button in the footer a comfortable 44px tap target. */
-  .kp-assistant__footer > .kp-iconbtn {
+  /* Make the send button in the footer a comfortable 44px tap target — same
+     height as the textinput so the row aligns cleanly. */
+  .kp-assistant__send {
     width: 44px;
     height: 44px;
     flex: 0 0 auto;
