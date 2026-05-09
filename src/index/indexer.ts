@@ -22,7 +22,7 @@ export class Indexer {
   }
 
   start(): void {
-    this.reindex();
+    void this.reindex();
     this.refs.push(
       this.app.metadataCache.on("changed", (file) => {
         if (file instanceof TFile) this.handleFile(file);
@@ -51,7 +51,7 @@ export class Indexer {
     this.refs = [];
   }
 
-  reindex(): void {
+  async reindex(): Promise<void> {
     const root = this.getRoot();
     const folder = this.app.vault.getAbstractFileByPath(root);
     const tasks: ReturnType<typeof parseTask>[] = [];
@@ -59,7 +59,12 @@ export class Indexer {
     const milestones: ReturnType<typeof parseMilestone>[] = [];
     const logs: ReturnType<typeof parseLog>[] = [];
     const events: ReturnType<typeof parseEvent>[] = [];
-    const bodyFiles: TFile[] = [];
+    // Logs only have a body — no title in frontmatter — so we load their
+    // bodies eagerly before the first render to avoid the "Log @ HH:MM" →
+    // excerpt flicker on Calendar/Timeline. Tasks/events have a stable title
+    // in frontmatter so their body load can stay async.
+    const logFiles: TFile[] = [];
+    const otherBodyFiles: TFile[] = [];
 
     if (folder instanceof TFolder) {
       this.walk(folder, (file) => {
@@ -70,15 +75,15 @@ export class Indexer {
           const t = parseTask(file, fm!);
           t.updated = file.stat.mtime;
           tasks.push(t);
-          bodyFiles.push(file);
+          otherBodyFiles.push(file);
         } else if (kind === "project") projects.push(parseProject(file, fm!));
         else if (kind === "milestone") milestones.push(parseMilestone(file, fm!));
         else if (kind === "log") {
           logs.push(parseLog(file, fm!));
-          bodyFiles.push(file);
+          logFiles.push(file);
         } else if (kind === "event") {
           events.push(parseEvent(file, fm!));
-          bodyFiles.push(file);
+          otherBodyFiles.push(file);
         }
       });
     }
@@ -90,8 +95,10 @@ export class Indexer {
     state.setLogs(logs);
     state.setEvents(events);
 
-    // Async second pass — load body excerpts.
-    void this.loadExcerpts(bodyFiles);
+    // Eager: log bodies first (small, drives the visible label).
+    await this.loadExcerpts(logFiles);
+    // Async second pass — load remaining body excerpts.
+    void this.loadExcerpts(otherBodyFiles);
   }
 
   private handleFile(file: TFile): void {

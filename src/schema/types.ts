@@ -106,6 +106,7 @@ export interface Event {
   time?: string;            // HH:mm
   endTime?: string;         // HH:mm
   recurrence?: string;      // RRULE string (RFC 5545)
+  priority?: Priority;
   tags: string[];
   extId?: string;           // external calendar UID
   source?: string;          // e.g. "macos:<calendarId>"

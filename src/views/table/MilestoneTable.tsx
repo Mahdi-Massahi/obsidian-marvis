@@ -12,17 +12,27 @@ export const MilestoneTable: React.FC = () => {
   const { store, app, settings, milestoneService } = usePlugin();
   const milestonesMap = store((s) => s.milestones);
   const tasksMap = store((s) => s.tasks);
+  const filter = store((s) => s.filter);
 
-  const milestones = React.useMemo(
-    () =>
-      Object.values(milestonesMap).sort((a, b) => {
+  const milestones = React.useMemo(() => {
+    const q = filter.search.trim().toLowerCase();
+    return Object.values(milestonesMap)
+      .filter((m) => {
+        if (filter.projects.length && (!m.project || !filter.projects.includes(m.project)))
+          return false;
+        if (q) {
+          const haystack = `${m.name} ${m.title} ${m.project ?? ""}`.toLowerCase();
+          if (!haystack.includes(q)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
         const ap = a.project ?? "";
         const bp = b.project ?? "";
         if (ap !== bp) return ap.localeCompare(bp);
         return a.name.localeCompare(b.name);
-      }),
-    [milestonesMap]
-  );
+      });
+  }, [milestonesMap, filter]);
 
   const taskCounts = React.useMemo(() => {
     const counts = new Map<string, number>();

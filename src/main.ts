@@ -18,6 +18,7 @@ import { CalendarSyncEngine } from "./services/calendar/syncEngine";
 import { ChatTranscriptService } from "./services/assistant/chatTranscriptService";
 import { AssistantSession } from "./services/assistant/assistantSession";
 import { PlannerView, VIEW_TYPE_KANBAN_PLUS } from "./views/PlannerView";
+import { AssistantView, VIEW_TYPE_MARVIS_ASSISTANT } from "./views/AssistantView";
 import { TaskActionBar } from "./views/shared/TaskActionBar";
 import { registerCommands } from "./commands";
 import type { ViewKind } from "./schema/types";
@@ -106,6 +107,10 @@ export default class KanbanPlusPlugin extends Plugin {
     this.registerView(
       VIEW_TYPE_KANBAN_PLUS,
       (leaf: WorkspaceLeaf) => new PlannerView(leaf, this, this.settings.defaultView)
+    );
+    this.registerView(
+      VIEW_TYPE_MARVIS_ASSISTANT,
+      (leaf: WorkspaceLeaf) => new AssistantView(leaf, this)
     );
 
     registerCommands(this);
@@ -274,6 +279,24 @@ export default class KanbanPlusPlugin extends Plugin {
     } else {
       await leaf.setViewState({ type: VIEW_TYPE_KANBAN_PLUS, state: { kind }, active: true });
     }
+    this.app.workspace.revealLeaf(leaf);
+  }
+
+  isAssistantLeafOpen(): boolean {
+    return this.app.workspace.getLeavesOfType(VIEW_TYPE_MARVIS_ASSISTANT).length > 0;
+  }
+
+  async toggleAssistantLeaf(): Promise<void> {
+    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_MARVIS_ASSISTANT);
+    if (existing.length > 0) {
+      // Detach all instances. AssistantView.onClose stops the session and
+      // notifies planner views to refresh their toggle button.
+      for (const leaf of existing) leaf.detach();
+      return;
+    }
+    const leaf = this.app.workspace.getRightLeaf(false);
+    if (!leaf) return;
+    await leaf.setViewState({ type: VIEW_TYPE_MARVIS_ASSISTANT, active: true });
     this.app.workspace.revealLeaf(leaf);
   }
 }

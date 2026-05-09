@@ -21,6 +21,8 @@ export const EventTable: React.FC = () => {
       .filter((ev) => {
         if (filter.projects.length && (!ev.project || !filter.projects.includes(ev.project)))
           return false;
+        if (filter.priorities.length && (!ev.priority || !filter.priorities.includes(ev.priority)))
+          return false;
         if (filter.tags.length) {
           const tagSet = new Set(ev.tags);
           if (!filter.tags.every((t) => tagSet.has(t))) return false;
@@ -154,6 +156,7 @@ export const EventTable: React.FC = () => {
               <EventTh icon="calendar" label="When" />
               <EventTh icon="text" label="Title" />
               <EventTh icon="folder" label="Project" />
+              <EventTh icon="priority" label="Priority" />
               <EventTh icon="tag" label="Tags" />
               <EventTh icon="more" label="Actions" />
             </tr>
@@ -170,7 +173,7 @@ export const EventTable: React.FC = () => {
             ))}
             {events.length === 0 && (
               <tr>
-                <td colSpan={6} className="kp-empty">
+                <td colSpan={7} className="kp-empty">
                   No events yet — use the Create menu to add one.
                 </td>
               </tr>
@@ -199,7 +202,7 @@ interface RowProps {
 }
 
 const EventRow: React.FC<RowProps> = ({ event, projects, checked, onToggle }) => {
-  const { eventService, store } = usePlugin();
+  const { eventService, store, settings } = usePlugin();
   const projectsMap = store((s) => s.projects);
   const projectObj = event.project
     ? Object.values(projectsMap).find((p) => p.name === event.project)
@@ -271,6 +274,29 @@ const EventRow: React.FC<RowProps> = ({ event, projects, checked, onToggle }) =>
             )}
           </select>
         </div>
+      </td>
+      <td>
+        <select
+          value={event.priority ?? ""}
+          onChange={(e) =>
+            void eventService.setPriority(event, e.target.value || undefined)
+          }
+          className="kp-table__priority-select"
+          style={{
+            color: event.priority
+              ? settings.priorities.find((p) => p.id === event.priority)?.color
+              : undefined,
+            fontWeight: event.priority ? 700 : undefined,
+            letterSpacing: event.priority ? "-1px" : undefined,
+          }}
+        >
+          <option value="">—</option>
+          {settings.priorities.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
       </td>
       <td>
         <div className="kp-table__tags kp-table__tags--stacked">

@@ -294,6 +294,50 @@ function findItemByPath(
 // ─────────────────────────────────────────────────────────────────────────────
 
 register({
+  name: "get_active_file",
+  description:
+    "Return the file currently focused in Obsidian. Use this to resolve deictic references — 'this task', 'the current note', 'here', 'that log' — into a specific item. If the focused file is a Marvis note (task/log/event/milestone/project), returns its kind plus key fields; for any other file returns kind 'other' with path and basename; returns { active: null } when no file is focused.",
+  parameters: { type: "object", properties: {} },
+  write: false,
+  handler: async (_args, ctx) => {
+    const file = ctx.app.workspace.getActiveFile();
+    if (!file) return { active: null };
+    const found = findItemByPath(ctx, file.path);
+    if (!found) {
+      return { active: { kind: "other", path: file.path, basename: file.basename } };
+    }
+    const item = found.item as unknown as Record<string, unknown>;
+    const out: Record<string, unknown> = {
+      kind: found.kind,
+      path: file.path,
+      basename: file.basename,
+    };
+    const fields = [
+      "title",
+      "name",
+      "project",
+      "milestone",
+      "status",
+      "priority",
+      "due",
+      "start",
+      "timestamp",
+      "date",
+      "time",
+    ];
+    for (const k of fields) {
+      const v = item[k];
+      if (v != null && v !== "") out[k] = v;
+    }
+    const tagsRaw = item.tags;
+    if (Array.isArray(tagsRaw) && tagsRaw.length > 0) {
+      out.tags = (tagsRaw as unknown[]).map(String);
+    }
+    return { active: out };
+  },
+});
+
+register({
   name: "list_projects",
   description: "List all known projects with status, color, and folder.",
   parameters: {
@@ -422,6 +466,7 @@ register({
         time: e.time,
         endTime: e.endTime,
         recurrence: e.recurrence,
+        priority: e.priority,
         project: e.project,
         responseStatus: e.responseStatus,
         path: e.path,
@@ -826,6 +871,7 @@ register({
       time: { type: "string", description: "HH:mm" },
       endTime: { type: "string", description: "HH:mm" },
       recurrence: { type: "string", description: "RRULE string (RFC 5545)" },
+      priority: { type: "string", description: "priority id, e.g. 'high'" },
       project: { type: "string" },
       tags: { type: "array", items: { type: "string" } },
       body: {
@@ -839,6 +885,7 @@ register({
   preview: (args) => {
     const parts = [`Event "${args.title}" on ${args.dateISO}`];
     if (args.time) parts.push(`at ${args.time}`);
+    if (args.priority) parts.push(`priority ${args.priority}`);
     if (args.project) parts.push(`in ${args.project}`);
     if (args.recurrence) parts.push(`(${args.recurrence})`);
     return parts.join(" ");
@@ -850,6 +897,7 @@ register({
       time: args.time ? String(args.time) : undefined,
       endTime: args.endTime ? String(args.endTime) : undefined,
       recurrence: args.recurrence ? String(args.recurrence) : undefined,
+      priority: args.priority ? String(args.priority) : undefined,
       project: args.project ? String(args.project) : undefined,
       tags: Array.isArray(args.tags) ? (args.tags as unknown[]).map(String) : undefined,
       body: args.body ? String(args.body) : undefined,

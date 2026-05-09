@@ -271,6 +271,7 @@ export class CreateMenuModal extends Modal {
       .sort((a, b) => a.name.localeCompare(b.name));
     const now = new Date();
     const todayIso = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+    const priorities = this.plugin.settings.priorities;
     const state = {
       title: "",
       date: todayIso,
@@ -281,6 +282,7 @@ export class CreateMenuModal extends Modal {
         ? DEFAULT_EVENT_PROJECT
         : (projects[0] ?? DEFAULT_EVENT_PROJECT),
       milestone: "",
+      priority: "",
       recurrencePreset: "none",
       recurrenceCustom: "",
       tags: "",
@@ -361,6 +363,13 @@ export class CreateMenuModal extends Modal {
       });
     }
 
+    new Setting(this.formEl).setName("Priority").addDropdown((dd) => {
+      dd.addOption("", "—");
+      for (const p of priorities) dd.addOption(p.id, p.label);
+      dd.setValue(state.priority);
+      dd.onChange((v) => (state.priority = v));
+    });
+
     let customRow: Setting | null = null;
     new Setting(this.formEl).setName("Recurrence").addDropdown((dd) => {
       dd.addOption("none", "None");
@@ -433,6 +442,7 @@ export class CreateMenuModal extends Modal {
           time: state.allDay ? undefined : state.time || undefined,
           endTime: state.allDay ? undefined : state.endTime || undefined,
           recurrence,
+          priority: state.priority || undefined,
           tags: tags.length ? tags : undefined,
           body,
           project: projectName,

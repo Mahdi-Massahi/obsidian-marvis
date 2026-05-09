@@ -43,6 +43,8 @@ export const TableRoot: React.FC = () => {
         activeView="table"
         toolbar={toolbar}
         showCalendarSync={tab === "events"}
+        hideProjectFilter={tab === "projects"}
+        hideMilestoneFilter={tab === "milestones"}
       />
       {tab === "tasks" && <TaskTable />}
       {tab === "projects" && <ProjectTable />}

@@ -246,6 +246,15 @@ export const TimelineRoot: React.FC = () => {
   const today = startOfDay(new Date());
   const todayIdx = days.findIndex((d) => isSameDay(d, today));
 
+  // Pack bars into the minimum number of horizontal lanes per row using
+  // greedy interval scheduling — sort by start, place each bar in the first
+  // lane whose previous bar ends before this one starts. Eliminates the
+  // waterfall effect where every bar gets its own row.
+  const rowLayouts = React.useMemo(
+    () => rows.map((row) => packLanes(row, days)),
+    [rows, days]
+  );
+
   // Time cursor — precise within today's column. Refreshes once a minute so
   // the line crawls forward without the user re-rendering anything.
   const [now, setNow] = React.useState(() => new Date());
@@ -325,12 +334,12 @@ export const TimelineRoot: React.FC = () => {
             <div className="kp-tl__sidebar-head" style={{ height: HEADER_HEIGHT }}>
               {groupBy === "project" ? "Project" : "Milestone"}
             </div>
-            {rows.map((row) => (
+            {rows.map((row, rowIdx) => (
               <div
                 key={row.id}
                 className="kp-tl__sidebar-row"
                 style={{
-                  height: Math.max(row.bars.length, 1) * ROW_HEIGHT + 4,
+                  height: rowLayouts[rowIdx].numLanes * ROW_HEIGHT + 4,
                   borderLeftColor: row.color,
                 }}
               >
@@ -362,11 +371,11 @@ export const TimelineRoot: React.FC = () => {
                   key={row.id}
                   className="kp-tl__row"
                   style={{
-                    height: Math.max(row.bars.length, 1) * ROW_HEIGHT + 4,
-                    top: rowsBefore(rows, rowIdx),
+                    height: rowLayouts[rowIdx].numLanes * ROW_HEIGHT + 4,
+                    top: rowsBefore(rowLayouts, rowIdx),
                   }}
                 >
-                  {row.bars.map((bar, barIdx) => {
+                  {row.bars.map((bar) => {
                     const isDrafting = draft && draft.barPath === bar.path;
                     const startISO = isDrafting ? draft!.startISO : bar.startISO;
                     const endISO = isDrafting ? draft!.endISO : bar.endISO;
@@ -376,7 +385,8 @@ export const TimelineRoot: React.FC = () => {
                     const endIdx = dayIndex(days, endDate);
                     const left = startIdx * dayWidth;
                     const width = Math.max((endIdx - startIdx + 1) * dayWidth, dayWidth);
-                    const top = barIdx * ROW_HEIGHT + 2;
+                    const lane = rowLayouts[rowIdx].laneById.get(bar.id) ?? 0;
+                    const top = lane * ROW_HEIGHT + 2;
                     const isNarrow = width < 56;
                     const isMilestone = bar.kind === "milestone";
                     const isLog = bar.kind === "log";
@@ -659,9 +669,46 @@ function milestoneToBar(m: Milestone, color: string): Bar {
   };
 }
 
-function rowsBefore(rows: Row[], idx: number): number {
+interface RowLayout {
+  numLanes: number;
+  laneById: Map<string, number>;
+}
+
+function packLanes(row: Row, days: Date[]): RowLayout {
+  const laneById = new Map<string, number>();
+  if (row.bars.length === 0) return { numLanes: 1, laneById };
+  const items = row.bars.map((bar) => {
+    const startDate = parseDate(bar.startISO);
+    const endDate = parseDate(bar.endISO);
+    return {
+      id: bar.id,
+      startIdx: startDate ? dayIndex(days, startDate) : 0,
+      endIdx: endDate ? dayIndex(days, endDate) : 0,
+    };
+  });
+  items.sort((a, b) => a.startIdx - b.startIdx || a.endIdx - b.endIdx);
+  const laneEnds: number[] = [];
+  for (const it of items) {
+    let placed = false;
+    for (let i = 0; i < laneEnds.length; i++) {
+      if (it.startIdx > laneEnds[i]) {
+        laneEnds[i] = it.endIdx;
+        laneById.set(it.id, i);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      laneById.set(it.id, laneEnds.length);
+      laneEnds.push(it.endIdx);
+    }
+  }
+  return { numLanes: Math.max(laneEnds.length, 1), laneById };
+}
+
+function rowsBefore(layouts: RowLayout[], idx: number): number {
   let total = 0;
-  for (let i = 0; i < idx; i++) total += Math.max(rows[i].bars.length, 1) * ROW_HEIGHT + 4;
+  for (let i = 0; i < idx; i++) total += layouts[i].numLanes * ROW_HEIGHT + 4;
   return total;
 }
 

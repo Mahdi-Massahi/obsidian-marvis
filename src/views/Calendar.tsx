@@ -77,6 +77,8 @@ export const CalendarRoot: React.FC = () => {
         return false;
       if (filter.milestones.length && (!ev.milestone || !filter.milestones.includes(ev.milestone)))
         return false;
+      if (filter.priorities.length && (!ev.priority || !filter.priorities.includes(ev.priority)))
+        return false;
       if (filter.tags.length) {
         const tagSet = new Set(ev.tags);
         if (!filter.tags.every((t) => tagSet.has(t))) return false;
@@ -363,6 +365,63 @@ const DayCell: React.FC<DayCellProps> = ({
 
 const HOUR_HEIGHT = 56;
 
+interface TimedLayout {
+  occ: EventOccurrence;
+  startMin: number;
+  endMin: number;
+  col: number;
+  totalCols: number;
+}
+
+// Pack overlapping events into columns so concurrent events render side-by-side
+// instead of stacking on top of each other. Standard sweep-by-start algorithm:
+// events sharing any minute form a cluster; within the cluster, each event takes
+// the leftmost free column, and the cluster's column count drives the slot width.
+function layoutTimedEvents(events: EventOccurrence[]): TimedLayout[] {
+  const items = events
+    .map((occ) => {
+      const startMin = parseTimeToMin(occ.event.time) ?? 0;
+      const rawEnd = parseTimeToMin(occ.event.endTime) ?? startMin + 30;
+      return { occ, startMin, endMin: Math.max(rawEnd, startMin + 1) };
+    })
+    .sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin);
+
+  const out: TimedLayout[] = [];
+  let cluster: TimedLayout[] = [];
+  let clusterEnd = -1;
+  let columns: number[] = [];
+
+  const flush = () => {
+    const total = columns.length;
+    for (const item of cluster) item.totalCols = total;
+    out.push(...cluster);
+    cluster = [];
+    columns = [];
+    clusterEnd = -1;
+  };
+
+  for (const it of items) {
+    if (cluster.length > 0 && it.startMin >= clusterEnd) flush();
+    let col = columns.findIndex((end) => end <= it.startMin);
+    if (col === -1) {
+      col = columns.length;
+      columns.push(it.endMin);
+    } else {
+      columns[col] = it.endMin;
+    }
+    cluster.push({
+      occ: it.occ,
+      startMin: it.startMin,
+      endMin: it.endMin,
+      col,
+      totalCols: 0,
+    });
+    clusterEnd = Math.max(clusterEnd, it.endMin);
+  }
+  if (cluster.length > 0) flush();
+  return out;
+}
+
 interface DayViewProps {
   date: Date;
   iso: string;
@@ -383,6 +442,10 @@ const DayView: React.FC<DayViewProps> = ({
 }) => {
   const allDayEvents = events.filter((o) => !o.event.time);
   const timedEvents = events.filter((o) => o.event.time);
+  const timedLayout = React.useMemo(
+    () => layoutTimedEvents(timedEvents),
+    [timedEvents]
+  );
   const isToday = isSameDay(date, new Date());
 
   const [now, setNow] = React.useState(() => new Date());
@@ -440,11 +503,13 @@ const DayView: React.FC<DayViewProps> = ({
               </span>
             </div>
           ))}
-          {timedEvents.map((occ, i) => (
+          {timedLayout.map((item, i) => (
             <DayTimedEvent
-              key={`${occ.event.id}-${i}`}
-              event={occ.event}
+              key={`${item.occ.event.id}-${i}`}
+              event={item.occ.event}
               projectsMap={projectsMap}
+              col={item.col}
+              totalCols={item.totalCols}
             />
           ))}
           {logs
@@ -464,10 +529,15 @@ const DayView: React.FC<DayViewProps> = ({
 const DayTimedEvent: React.FC<{
   event: Event;
   projectsMap: Record<string, import("../schema/types").Project>;
-}> = ({ event, projectsMap }) => {
-  const { eventService } = usePlugin();
+  col: number;
+  totalCols: number;
+}> = ({ event, projectsMap, col, totalCols }) => {
+  const { eventService, settings } = usePlugin();
   const project = event.project
     ? Object.values(projectsMap).find((p) => p.name === event.project)
+    : undefined;
+  const priority = event.priority
+    ? settings.priorities.find((p) => p.id === event.priority)
     : undefined;
   const startMin = parseTimeToMin(event.time) ?? 0;
   const endMin = parseTimeToMin(event.endTime) ?? startMin + 30;
@@ -477,6 +547,16 @@ const DayTimedEvent: React.FC<{
   const timeLabel = event.endTime ? `${event.time}–${event.endTime}` : event.time!;
   const respClass = responseStatusClass(event);
   const respLabel = responseStatusLabel(event);
+  // CSS sets `left: 60px; right: 12px;`. When events overlap we slice that
+  // available width into N equal columns so they sit side-by-side.
+  const overlap = totalCols > 1;
+  const positionStyle: React.CSSProperties = overlap
+    ? {
+        left: `calc(60px + ${col} * (100% - 72px) / ${totalCols})`,
+        width: `calc((100% - 72px) / ${totalCols} - 2px)`,
+        right: "auto",
+      }
+    : {};
   return (
     <div
       className={`kp-cal__day-event ${respClass}`.trim()}
@@ -485,6 +565,7 @@ const DayTimedEvent: React.FC<{
         height,
         borderColor: color,
         background: `color-mix(in oklab, ${color} 18%, var(--kp-bg))`,
+        ...positionStyle,
       }}
       title={respLabel ? `${respLabel} · ${timeLabel} · ${event.title}` : `${timeLabel} · ${event.title}`}
       onClick={(e) => {
@@ -496,6 +577,11 @@ const DayTimedEvent: React.FC<{
       <Icon name={eventIconName(event)} size={11} className="kp-cal__day-event-icon" />
       <span className="kp-cal__day-event-time">{timeLabel}</span>
       <span className="kp-cal__day-event-title">{event.title}</span>
+      {priority && (
+        <span className="kp-cal__chip-pri" style={{ color: priority.color }}>
+          {priority.label}
+        </span>
+      )}
     </div>
   );
 };
@@ -543,9 +629,12 @@ const EventCalChip: React.FC<{
   date: Date;
   projectsMap: Record<string, import("../schema/types").Project>;
 }> = ({ event, projectsMap }) => {
-  const { eventService } = usePlugin();
+  const { eventService, settings } = usePlugin();
   const project = event.project
     ? Object.values(projectsMap).find((p) => p.name === event.project)
+    : undefined;
+  const priority = event.priority
+    ? settings.priorities.find((p) => p.id === event.priority)
     : undefined;
   const isAllDay = !event.time;
   const timeLabel = event.time
@@ -562,8 +651,8 @@ const EventCalChip: React.FC<{
   return (
     <div
       className={`kp-cal__chip kp-cal__chip--event ${
-        isAllDay ? "kp-cal__chip--allday" : ""
-      } ${respClass}`.trim()}
+        timeLabel ? "kp-cal__chip--stacked" : ""
+      } ${isAllDay ? "kp-cal__chip--allday" : ""} ${respClass}`.trim()}
       style={style}
       title={respLabel ? `${respLabel} · ${label}` : label}
       onClick={(e) => {
@@ -575,7 +664,15 @@ const EventCalChip: React.FC<{
       }}
     >
       <Icon name={eventIconName(event)} size={11} className="kp-cal__chip-icon" />
-      <span className="kp-cal__chip-title">{label}</span>
+      <div className="kp-cal__chip-stack">
+        {timeLabel && <span className="kp-cal__chip-time">{timeLabel}</span>}
+        <span className="kp-cal__chip-title">{event.title}</span>
+      </div>
+      {priority && (
+        <span className="kp-cal__chip-pri" style={{ color: priority.color }}>
+          {priority.label}
+        </span>
+      )}
     </div>
   );
 };
@@ -601,7 +698,7 @@ const LogCalChip: React.FC<{
   return (
     <div
       ref={setNodeRef}
-      className="kp-cal__chip kp-cal__chip--log"
+      className={`kp-cal__chip kp-cal__chip--log ${time ? "kp-cal__chip--stacked" : ""}`.trim()}
       style={style}
       title={label}
       onClick={(e) => {
@@ -615,7 +712,10 @@ const LogCalChip: React.FC<{
       {...listeners}
     >
       <Icon name="notebook" size={11} className="kp-cal__chip-icon" />
-      <span className="kp-cal__chip-title">{label}</span>
+      <div className="kp-cal__chip-stack">
+        {time && <span className="kp-cal__chip-time">{time}</span>}
+        <span className="kp-cal__chip-title">{log.excerpt ?? "Log"}</span>
+      </div>
     </div>
   );
 };
@@ -651,12 +751,15 @@ const CalChip: React.FC<{
       {...attributes}
       {...listeners}
     >
-      <span className="kp-cal__chip-title">{task.title}</span>
-      {priority && (
-        <span className="kp-cal__chip-pri" style={{ color: priority.color }}>
-          {priority.label}
-        </span>
-      )}
+      <Icon name="check" size={11} className="kp-cal__chip-icon" />
+      <div className="kp-cal__chip-row">
+        <span className="kp-cal__chip-title">{task.title}</span>
+        {priority && (
+          <span className="kp-cal__chip-pri" style={{ color: priority.color }}>
+            {priority.label}
+          </span>
+        )}
+      </div>
     </div>
   );
 };

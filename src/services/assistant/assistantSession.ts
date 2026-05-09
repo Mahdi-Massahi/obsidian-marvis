@@ -56,13 +56,21 @@ function formatDateTimeStamp(d: Date = new Date()): string {
   );
 }
 
-function buildSystemInstruction(opts: { userName?: string; override?: string }): string {
+function buildSystemInstruction(opts: {
+  userName?: string;
+  override?: string;
+  projectNames?: string[];
+}): string {
   const now = new Date();
   const todayISO = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const tomorrowISO = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`;
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const name = opts.userName?.trim();
+  const projects = (opts.projectNames ?? []).filter((p) => p && p.trim()).sort();
+  const projectsBlock = projects.length
+    ? `\nKNOWN PROJECTS (canonical names — match user mentions against this list; do not invent):\n${projects.map((p) => `- ${p}`).join("\n")}\n`
+    : "";
 
   const base = `You are Marvis, ${name ? `${name}'s` : "the user's"} voice-driven planning assistant inside Obsidian.
 
@@ -71,17 +79,18 @@ CURRENT CONTEXT (this session started at this moment — use it as your referenc
 - Today: ${todayISO}
 - Tomorrow: ${tomorrowISO}
 ${name ? `- User's name: ${name}` : ""}
-
+${projectsBlock}
 You have read and write access to ${name ? `${name}'s` : "the user's"} projects, tasks, milestones, events, and logs through tools. You should:
 - Address ${name ? name + " by name occasionally — naturally, not in every turn" : "the user warmly without overusing 'user'"}. Sound concise, friendly, and warm. Speak in short turns, summarize lists rather than reading every item.
 - At the start of any open-ended planning conversation ("what's on my plate?", "good morning", "what should I focus on?"), proactively call get_planning_snapshot and use list_tasks (filtered by due=today and due=tomorrow) to give a personalized overview. Mention overdue items if any, then today, then tomorrow if relevant.
 - Resolve relative dates ("today", "tomorrow", "Friday", "next week") against today's date above. Today is ${todayISO}, tomorrow is ${tomorrowISO}. Do not invent dates.
 - The user's text messages may arrive prefixed with [YYYY-MM-DD HH:mm:ss] indicating exactly when they were sent. Treat that timestamp as authoritative for "now" within the conversation if it differs from the session-start time above.
+- Text messages may also include [active: <path>] right after the timestamp — that's the file the user has focused in Obsidian. When they use deictic references ("this task", "the current note", "here", "that log"), assume they mean the file in [active: …]. In voice mode (no [active: …] line) or when no file is focused, call get_active_file to resolve. Don't call get_active_file when the user names a file or project explicitly.
 - Before making any change to the vault (creating tasks/milestones/projects/logs/events, updating tasks, archiving items), briefly state intent in one sentence, then call the tool. The user sees a confirmation modal — never assume approval. If a tool returns declined: true, accept it without arguing and offer alternatives.
 - After a write tool resolves with ok: true, acknowledge in ONE short sentence ("Done.", "Created.", "Logged.", "Updated."). Optionally include just the title or a single anchor (date/project) — never the full field list. The user already saw every field in the approval modal, so do not read back priority, due date, tags, status, project, etc. unless they explicitly ask "what did you set?". Same rule for batches: one acknowledgement covers the batch.
 - Never invent project names, task titles, paths, or item ids. Only reference items returned by tools. If unsure, call list_* or search_vault first.
 - Use ISO YYYY-MM-DD for dates in tool arguments.
-- When creating a task or log without an explicit project, default to "Inbox".
+- When the user mentions a project, match it against KNOWN PROJECTS above (case-insensitive; tolerate minor mispronunciations and partial matches). If two or more entries plausibly match, ask the user which one. Only call create_project if no entry in the list reasonably matches. When no project is specified at all, default to "Inbox".
 - When creating tasks, logs, or events, always populate the body field with the substantive content the user gave you — notes, context, acceptance criteria, what happened, agenda, links, attendees. The title is a one-line label; the body is where the actual information lives. For logs especially, the body is the main payload — never create a log with only a title. Only leave body empty if the user genuinely gave nothing beyond a title.
 - When calling create_task, classify the task and include exactly one of \`bug\`, \`feature\`, \`improvement\`, or \`idea\` in \`tags\`: \`bug\` for something broken or wrong ("X is failing", "fix Y", "Z doesn't work"), \`feature\` for a concrete new capability to build ("add", "support", "implement"), \`improvement\` for refining/polishing something that already exists ("make X faster", "tweak Y", "clean up Z", "better wording for…"), \`idea\` for an exploratory or half-formed thought ("maybe we could…", "what if…", brainstorm-style). When unsure between feature and idea, prefer \`idea\`; when unsure between feature and improvement, ask whether the thing already exists — if yes, \`improvement\`. Preserve any additional tags the user mentioned alongside the classification tag.
 - Keep spoken replies under ~3 sentences unless asked for more detail. For long lists, summarize as counts ("you have five tasks due today — want me to read them?") and read on request.`;
@@ -98,6 +107,11 @@ export interface SessionOptions {
   onState?: (state: SessionState) => void;
   onMessage?: (message: SessionMessage) => void;
   onTick?: (elapsedMs: number) => void;
+  onMic?: (active: boolean) => void;
+}
+
+export interface StartOptions {
+  withMic?: boolean;
 }
 
 export class AssistantSession {
@@ -118,6 +132,7 @@ export class AssistantSession {
   private lastSpokenAt = 0;
   private wakeLock: { release: () => Promise<void> } | null = null;
   private wakeLockReacquireRef: ((this: Document, ev: Event) => void) | null = null;
+  private micActive = false;
 
   constructor(plugin: KanbanPlusPlugin, transcript: ChatTranscriptService) {
     this.plugin = plugin;
@@ -144,8 +159,16 @@ export class AssistantSession {
     return this.state !== "idle" && this.state !== "error";
   }
 
-  async start(): Promise<void> {
-    if (this.isActive()) return;
+  isMicActive(): boolean {
+    return this.micActive;
+  }
+
+  async start(options: StartOptions = {}): Promise<void> {
+    const withMic = options.withMic ?? false;
+    if (this.isActive()) {
+      if (withMic && !this.micActive) await this.enableMic();
+      return;
+    }
     const settings = this.plugin.settings.assistant;
     if (!settings.enabled) {
       new Notice("Assistant is disabled in settings.");
@@ -165,7 +188,10 @@ export class AssistantSession {
       }
       await this.audio.ensurePlayback();
       await this.connectClient();
-      await this.audio.startMic((buf) => this.client?.sendAudioChunk(buf));
+      if (withMic) {
+        await this.audio.startMic((buf) => this.client?.sendAudioChunk(buf));
+        this.setMicActive(true);
+      }
       this.startedAt = Date.now();
       this.startTick();
       void this.acquireWakeLock();
@@ -177,9 +203,37 @@ export class AssistantSession {
     }
   }
 
+  async enableMic(): Promise<void> {
+    if (!this.isActive()) {
+      await this.start({ withMic: true });
+      return;
+    }
+    if (this.micActive) return;
+    try {
+      await this.audio.startMic((buf) => this.client?.sendAudioChunk(buf));
+      this.setMicActive(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      new Notice(`Microphone failed to start: ${msg}`);
+    }
+  }
+
+  disableMic(): void {
+    if (!this.micActive) return;
+    this.audio.stopMic();
+    this.setMicActive(false);
+  }
+
+  private setMicActive(active: boolean): void {
+    if (this.micActive === active) return;
+    this.micActive = active;
+    this.opts.onMic?.(active);
+  }
+
   async stop(silent = false): Promise<void> {
     this.stopTick();
     this.audio.stopMic();
+    this.setMicActive(false);
     this.client?.close();
     this.client = null;
     this.audio.flushPlayback();
@@ -206,11 +260,14 @@ export class AssistantSession {
     const ts = new Date();
     // Prepend [YYYY-MM-DD HH:mm:ss] so the model has an authoritative "now"
     // for relative dates ("tomorrow", "in two hours") even when the session
-    // setup was sent earlier.
+    // setup was sent earlier. Then prepend [active: <path>] so deictic
+    // references ("this task", "here") resolve without an extra tool call.
     const stampPattern = /^\s*\[\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?\]/;
+    const activeFile = this.plugin.app.workspace.getActiveFile();
+    const activePrefix = activeFile ? `[active: ${activeFile.path}] ` : "";
     const stamped = stampPattern.test(text)
       ? text
-      : `[${formatDateTimeStamp(ts)}] ${text}`;
+      : `[${formatDateTimeStamp(ts)}] ${activePrefix}${text}`;
     // Display the user's raw text in the panel/transcript; only the model sees the stamp.
     this.transcript.appendUser(text, ts);
     this.emitMessage({ kind: "user", text, ts: ts.getTime() });
@@ -221,6 +278,7 @@ export class AssistantSession {
   private async connectClient(): Promise<void> {
     const settings = this.plugin.settings.assistant;
     const tools = buildFunctionDeclarations();
+    const projectNames = Object.values(this.plugin.store.getState().projects).map((p) => p.name);
     const client = new GeminiLiveClient({
       apiKey: settings.apiKey.trim(),
       model: settings.model,
@@ -228,6 +286,7 @@ export class AssistantSession {
       systemInstruction: buildSystemInstruction({
         userName: settings.userName,
         override: settings.systemInstructionOverride,
+        projectNames,
       }),
       tools,
       resumeHandle: this.resumeHandle ?? undefined,

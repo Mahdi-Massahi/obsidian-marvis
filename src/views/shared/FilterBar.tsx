@@ -13,6 +13,10 @@ interface Props {
   // Explicit override for the calendar-sync button. When unset, the button
   // shows on calendar + timeline views (which always render events).
   showCalendarSync?: boolean;
+  // Suppress filter chips that are tautological for the active table tab —
+  // e.g. the Project chip on the Projects tab where every row is a project.
+  hideProjectFilter?: boolean;
+  hideMilestoneFilter?: boolean;
 }
 
 const VIEWS: { id: ViewKind; label: string; icon: IconName }[] = [
@@ -30,7 +34,13 @@ const CHIP_ICONS: Record<string, IconName> = {
   Tag: "hash",
 };
 
-export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSync }) => {
+export const FilterBar: React.FC<Props> = ({
+  activeView,
+  toolbar,
+  showCalendarSync,
+  hideProjectFilter,
+  hideMilestoneFilter,
+}) => {
   const {
     app,
     store,
@@ -232,20 +242,24 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
           </button>
         )}
         <div className="kp-filterbar__chips">
-          <ChipGroup
-            label="Project"
-            options={projectNames}
-            selected={filter.projects}
-            onToggle={(v) => setFilter({ projects: toggle(filter.projects, v) })}
-            colors={projectColors}
-          />
-          <ChipGroup
-            label="Milestone"
-            options={milestoneNames}
-            selected={filter.milestones}
-            onToggle={(v) => setFilter({ milestones: toggle(filter.milestones, v) })}
-            suffixes={milestoneProjects}
-          />
+          {!hideProjectFilter && (
+            <ChipGroup
+              label="Project"
+              options={projectNames}
+              selected={filter.projects}
+              onToggle={(v) => setFilter({ projects: toggle(filter.projects, v) })}
+              colors={projectColors}
+            />
+          )}
+          {!hideMilestoneFilter && (
+            <ChipGroup
+              label="Milestone"
+              options={milestoneNames}
+              selected={filter.milestones}
+              onToggle={(v) => setFilter({ milestones: toggle(filter.milestones, v) })}
+              suffixes={milestoneProjects}
+            />
+          )}
           <ChipGroup
             label="Status"
             options={settings.statuses.map((s) => s.id)}
@@ -402,20 +416,24 @@ export const FilterBar: React.FC<Props> = ({ activeView, toolbar, showCalendarSy
               </button>
             </div>
             <div className="kp-filtermodal__body">
-              <FilterSection
-                label="Project"
-                options={projectNames}
-                selected={filter.projects}
-                onToggle={(v) => setFilter({ projects: toggle(filter.projects, v) })}
-                colors={projectColors}
-              />
-              <FilterSection
-                label="Milestone"
-                options={milestoneNames}
-                selected={filter.milestones}
-                onToggle={(v) => setFilter({ milestones: toggle(filter.milestones, v) })}
-                suffixes={milestoneProjects}
-              />
+              {!hideProjectFilter && (
+                <FilterSection
+                  label="Project"
+                  options={projectNames}
+                  selected={filter.projects}
+                  onToggle={(v) => setFilter({ projects: toggle(filter.projects, v) })}
+                  colors={projectColors}
+                />
+              )}
+              {!hideMilestoneFilter && (
+                <FilterSection
+                  label="Milestone"
+                  options={milestoneNames}
+                  selected={filter.milestones}
+                  onToggle={(v) => setFilter({ milestones: toggle(filter.milestones, v) })}
+                  suffixes={milestoneProjects}
+                />
+              )}
               <FilterSection
                 label="Status"
                 options={settings.statuses.map((s) => s.id)}

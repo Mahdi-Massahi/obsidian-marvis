@@ -227,6 +227,7 @@ export function parseEvent(file: TFile, fm: Record<string, unknown>): Event {
     time: asTimeOfDay(fm["time"]),
     endTime: asTimeOfDay(fm["endTime"]),
     recurrence: asString(fm["recurrence"]),
+    priority: asString(fm["priority"]),
     tags: asTags(fm["tags"]),
     extId: asString(fm["extId"]),
     source: asString(fm["source"]),

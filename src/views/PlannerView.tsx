@@ -10,7 +10,6 @@ import { CalendarRoot } from "./Calendar";
 import { TimelineRoot } from "./Timeline";
 import { QuickCreateModal, QuickCreateDefaults } from "./shared/QuickCreateModal";
 import { CreateMenuModal } from "./shared/CreateMenuModal";
-import { AssistantPanel } from "./AssistantPanel";
 
 export const VIEW_TYPE_KANBAN_PLUS = "marvis-view";
 
@@ -22,7 +21,6 @@ export class PlannerView extends ItemView {
   private plugin: KanbanPlusPlugin;
   private root: Root | null = null;
   private kind: ViewKind;
-  private assistantOpen = false;
 
   constructor(leaf: WorkspaceLeaf, plugin: KanbanPlusPlugin, initialKind: ViewKind) {
     super(leaf);
@@ -62,6 +60,9 @@ export class PlannerView extends ItemView {
     this.root = createRoot(mount);
     this.render();
     this.plugin.registerOpenView(this);
+    // Re-render when the assistant leaf opens or closes so the toolbar's
+    // assistant button reflects the current state without manual refresh.
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.render()));
   }
 
   async onClose(): Promise<void> {
@@ -96,15 +97,7 @@ export class PlannerView extends ItemView {
   };
 
   private toggleAssistant = () => {
-    this.assistantOpen = !this.assistantOpen;
-    if (!this.assistantOpen) void this.plugin.assistantSession.stop();
-    this.render();
-  };
-
-  private closeAssistant = () => {
-    this.assistantOpen = false;
-    void this.plugin.assistantSession.stop();
-    this.render();
+    void this.plugin.toggleAssistantLeaf();
   };
 
   private render(): void {
@@ -125,16 +118,11 @@ export class PlannerView extends ItemView {
       openQuickCreate: this.openQuickCreate,
       openCreateMenu: this.openCreateMenu,
       toggleAssistant: this.toggleAssistant,
-      isAssistantOpen: this.assistantOpen,
+      isAssistantOpen: this.plugin.isAssistantLeafOpen(),
     };
     this.root.render(
       <PluginContext.Provider value={ctx}>
         {renderRoot(this.kind)}
-        <AssistantPanel
-          open={this.assistantOpen}
-          onClose={this.closeAssistant}
-          session={this.plugin.assistantSession}
-        />
       </PluginContext.Provider>
     );
   }

@@ -26,6 +26,7 @@ export interface CreateEventInput {
   time?: string;            // HH:mm
   endTime?: string;         // HH:mm
   recurrence?: string;      // RRULE string
+  priority?: string;
   tags?: string[];
   body?: string;
   project?: string;
@@ -94,6 +95,7 @@ export class EventService {
     if (input.time) fmLines.push(`time: "${input.time}"`);
     if (input.endTime) fmLines.push(`endTime: "${input.endTime}"`);
     if (input.recurrence) fmLines.push(`recurrence: ${JSON.stringify(input.recurrence)}`);
+    if (input.priority) fmLines.push(`priority: ${input.priority}`);
     if (input.milestone) fmLines.push(`milestone: "${toWikilink(input.milestone)}"`);
     if (input.tags && input.tags.length) {
       fmLines.push(`tags: [${input.tags.map((t) => JSON.stringify(t)).join(", ")}]`);
@@ -120,6 +122,10 @@ export class EventService {
       if (value == null || value === "") delete fm[key];
       else fm[key] = value;
     });
+  }
+
+  async setPriority(event: Event, priority: string | undefined): Promise<void> {
+    await this.updateField(event, "priority", priority);
   }
 
   async setTags(event: Event, tags: string[]): Promise<void> {

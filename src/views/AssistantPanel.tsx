@@ -1,5 +1,4 @@
 import * as React from "react";
-import * as ReactDOM from "react-dom";
 import { TFile } from "obsidian";
 import { usePlugin } from "./context";
 import { Icon } from "./shared/Icon";
@@ -10,7 +9,6 @@ import type {
 } from "../services/assistant/assistantSession";
 
 interface Props {
-  open: boolean;
   onClose: () => void;
   session: AssistantSession;
 }
@@ -26,16 +24,42 @@ const STATE_LABEL: Record<SessionState, string> = {
   error: "Error",
 };
 
-const VOICE_PROMPT: Record<SessionState, string> = {
-  idle: "Tap to talk",
-  connecting: "Connecting…",
-  listening: "Listening — tap to stop",
-  thinking: "Thinking…",
-  speaking: "Speaking…",
-  "awaiting-confirmation": "Awaiting confirmation…",
-  reconnecting: "Reconnecting…",
-  error: "Tap to retry",
-};
+function statePillLabel(state: SessionState, micActive: boolean): string {
+  if (state === "listening" && !micActive) return "Ready";
+  return STATE_LABEL[state];
+}
+
+function voicePrompt(state: SessionState, micActive: boolean): string {
+  if (!micActive) {
+    if (state === "idle") return "Type below or tap mic for voice";
+    if (state === "error") return "Tap to retry";
+    if (state === "connecting") return "Connecting…";
+    if (state === "reconnecting") return "Reconnecting…";
+    if (state === "listening") return "Type below or tap mic for voice";
+    if (state === "thinking") return "Thinking…";
+    if (state === "speaking") return "Speaking…";
+    if (state === "awaiting-confirmation") return "Awaiting confirmation…";
+    return "";
+  }
+  switch (state) {
+    case "idle":
+      return "Tap to talk";
+    case "connecting":
+      return "Connecting…";
+    case "listening":
+      return "Listening — tap to mute";
+    case "thinking":
+      return "Thinking…";
+    case "speaking":
+      return "Speaking…";
+    case "awaiting-confirmation":
+      return "Awaiting confirmation…";
+    case "reconnecting":
+      return "Reconnecting…";
+    case "error":
+      return "Tap to retry";
+  }
+}
 
 const SESSION_DURATION_MS = 15 * 60 * 1000;
 
@@ -46,9 +70,10 @@ function fmtClock(ms: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export const AssistantPanel: React.FC<Props> = ({ open, onClose, session }) => {
+export const AssistantPanel: React.FC<Props> = ({ onClose, session }) => {
   const { app, settings } = usePlugin();
   const [state, setState] = React.useState<SessionState>(session.getState());
+  const [micActive, setMicActive] = React.useState<boolean>(session.isMicActive());
   const [messages, setMessages] = React.useState<SessionMessage[]>([]);
   const [elapsed, setElapsed] = React.useState(0);
   const [textInput, setTextInput] = React.useState("");
@@ -62,6 +87,7 @@ export const AssistantPanel: React.FC<Props> = ({ open, onClose, session }) => {
         if (s === "idle") {
           setElapsed(0);
           setTranscriptPath(null);
+          setMicActive(false);
         }
       },
       onMessage: (m) => {
@@ -71,38 +97,40 @@ export const AssistantPanel: React.FC<Props> = ({ open, onClose, session }) => {
         }
       },
       onTick: (ms) => setElapsed(ms),
+      onMic: (active) => setMicActive(active),
     });
   }, [session, transcriptPath]);
 
   React.useEffect(() => {
-    if (!open) return;
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, open]);
+  }, [messages]);
 
-  React.useEffect(() => {
-    if (!open) return;
-    if (state === "idle" && messages.length === 0) {
-      void session.start();
+  const toggleMic = async () => {
+    if (state === "speaking") {
+      session.cancel();
+      return;
     }
-  }, [open, state, session, messages.length]);
-
-  const startStop = async () => {
-    if (state === "idle" || state === "error") {
-      setMessages([]);
-      await session.start();
+    if (!session.isActive() || state === "error") {
+      if (state === "error") setMessages([]);
+      await session.start({ withMic: true });
+      return;
+    }
+    if (session.isMicActive()) {
+      session.disableMic();
     } else {
-      await session.stop();
+      await session.enableMic();
     }
   };
 
   const submitText = () => {
     const value = textInput.trim();
     if (!value) return;
-    if (state === "idle" || state === "error") {
+    if (!session.isActive() || state === "error") {
       void (async () => {
-        await session.start();
+        if (state === "error") setMessages([]);
+        await session.start({ withMic: false });
         session.sendText(value);
         setTextInput("");
       })();
@@ -120,8 +148,6 @@ export const AssistantPanel: React.FC<Props> = ({ open, onClose, session }) => {
     }
   };
 
-  if (!open) return null;
-
   const timerClass =
     elapsed >= SESSION_DURATION_MS - 30 * 1000
       ? "is-critical"
@@ -130,12 +156,11 @@ export const AssistantPanel: React.FC<Props> = ({ open, onClose, session }) => {
       : "";
   const isActive = state !== "idle" && state !== "error";
 
-  return ReactDOM.createPortal(
-    <div className="kp-portal">
-      <div className="kp-assistant" role="dialog" aria-label="Marvis assistant">
+  return (
+    <div className="kp-assistant kp-assistant--embedded" role="region" aria-label="Marvis assistant">
         <header className="kp-assistant__header">
           <span className={`kp-assistant__pill kp-assistant__pill--${state}`}>
-            {STATE_LABEL[state]}
+            {statePillLabel(state, micActive)}
           </span>
           {settings.assistant.showTimer && isActive && (
             <span
@@ -169,9 +194,9 @@ export const AssistantPanel: React.FC<Props> = ({ open, onClose, session }) => {
         <div className="kp-assistant__body" ref={scrollRef}>
           {messages.length === 0 && (
             <div className="kp-assistant__hint">
-              Tap the mic and start talking. Marvis can summarize today, create tasks,
-              log progress, and more — every change is confirmed before it touches
-              your vault.
+              Type a message below — or tap the mic to talk. Marvis can summarize
+              today, create tasks, log progress, and more — every change is confirmed
+              before it touches your vault.
             </div>
           )}
           {messages.map((m, i) => (
@@ -192,16 +217,17 @@ export const AssistantPanel: React.FC<Props> = ({ open, onClose, session }) => {
               </button>
             ) : (
               <button
-                className={`kp-assistant__bigmic kp-assistant__bigmic--${state} ${isActive ? "is-active" : ""}`}
-                onClick={() => void startStop()}
-                title={isActive ? "End session" : "Start session"}
-                aria-label={isActive ? "End session" : "Start session"}
+                className={`kp-assistant__bigmic kp-assistant__bigmic--${state} ${micActive ? "is-active" : ""}`}
+                onClick={() => void toggleMic()}
+                title={micActive ? "Mute mic" : "Tap to talk"}
+                aria-label={micActive ? "Mute microphone" : "Enable microphone"}
+                aria-pressed={micActive}
               >
-                <Icon name="mic" size={32} />
+                <Icon name={micActive ? "mic" : "micOff"} size={32} />
               </button>
             )}
             <div className="kp-assistant__voicestate" aria-live="polite">
-              {VOICE_PROMPT[state]}
+              {voicePrompt(state, micActive)}
             </div>
           </div>
           <div className="kp-assistant__textrow">
@@ -226,9 +252,7 @@ export const AssistantPanel: React.FC<Props> = ({ open, onClose, session }) => {
             </button>
           </div>
         </footer>
-      </div>
-    </div>,
-    document.body
+    </div>
   );
 };
 

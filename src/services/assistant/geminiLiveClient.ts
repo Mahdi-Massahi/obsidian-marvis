@@ -158,6 +158,17 @@ export class GeminiLiveClient {
       },
       inputAudioTranscription: {},
       outputAudioTranscription: {},
+      // Lean toward longer silence before committing the user's turn. Gemini's
+      // default end-of-speech is eager and will close a turn during ordinary
+      // mid-sentence pauses — the model then dispatches a tool call on
+      // partial input, the user keeps speaking, and a second turn produces a
+      // second tool call (with a fresh id, so id-based dedup doesn't help).
+      realtimeInputConfig: {
+        automaticActivityDetection: {
+          endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+          silenceDurationMs: 1500,
+        },
+      },
       sessionResumption: this.opts.resumeHandle
         ? { handle: this.opts.resumeHandle }
         : {},
