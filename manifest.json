@@ -2,7 +2,7 @@
   "id": "marvis",
   "name": "Marvis",
   "version": "0.1.0",
-  "minAppVersion": "1.5.0",
+  "minAppVersion": "1.7.2",
   "description": "Multi-view project planner: Kanban, Timeline, Calendar, and Table over your vault notes.",
   "author": "Mahdi Massahi",
   "isDesktopOnly": false

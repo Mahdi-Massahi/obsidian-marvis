@@ -1,0 +1,54 @@
+name: Feature request
+description: Suggest a capability or improvement for Marvis.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! Lead with the **problem** you're hitting
+        — that makes it much easier to find the right solution together
+        than starting from a specific implementation.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the user pain. Skip the proposed solution for now.
+      placeholder: "When I'm reviewing tasks for the week, I can't see which ones are blocked at a glance because the Kanban only shows status, not blockers."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution (optional)
+      description: If you already have an idea for how it could work, share it here.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered (optional)
+      description: Workarounds you've tried, or other approaches that didn't fit.
+
+  - type: dropdown
+    id: views
+    attributes:
+      label: Which view(s) would this affect?
+      multiple: true
+      options:
+        - Kanban
+        - Timeline
+        - Calendar
+        - Table
+        - Assistant
+        - Settings
+        - Other / cross-cutting
+
+  - type: checkboxes
+    id: confirms
+    attributes:
+      label: Before submitting
+      options:
+        - label: I've searched existing issues and discussions for similar requests.
+          required: true

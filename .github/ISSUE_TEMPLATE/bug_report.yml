@@ -1,0 +1,97 @@
+name: Bug report
+description: Something in Marvis isn't working as expected.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! A focused report with
+        clear steps to reproduce makes it much faster to fix.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong, in one or two sentences.
+      placeholder: "Dragging a task in Kanban duplicates the card instead of moving it."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps. Number them.
+      placeholder: |
+        1. Open the Kanban view grouped by status.
+        2. Drag a card from "To do" to "In progress".
+        3. The card appears in both columns.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual
+      description: What you expected to happen, and what actually happened.
+    validations:
+      required: true
+
+  - type: input
+    id: obsidian-version
+    attributes:
+      label: Obsidian version
+      placeholder: "e.g. 1.7.2"
+    validations:
+      required: true
+
+  - type: input
+    id: marvis-version
+    attributes:
+      label: Marvis version
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - iOS
+        - Android
+    validations:
+      required: true
+
+  - type: textarea
+    id: assistant
+    attributes:
+      label: AI assistant context (optional)
+      description: If the bug touches the assistant, note your model setting and whether it happened in voice or text mode.
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / GIFs (optional)
+      description: Drag images here, or paste them.
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Developer console output (optional)
+      description: Open the developer console (Ctrl/Cmd-Shift-I) and paste any red errors.
+      render: text
+
+  - type: checkboxes
+    id: confirms
+    attributes:
+      label: Before submitting
+      options:
+        - label: I've searched existing issues and this isn't a duplicate.
+          required: true
+        - label: I've reproduced the bug with other plugins disabled (or noted that I haven't).
+          required: false
