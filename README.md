@@ -1,8 +1,8 @@
 # Marvis
 
-[![CI](https://github.com/Mahdi-Massahi/marvis/actions/workflows/ci.yml/badge.svg)](https://github.com/Mahdi-Massahi/marvis/actions/workflows/ci.yml)
+[![CI](https://github.com/Mahdi-Massahi/obsidian-marvis/actions/workflows/ci.yml/badge.svg)](https://github.com/Mahdi-Massahi/obsidian-marvis/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![GitHub release](https://img.shields.io/github/v/release/Mahdi-Massahi/marvis)](https://github.com/Mahdi-Massahi/marvis/releases)
+[![GitHub release](https://img.shields.io/github/v/release/Mahdi-Massahi/obsidian-marvis)](https://github.com/Mahdi-Massahi/obsidian-marvis/releases)
 
 A multi-view project planner for Obsidian. Projects, milestones, tasks, logs, and events are real markdown notes; views (Kanban, Timeline, Calendar, Table) sit on top.
 
