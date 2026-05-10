@@ -155,7 +155,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Default view")
-      .setDesc("Which view opens first when you launch Marvis.")
+      .setDesc("Which view opens first when you launch marvis.")
       .addDropdown((dd) =>
         dd
           .addOption("kanban", "Kanban")
@@ -170,7 +170,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Default Kanban grouping")
+      .setName("Default kanban grouping")
       .addDropdown((dd) =>
         dd
           .addOption("status", "Status")
@@ -324,16 +324,16 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
       new Setting(container)
         .setName("Not connected")
         .setDesc(
-          "Connect to read events from Calendar.app. macOS will ask for permission once."
+          "Connect to read events from calendar.app. macOS will ask for permission once."
         )
         .addButton((b) =>
           b
             .setCta()
-            .setButtonText("Connect Apple Calendar")
+            .setButtonText("Connect apple calendar")
             .onClick(async () => {
               try {
                 await engine.connect(provider, {});
-                new Notice("Apple Calendar connected.");
+                new Notice("Apple calendar connected.");
               } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
                 new Notice(`Connect failed: ${msg}`);
@@ -487,7 +487,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
   }
 
   private renderAssistant(container: HTMLElement): void {
-    new Setting(container).setName("AI assistant (Gemini Live)").setHeading();
+    new Setting(container).setName("AI assistant (Gemini live)").setHeading();
     container.createEl("p", {
       cls: "setting-item-description",
       text:
@@ -500,7 +500,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(container)
       .setName("Enable assistant")
-      .setDesc("Show the mic button in the Marvis toolbar.")
+      .setDesc("Show the mic button in the marvis toolbar.")
       .addToggle((tog) =>
         tog.setValue(a.enabled).onChange(async (v) => {
           a.enabled = v;
@@ -511,10 +511,10 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(container)
       .setName("Gemini API key")
-      .setDesc("Your own Google AI Studio key. Stored locally in data.json.")
+      .setDesc("Your own Google AI studio key. Stored locally in data.json.")
       .addText((t) => {
         t.inputEl.type = "password";
-        t.setPlaceholder("AIza…")
+        t.setPlaceholder("Aiza…")
           .setValue(a.apiKey)
           .onChange(async (v) => {
             a.apiKey = v.trim();
@@ -524,7 +524,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(container)
       .setName("Your name")
-      .setDesc("How Marvis should address you. Injected into the system prompt.")
+      .setDesc("How marvis should address you. Injected into the system prompt.")
       .addText((t) =>
         t
           .setPlaceholder("E.g. Mahdi")
@@ -538,18 +538,13 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
     new Setting(container)
       .setName("Model")
       .addDropdown((dd) => {
-        // Option labels are literal Gemini model identifiers, not UI copy —
-        // they must stay verbatim so users can match against Google's docs.
-        /* eslint-disable obsidianmd/ui/sentence-case */
         dd
-          .addOption("gemini-3.1-flash-live-preview", "gemini-3.1-flash-live-preview")
+          .addOption("gemini-3.1-flash-live-preview", "Gemini-3.1-flash-live-preview")
           .addOption(
             "gemini-2.5-flash-preview-native-audio-dialog",
-            "gemini-2.5-flash-preview-native-audio-dialog"
+            "Gemini-2.5-flash-preview-native-audio-dialog"
           )
-          .addOption("gemini-2.0-flash-exp", "gemini-2.0-flash-exp");
-        /* eslint-enable obsidianmd/ui/sentence-case */
-        dd
+          .addOption("gemini-2.0-flash-exp", "Gemini-2.0-flash-exp")
           .setValue(a.model)
           .onChange(async (v) => {
             a.model = v;
@@ -581,7 +576,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(container)
       .setName("Show session timer")
-      .setDesc("Gemini Live caps audio sessions at 15 minutes.")
+      .setDesc("Gemini live caps audio sessions at 15 minutes.")
       .addToggle((tog) =>
         tog.setValue(a.showTimer).onChange(async (v) => {
           a.showTimer = v;
@@ -592,7 +587,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
     new Setting(container)
       .setName("System instruction (override)")
       .setDesc(
-        "Leave blank to use the bundled Marvis prompt. Custom prompts are appended to the model setup."
+        "Leave blank to use the bundled marvis prompt. Custom prompts are appended to the model setup."
       )
       .addTextArea((t) => {
         t.setValue(a.systemInstructionOverride ?? "").onChange(async (v) => {
@@ -616,7 +611,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
             model: a.model,
             voice: a.voice,
           });
-          new Notice("Gemini Live: setupComplete received. ✔");
+          new Notice("Gemini live: setupComplete received. ✔");
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           new Notice(`Test failed: ${msg}`);

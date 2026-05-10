@@ -28,7 +28,7 @@ export class TaskService {
     private projects: ProjectService,
     private getOpenMode: () => OpenMode = () => "sidebar",
     private sidebarCache?: SidebarLeafCache,
-    private allocateCode: () => Promise<string | undefined> = async () => undefined
+    private allocateCode: () => Promise<string | undefined> = () => Promise.resolve(undefined)
   ) {}
 
   tasksFolder(projectName: string): string {
@@ -51,7 +51,7 @@ export class TaskService {
       .slice(0, 80);
   }
 
-  private async uniquePath(folder: string, base: string): Promise<string> {
+  private uniquePath(folder: string, base: string): string {
     const safe = this.sanitizeFileName(base) || "Task";
     let candidate = normalizePath(`${folder}/${safe}.md`);
     let n = 2;
@@ -68,7 +68,7 @@ export class TaskService {
     const folder = this.tasksFolder(projectName);
     await this.projects.ensureFolder(folder);
 
-    const path = await this.uniquePath(folder, input.title);
+    const path = this.uniquePath(folder, input.title);
     const code = await this.allocateCode();
     const fm: string[] = ["---", "kind: task", `project: "${toWikilink(projectName)}"`];
     if (input.milestone) fm.push(`milestone: "${toWikilink(input.milestone)}"`);

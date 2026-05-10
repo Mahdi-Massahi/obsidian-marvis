@@ -118,7 +118,7 @@ export default class KanbanPlusPlugin extends Plugin {
     this.taskActionBar = new TaskActionBar(this);
     this.taskActionBar.start();
 
-    this.addRibbonIcon("kanban-square", "Open Marvis", () => {
+    this.addRibbonIcon("kanban-square", "Open marvis", () => {
       void this.activateView(this.settings.defaultView);
     });
 
@@ -132,7 +132,8 @@ export default class KanbanPlusPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const stored = (await this.loadData()) as Partial<KanbanPlusSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
     if (!this.settings.calendarSync) {
       this.settings.calendarSync = {
         macos: { availableCalendars: [], selectedCalendars: [] },
@@ -230,7 +231,7 @@ export default class KanbanPlusPlugin extends Plugin {
         if (!isTask(f)) return;
         menu.addItem((item) =>
           item
-            .setTitle("Delete Marvis task")
+            .setTitle("Delete marvis task")
             .setIcon("trash")
             .onClick(async () => {
               if (!f) return;
@@ -250,7 +251,7 @@ export default class KanbanPlusPlugin extends Plugin {
         if (!file || !isTask(file)) return;
         menu.addItem((item) =>
           item
-            .setTitle("Delete Marvis task")
+            .setTitle("Delete marvis task")
             .setIcon("trash")
             .onClick(() => confirmAndDelete(file.path))
         );

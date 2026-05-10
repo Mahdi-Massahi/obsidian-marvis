@@ -59,13 +59,10 @@ export class QuickCreateModal extends Modal {
 
     const titleSetting = new Setting(contentEl)
       .setName("Title")
-      // Includes literal syntax tokens (`@Project`) that must stay capitalised
-      // to convey "replace with a project name".
-      // eslint-disable-next-line obsidianmd/ui/sentence-case
-      .setDesc("Smart parse — exclamation marks set priority, @Project assigns the project, #tag adds tags, and due:tomorrow sets the date.")
+      .setDesc("Smart parse — exclamation marks set priority, @project assigns the project, #tag adds tags, and due:tomorrow sets the date.")
       .addText((t) =>
         t
-          .setPlaceholder("Fix login bug !high due:tomorrow @Marvis #bug")
+          .setPlaceholder("Fix login bug !high due:tomorrow @marvis #bug")
           .setValue(this.title)
           .onChange((v) => {
             this.title = v;

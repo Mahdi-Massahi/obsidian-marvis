@@ -28,7 +28,7 @@ export class AssistantView extends ItemView {
     return "sparkles";
   }
 
-  async onOpen(): Promise<void> {
+  onOpen(): Promise<void> {
     this.containerEl.children[1].empty();
     this.containerEl.children[1].addClass("kp-host");
     const mount = this.containerEl.children[1].createDiv({
@@ -36,13 +36,15 @@ export class AssistantView extends ItemView {
     });
     this.root = createRoot(mount);
     this.render();
+    return Promise.resolve();
   }
 
-  async onClose(): Promise<void> {
+  onClose(): Promise<void> {
     this.root?.unmount();
     this.root = null;
     void this.plugin.assistantSession.stop();
     this.plugin.refreshViews();
+    return Promise.resolve();
   }
 
   private render(): void {

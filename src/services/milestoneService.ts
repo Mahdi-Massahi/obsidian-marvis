@@ -10,7 +10,7 @@ export class MilestoneService {
     private projects: ProjectService,
     private getOpenMode: () => OpenMode = () => "sidebar",
     private sidebarCache?: SidebarLeafCache,
-    private allocateCode: () => Promise<string | undefined> = async () => undefined
+    private allocateCode: () => Promise<string | undefined> = () => Promise.resolve(undefined)
   ) {}
 
   milestoneFolder(projectName: string): string {

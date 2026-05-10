@@ -285,7 +285,7 @@ export async function updateFrontmatter(
   file: TFile,
   updater: (fm: Record<string, unknown>) => void
 ): Promise<void> {
-  await app.fileManager.processFrontMatter(file, (fm) => {
+  await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
     updater(fm);
   });
 }

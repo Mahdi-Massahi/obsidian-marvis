@@ -21,16 +21,23 @@ interface NodeBindings {
   calendarDb: string;
 }
 
+// Electron exposes Node's runtime on the renderer's `window` when
+// nodeIntegration is enabled (true for Obsidian desktop). On mobile these
+// properties don't exist; callers must guard with `isAvailable()` first.
+type ElectronRequire = (id: string) => unknown;
+type ElectronWindow = Window & {
+  require?: ElectronRequire;
+  process?: { platform?: string };
+};
+
 let cachedNode: NodeBindings | null = null;
 
 function loadNode(): NodeBindings {
   if (cachedNode) return cachedNode;
-  // Use indirect `require` so esbuild leaves the calls intact (these modules
-  // are in the `external` list) and they're only executed at runtime on
-  // platforms where they exist. The `globalThis` access is deliberate — we
-  // need Node's runtime require, not anything DOM-related.
-  // eslint-disable-next-line obsidianmd/prefer-active-doc
-  const req: NodeJS.Require = (globalThis as unknown as { require: NodeJS.Require }).require;
+  // Lazy `require` — esbuild marks these modules as external (see
+  // esbuild.config.mjs's builtins list) so they only resolve at runtime,
+  // and only when this function is actually called (i.e. on desktop).
+  const req = (window as ElectronWindow).require;
   if (typeof req !== "function") {
     throw new Error("Apple Calendar provider requires desktop Obsidian.");
   }
@@ -73,12 +80,9 @@ export const macCalendarProvider: CalendarProvider = {
 
   isAvailable(): boolean {
     if (!Platform.isDesktopApp) return false;
-    // Don't trip over the lazy require on non-desktop / non-darwin: only ask
-    // the platform if the desktop guard already passed. The `globalThis`
-    // access here is to Node's `process`, not the DOM.
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    const p = (globalThis as unknown as { process?: { platform?: string } }).process;
-    return p?.platform === "darwin";
+    // Don't trip over the lazy require on non-desktop / non-darwin: only
+    // ask the platform if the desktop guard already passed.
+    return (window as ElectronWindow).process?.platform === "darwin";
   },
 
   async connect(): Promise<TokenSet> {

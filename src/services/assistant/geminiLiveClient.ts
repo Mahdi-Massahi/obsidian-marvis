@@ -40,6 +40,10 @@ export interface ClientOptions {
 }
 
 type Listener<T> = (payload: T) => void;
+// Storage type widens the payload to `unknown` so the indexed access
+// `this.listeners.get(name)` doesn't carry the per-key payload type. Cast
+// in `emit` is the safe place for that.
+type AnyListener = (payload: never) => void;
 
 interface EventMap {
   open: void;
@@ -76,7 +80,7 @@ function base64Decode(b64: string): Uint8Array {
 export class GeminiLiveClient {
   private ws: WebSocket | null = null;
   private opts: ClientOptions;
-  private listeners: { [K in keyof EventMap]?: Set<Listener<EventMap[K]>> } = {};
+  private listeners = new Map<keyof EventMap, Set<AnyListener>>();
   private setupSent = false;
   private setupCompleteResolved = false;
 
@@ -85,21 +89,22 @@ export class GeminiLiveClient {
   }
 
   on<K extends keyof EventMap>(name: K, listener: Listener<EventMap[K]>): () => void {
-    let set = this.listeners[name] as Set<Listener<EventMap[K]>> | undefined;
+    let set = this.listeners.get(name);
     if (!set) {
       set = new Set();
-      this.listeners[name] = set as never;
+      this.listeners.set(name, set);
     }
-    set.add(listener);
-    return () => set.delete(listener);
+    const wrapped = listener as AnyListener;
+    set.add(wrapped);
+    return () => set.delete(wrapped);
   }
 
   private emit<K extends keyof EventMap>(name: K, payload: EventMap[K]): void {
-    const set = this.listeners[name] as Set<Listener<EventMap[K]>> | undefined;
+    const set = this.listeners.get(name);
     if (!set) return;
     for (const fn of Array.from(set)) {
       try {
-        fn(payload);
+        (fn as Listener<EventMap[K]>)(payload);
       } catch (err) {
         this.opts.onLog?.(`listener error in ${name}: ${String(err)}`);
       }
@@ -117,7 +122,7 @@ export class GeminiLiveClient {
       try {
         ws = new WebSocket(url);
       } catch (err) {
-        reject(err);
+        reject(err instanceof Error ? err : new Error(String(err)));
         return;
       }
       ws.binaryType = "arraybuffer";
@@ -127,13 +132,13 @@ export class GeminiLiveClient {
         try {
           this.sendSetup();
         } catch (err) {
-          reject(err);
+          reject(err instanceof Error ? err : new Error(String(err)));
           return;
         }
         resolve();
       };
       ws.onerror = (ev) => {
-        this.emit("error", { message: `WebSocket error: ${(ev).type}` });
+        this.emit("error", { message: `WebSocket error: ${ev.type}` });
       };
       ws.onclose = (ev) => {
         this.emit("close", { code: ev.code, reason: ev.reason });

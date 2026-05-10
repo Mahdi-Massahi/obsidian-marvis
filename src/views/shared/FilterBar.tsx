@@ -63,7 +63,7 @@ export const FilterBar: React.FC<Props> = ({
     if (isSyncing) return;
     const block = settings.calendarSync?.macos;
     if (!block?.token) {
-      new Notice("Connect Apple Calendar in Marvis settings first.");
+      new Notice("Connect apple calendar in marvis settings first.");
       return;
     }
     if (block.selectedCalendars.length === 0) {

@@ -11,7 +11,7 @@ export class ProjectService {
     private getOpenMode: () => OpenMode = () => "sidebar",
     private sidebarCache?: SidebarLeafCache,
     private getSkillTemplate: () => string = () => "",
-    private allocateCode: () => Promise<string | undefined> = async () => undefined
+    private allocateCode: () => Promise<string | undefined> = () => Promise.resolve(undefined)
   ) {}
 
   projectFolder(name: string): string {

@@ -115,5 +115,6 @@ function formatValue(v: unknown): string {
   }
   if (typeof v === "object") return JSON.stringify(v);
   if (typeof v === "boolean") return v ? "yes" : "no";
-  return String(v);
+  if (typeof v === "string") return v;
+  return JSON.stringify(v) ?? "";
 }

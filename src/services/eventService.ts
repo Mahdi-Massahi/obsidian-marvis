@@ -43,7 +43,7 @@ export class EventService {
     private projects: ProjectService,
     private getOpenMode: () => OpenMode = () => "sidebar",
     private sidebarCache?: SidebarLeafCache,
-    private allocateCode: () => Promise<string | undefined> = async () => undefined
+    private allocateCode: () => Promise<string | undefined> = () => Promise.resolve(undefined)
   ) {}
 
   eventFolder(projectName: string): string {
@@ -62,7 +62,7 @@ export class EventService {
       .slice(0, 60) || "Event";
   }
 
-  private async uniquePath(folder: string, base: string): Promise<string> {
+  private uniquePath(folder: string, base: string): string {
     let candidate = normalizePath(`${folder}/${base}.md`);
     let n = 2;
     while (this.app.vault.getAbstractFileByPath(candidate)) {
@@ -82,7 +82,7 @@ export class EventService {
     await this.projects.ensureFolder(folder);
 
     const baseName = `${input.date}-${this.sanitizeFileName(input.title)}`;
-    const path = await this.uniquePath(folder, baseName);
+    const path = this.uniquePath(folder, baseName);
 
     const code = await this.allocateCode();
     const fmLines: string[] = [

@@ -53,7 +53,7 @@ export class PlannerView extends ItemView {
     return { kind: this.kind };
   }
 
-  async onOpen(): Promise<void> {
+  onOpen(): Promise<void> {
     this.containerEl.children[1].empty();
     this.containerEl.children[1].addClass("kp-host");
     const mount = this.containerEl.children[1].createDiv({ cls: "kp-mount" });
@@ -63,12 +63,14 @@ export class PlannerView extends ItemView {
     // Re-render when the assistant leaf opens or closes so the toolbar's
     // assistant button reflects the current state without manual refresh.
     this.registerEvent(this.app.workspace.on("layout-change", () => this.render()));
+    return Promise.resolve();
   }
 
-  async onClose(): Promise<void> {
+  onClose(): Promise<void> {
     this.plugin.unregisterOpenView(this);
     this.root?.unmount();
     this.root = null;
+    return Promise.resolve();
   }
 
   refresh(): void {

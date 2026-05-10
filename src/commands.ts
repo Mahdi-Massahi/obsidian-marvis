@@ -7,7 +7,7 @@ import { ConfirmModal } from "./views/shared/ConfirmModal";
 export function registerCommands(plugin: KanbanPlusPlugin): void {
   plugin.addCommand({
     id: "open-kanban",
-    name: "Open Kanban",
+    name: "Open kanban",
     callback: () => plugin.activateView("kanban"),
   });
   plugin.addCommand({

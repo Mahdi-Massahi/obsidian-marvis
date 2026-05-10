@@ -175,7 +175,7 @@ export class AssistantSession {
       return;
     }
     if (!settings.apiKey?.trim()) {
-      new Notice("Set a Gemini API key in Marvis settings first.");
+      new Notice("Set a Gemini API key in marvis settings first.");
       return;
     }
     this.setState("connecting");

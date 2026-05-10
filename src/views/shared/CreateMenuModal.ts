@@ -377,7 +377,7 @@ export class CreateMenuModal extends Modal {
       dd.addOption("weekly", "Weekly");
       dd.addOption("monthly", "Monthly");
       dd.addOption("yearly", "Yearly");
-      dd.addOption("custom", "Custom RRULE…");
+      dd.addOption("custom", "Custom rrule…");
       dd.setValue(state.recurrencePreset);
       dd.onChange((v) => {
         state.recurrencePreset = v;
@@ -386,10 +386,8 @@ export class CreateMenuModal extends Modal {
         }
       });
     });
-    customRow = new Setting(this.formEl).setName("Custom RRULE").addText((t) => {
-      // RRULE syntax — literal example, not user-facing copy.
-      // eslint-disable-next-line obsidianmd/ui/sentence-case
-      t.setPlaceholder("FREQ=WEEKLY;BYDAY=MO,WE")
+    customRow = new Setting(this.formEl).setName("Custom rrule").addText((t) => {
+      t.setPlaceholder("Freq=weekly;byday=mo,we")
         .onChange((v) => (state.recurrenceCustom = v));
     });
     customRow.settingEl.addClass("is-hidden");

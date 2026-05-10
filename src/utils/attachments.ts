@@ -21,7 +21,7 @@ function extOf(name: string): string {
   return m ? m[1].toLowerCase() : "bin";
 }
 
-async function uniquePath(vault: Vault, folder: string, base: string, ext: string): Promise<string> {
+function uniquePath(vault: Vault, folder: string, base: string, ext: string): string {
   let candidate = normalizePath(`${folder}/${base}.${ext}`);
   let n = 2;
   while (vault.getAbstractFileByPath(candidate)) {
@@ -39,7 +39,7 @@ export async function saveAttachmentFile(
   const ext = extOf(file.name);
   const stamp = formatStamp(new Date());
   const base = `${stamp}-${sanitizeBase(file.name)}`;
-  const path = await uniquePath(app.vault, folder, base, ext);
+  const path = uniquePath(app.vault, folder, base, ext);
   const buffer = await file.arrayBuffer();
   return await app.vault.createBinary(path, buffer);
 }

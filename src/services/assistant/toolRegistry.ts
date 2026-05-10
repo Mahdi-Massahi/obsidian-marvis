@@ -24,7 +24,7 @@ export interface ToolDef {
   parameters: Record<string, unknown>;
   write: boolean;
   preview?: (args: Record<string, unknown>) => string;
-  handler: (args: Record<string, unknown>, ctx: ToolCtx) => Promise<unknown>;
+  handler: (args: Record<string, unknown>, ctx: ToolCtx) => unknown;
 }
 
 export interface ToolCtx {
@@ -205,7 +205,18 @@ function formatItemValue(v: unknown): string {
   if (typeof v === "boolean") return v ? "yes" : "no";
   if (Array.isArray(v)) return v.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(", ");
   if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
+  if (typeof v === "string") return v;
+  return JSON.stringify(v) ?? "";
+}
+
+// Safe stringifier for tool arguments (`unknown` from JSON). The model
+// occasionally hands us a non-string value where we expected one — fall
+// back to JSON instead of leaking '[object Object]' into a log/notice.
+function asStr(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return JSON.stringify(v) ?? "";
 }
 
 function prettyToolName(name: string): string {
@@ -299,7 +310,7 @@ register({
     "Return the file currently focused in Obsidian. Use this to resolve deictic references — 'this task', 'the current note', 'here', 'that log' — into a specific item. If the focused file is a Marvis note (task/log/event/milestone/project), returns its kind plus key fields; for any other file returns kind 'other' with path and basename; returns { active: null } when no file is focused.",
   parameters: { type: "object", properties: {} },
   write: false,
-  handler: async (_args, ctx) => {
+  handler: (_args, ctx) => {
     const file = ctx.app.workspace.getActiveFile();
     if (!file) return { active: null };
     const found = findItemByPath(ctx, file.path);
@@ -347,7 +358,7 @@ register({
     },
   },
   write: false,
-  handler: async (args, ctx) => {
+  handler: (args, ctx) => {
     const includeArchived = !!args.includeArchived;
     return projects(ctx)
       .filter((p) => includeArchived || p.status !== "archived")
@@ -380,7 +391,7 @@ register({
     },
   },
   write: false,
-  handler: async (args, ctx) => {
+  handler: (args, ctx) => {
     const limit = typeof args.limit === "number" ? args.limit : 50;
     const out = tasks(ctx).filter((t) => {
       if (!args.includeArchived && t.archived) return false;
@@ -388,9 +399,9 @@ register({
       if (args.milestone && t.milestone !== args.milestone) return false;
       if (args.status && t.status !== args.status) return false;
       if (args.priority && t.priority !== args.priority) return false;
-      if (args.tag && !t.tags.includes(String(args.tag))) return false;
-      if (args.dueBefore && (!t.due || t.due > String(args.dueBefore))) return false;
-      if (args.dueAfter && (!t.due || t.due < String(args.dueAfter))) return false;
+      if (args.tag && !t.tags.includes(asStr(args.tag))) return false;
+      if (args.dueBefore && (!t.due || t.due > asStr(args.dueBefore))) return false;
+      if (args.dueAfter && (!t.due || t.due < asStr(args.dueAfter))) return false;
       return true;
     });
     return out.slice(0, limit).map((t) => ({
@@ -420,7 +431,7 @@ register({
     },
   },
   write: false,
-  handler: async (args, ctx) =>
+  handler: (args, ctx) =>
     milestones(ctx)
       .filter((m) => {
         if (args.project && m.project !== args.project) return false;
@@ -450,14 +461,14 @@ register({
     },
   },
   write: false,
-  handler: async (args, ctx) =>
+  handler: (args, ctx) =>
     events(ctx)
       .filter((e) => {
         if (args.project && e.project !== args.project) return false;
         return inDateRange(
           e.date,
-          args.startISO ? String(args.startISO) : undefined,
-          args.endISO ? String(args.endISO) : undefined
+          args.startISO ? asStr(args.startISO) : undefined,
+          args.endISO ? asStr(args.endISO) : undefined
         );
       })
       .map((e) => ({
@@ -486,10 +497,10 @@ register({
     },
   },
   write: false,
-  handler: async (args, ctx) => {
+  handler: (args, ctx) => {
     const limit = typeof args.limit === "number" ? args.limit : 50;
-    const start = args.startISO ? String(args.startISO) : undefined;
-    const end = args.endISO ? String(args.endISO) : undefined;
+    const start = args.startISO ? asStr(args.startISO) : undefined;
+    const end = args.endISO ? asStr(args.endISO) : undefined;
     const out = logs(ctx).filter((l) => {
       if (args.project && l.project !== args.project) return false;
       const day = (l.timestamp ?? "").slice(0, 10);
@@ -526,8 +537,8 @@ register({
     },
   },
   write: false,
-  handler: async (args, ctx) => {
-    const q = String(args.query ?? "").toLowerCase().trim();
+  handler: (args, ctx) => {
+    const q = asStr(args.query).toLowerCase().trim();
     if (!q) return [];
     const limit = typeof args.limit === "number" ? args.limit : 20;
     const wantedRaw = Array.isArray(args.kinds)
@@ -586,7 +597,7 @@ register({
     },
   },
   write: false,
-  handler: async (args, ctx) => {
+  handler: (args, ctx) => {
     const horizon = typeof args.horizonDays === "number" ? args.horizonDays : 7;
     const today = todayString();
     const horizonDate = new Date();
@@ -666,8 +677,8 @@ register({
     },
   },
   write: false,
-  handler: async (args, ctx) => {
-    const path = String(args.path ?? "");
+  handler: (args, ctx) => {
+    const path = asStr(args.path);
     const found = findItemByPath(ctx, path);
     if (!found) throw new Error(`No item at path ${path}`);
     return { kind: found.kind, item: found.item };
@@ -702,23 +713,23 @@ register({
   },
   write: true,
   preview: (args) => {
-    const parts = [String(args.title ?? "")];
-    if (args.project) parts.push(`in ${args.project}`);
-    if (args.due) parts.push(`due ${args.due}`);
-    if (args.priority) parts.push(`priority ${args.priority}`);
+    const parts = [asStr(args.title)];
+    if (args.project) parts.push(`in ${asStr(args.project)}`);
+    if (args.due) parts.push(`due ${asStr(args.due)}`);
+    if (args.priority) parts.push(`priority ${asStr(args.priority)}`);
     return `Create task "${parts.join(" — ")}"`;
   },
   handler: async (args, ctx) => {
     const file = await ctx.plugin.taskService.createTask({
-      title: String(args.title),
-      project: args.project ? String(args.project) : undefined,
-      milestone: args.milestone ? String(args.milestone) : undefined,
-      status: args.status ? String(args.status) : undefined,
-      priority: args.priority ? String(args.priority) : undefined,
-      due: args.due ? String(args.due) : undefined,
-      start: args.start ? String(args.start) : undefined,
+      title: asStr(args.title),
+      project: args.project ? asStr(args.project) : undefined,
+      milestone: args.milestone ? asStr(args.milestone) : undefined,
+      status: args.status ? asStr(args.status) : undefined,
+      priority: args.priority ? asStr(args.priority) : undefined,
+      due: args.due ? asStr(args.due) : undefined,
+      start: args.start ? asStr(args.start) : undefined,
       tags: Array.isArray(args.tags) ? (args.tags as unknown[]).map(String) : undefined,
-      body: args.body ? String(args.body) : undefined,
+      body: args.body ? asStr(args.body) : undefined,
     });
     return { path: file.path };
   },
@@ -748,21 +759,21 @@ register({
       .filter(([k, v]) => k !== "path" && v !== undefined && v !== null)
       .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)
       .join(", ");
-    return `Update ${args.path}: ${fields || "(no fields)"}`;
+    return `Update ${asStr(args.path)}: ${fields || "(no fields)"}`;
   },
   handler: async (args, ctx) => {
-    const path = String(args.path);
+    const path = asStr(args.path);
     const task = ctx.plugin.store.getState().tasks[path];
     if (!task) throw new Error(`No task at ${path}`);
-    if (args.status !== undefined) await ctx.plugin.taskService.setStatus(task, String(args.status));
-    if (args.priority !== undefined) await ctx.plugin.taskService.setPriority(task, String(args.priority));
-    if (args.due !== undefined) await ctx.plugin.taskService.setDue(task, args.due ? String(args.due) : undefined);
-    if (args.start !== undefined) await ctx.plugin.taskService.setStart(task, args.start ? String(args.start) : undefined);
+    if (args.status !== undefined) await ctx.plugin.taskService.setStatus(task, asStr(args.status));
+    if (args.priority !== undefined) await ctx.plugin.taskService.setPriority(task, asStr(args.priority));
+    if (args.due !== undefined) await ctx.plugin.taskService.setDue(task, args.due ? asStr(args.due) : undefined);
+    if (args.start !== undefined) await ctx.plugin.taskService.setStart(task, args.start ? asStr(args.start) : undefined);
     if (args.milestone !== undefined) {
-      await ctx.plugin.taskService.setMilestone(task, args.milestone ? String(args.milestone) : undefined);
+      await ctx.plugin.taskService.setMilestone(task, args.milestone ? asStr(args.milestone) : undefined);
     }
     if (args.project !== undefined) {
-      await ctx.plugin.taskService.setProject(task, String(args.project));
+      await ctx.plugin.taskService.setProject(task, asStr(args.project));
     }
     if (Array.isArray(args.tags)) {
       await ctx.plugin.taskService.setTags(task, (args.tags as unknown[]).map(String));
@@ -787,13 +798,13 @@ register({
   },
   write: true,
   preview: (args) =>
-    `Create milestone "${args.title}" in ${args.project}` +
-    (args.due ? ` (due ${args.due})` : ""),
+    `Create milestone "${asStr(args.title)}" in ${asStr(args.project)}` +
+    (args.due ? ` (due ${asStr(args.due)})` : ""),
   handler: async (args, ctx) => {
     const file = await ctx.plugin.milestoneService.createMilestone(
-      String(args.project),
-      String(args.title),
-      { due: args.due ? String(args.due) : undefined }
+      asStr(args.project),
+      asStr(args.title),
+      { due: args.due ? asStr(args.due) : undefined }
     );
     return { path: file.path };
   },
@@ -812,11 +823,11 @@ register({
   },
   write: true,
   preview: (args) =>
-    `Create project "${args.name}"` + (args.color ? ` (color ${args.color})` : ""),
+    `Create project "${asStr(args.name)}"` + (args.color ? ` (color ${asStr(args.color)})` : ""),
   handler: async (args, ctx) => {
     const file = await ctx.plugin.projectService.createProject(
-      String(args.name),
-      args.color ? String(args.color) : undefined
+      asStr(args.name),
+      args.color ? asStr(args.color) : undefined
     );
     return { path: file.path };
   },
@@ -844,15 +855,15 @@ register({
   },
   write: true,
   preview: (args) => {
-    const body = String(args.body ?? "").trim();
+    const body = asStr(args.body).trim();
     const head = body ? body.slice(0, 60) : "(empty)";
-    return `Log to ${args.project}: ${head}${body.length > 60 ? "…" : ""}`;
+    return `Log to ${asStr(args.project)}: ${head}${body.length > 60 ? "…" : ""}`;
   },
   handler: async (args, ctx) => {
-    const ts = args.timestamp ? new Date(String(args.timestamp)) : new Date();
-    const file = await ctx.plugin.logService.createLog(String(args.project), {
+    const ts = args.timestamp ? new Date(asStr(args.timestamp)) : new Date();
+    const file = await ctx.plugin.logService.createLog(asStr(args.project), {
       timestamp: isNaN(ts.getTime()) ? new Date() : ts,
-      body: args.body ? String(args.body) : undefined,
+      body: args.body ? asStr(args.body) : undefined,
       tags: Array.isArray(args.tags) ? (args.tags as unknown[]).map(String) : undefined,
     });
     return { path: file.path };
@@ -883,24 +894,24 @@ register({
   },
   write: true,
   preview: (args) => {
-    const parts = [`Event "${args.title}" on ${args.dateISO}`];
-    if (args.time) parts.push(`at ${args.time}`);
-    if (args.priority) parts.push(`priority ${args.priority}`);
-    if (args.project) parts.push(`in ${args.project}`);
-    if (args.recurrence) parts.push(`(${args.recurrence})`);
+    const parts = [`Event "${asStr(args.title)}" on ${asStr(args.dateISO)}`];
+    if (args.time) parts.push(`at ${asStr(args.time)}`);
+    if (args.priority) parts.push(`priority ${asStr(args.priority)}`);
+    if (args.project) parts.push(`in ${asStr(args.project)}`);
+    if (args.recurrence) parts.push(`(${asStr(args.recurrence)})`);
     return parts.join(" ");
   },
   handler: async (args, ctx) => {
     const file = await ctx.plugin.eventService.createEvent({
-      title: String(args.title),
-      date: String(args.dateISO),
-      time: args.time ? String(args.time) : undefined,
-      endTime: args.endTime ? String(args.endTime) : undefined,
-      recurrence: args.recurrence ? String(args.recurrence) : undefined,
-      priority: args.priority ? String(args.priority) : undefined,
-      project: args.project ? String(args.project) : undefined,
+      title: asStr(args.title),
+      date: asStr(args.dateISO),
+      time: args.time ? asStr(args.time) : undefined,
+      endTime: args.endTime ? asStr(args.endTime) : undefined,
+      recurrence: args.recurrence ? asStr(args.recurrence) : undefined,
+      priority: args.priority ? asStr(args.priority) : undefined,
+      project: args.project ? asStr(args.project) : undefined,
       tags: Array.isArray(args.tags) ? (args.tags as unknown[]).map(String) : undefined,
-      body: args.body ? String(args.body) : undefined,
+      body: args.body ? asStr(args.body) : undefined,
     });
     return { path: file.path };
   },
@@ -917,9 +928,9 @@ register({
     },
   },
   write: true,
-  preview: (args) => `Archive ${args.path}`,
+  preview: (args) => `Archive ${asStr(args.path)}`,
   handler: async (args, ctx) => {
-    const path = String(args.path);
+    const path = asStr(args.path);
     const found = findItemByPath(ctx, path);
     if (!found) throw new Error(`No item at ${path}`);
     if (found.kind === "task") await ctx.plugin.taskService.archive(found.item as Task);
