@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 If you've found a security issue in Marvis, please **don't open a public
-issue**. Email **mahdi.massahi@xebia.com** with the details and I'll
+issue**. Email **mahdi.massahi@gmail.com** with the details and I'll
 respond within 5 business days. If the issue is confirmed and patched,
 you'll be credited in the release notes (unless you prefer to remain
 anonymous).
