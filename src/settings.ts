@@ -239,7 +239,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
         "Use the commands to retrofit existing projects.",
     });
     new Setting(containerEl)
-      .setName("marvis.md template")
+      .setName("Per-project skill template")
       .addTextArea((t) => {
         t.setValue(this.plugin.settings.marvisSkillTemplate).onChange(async (v) => {
           this.plugin.settings.marvisSkillTemplate = v;
@@ -347,7 +347,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
     new Setting(container)
       .setName("Connected")
       .setDesc(
-        "Reading from any account Calendar.app knows about (Exchange, iCloud, Google, etc.)."
+        "Reads events from any account configured in Calendar.app — iCloud, Google, Exchange, and so on."
       )
       .addButton((b) =>
         b.setButtonText("Refresh calendar list").onClick(async () => {
@@ -487,7 +487,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
   }
 
   private renderAssistant(container: HTMLElement): void {
-    new Setting(container).setName("AI assistant (Gemini live)").setHeading();
+    new Setting(container).setName("AI assistant").setHeading();
     container.createEl("p", {
       cls: "setting-item-description",
       text:
@@ -511,7 +511,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(container)
       .setName("Gemini API key")
-      .setDesc("Your own Google AI studio key. Stored locally in data.json.")
+      .setDesc("Your own API key. Stored locally with the rest of your plugin settings.")
       .addText((t) => {
         t.inputEl.type = "password";
         t.setPlaceholder("Aiza…")
@@ -611,7 +611,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
             model: a.model,
             voice: a.voice,
           });
-          new Notice("Gemini live: setupComplete received. ✔");
+          new Notice("Connection verified. ✔");
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           new Notice(`Test failed: ${msg}`);

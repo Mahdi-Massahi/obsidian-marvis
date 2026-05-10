@@ -125,7 +125,7 @@ export class CreateMenuModal extends Modal {
       activeWindow.setTimeout(() => t.inputEl.focus(), 0);
     });
     new Setting(this.formEl).setName("Project").addDropdown((dd) => {
-      if (projects.length === 0) dd.addOption("", "(No projects)");
+      if (projects.length === 0) dd.addOption("", "No projects yet");
       for (const p of projects) dd.addOption(p, p);
       dd.setValue(state.project);
       dd.onChange((v) => (state.project = v));
