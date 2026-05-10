@@ -170,7 +170,7 @@ export const KanbanRoot: React.FC = () => {
               ) : null}
             </DragOverlay>
           </div>,
-          document.body
+          activeDocument.body
         )}
       </DndContext>
     </div>

@@ -33,7 +33,7 @@ export class TaskActionBar {
   stop(): void {
     this.storeUnsub?.();
     this.storeUnsub = null;
-    document.querySelectorAll(`.${BAR_CLASS}`).forEach((el) => el.remove());
+    activeDocument.querySelectorAll(`.${BAR_CLASS}`).forEach((el) => el.remove());
   }
 
   private refresh(): void {
@@ -47,12 +47,12 @@ export class TaskActionBar {
     if (!view) return;
     const file = view.file ?? null;
     const container = view.containerEl;
-    const viewContent = container?.querySelector(".view-content") as HTMLElement | null;
+    const viewContent = container?.querySelector(".view-content");
     if (!viewContent) return;
 
     const existing = viewContent.querySelector(
       `:scope > .${BAR_CLASS}`
-    ) as HTMLElement | null;
+    );
     const task = file ? tasks[file.path] : undefined;
 
     if (!task) {
@@ -67,12 +67,12 @@ export class TaskActionBar {
     }
 
     if (existing.getAttribute(FLAG_ATTR) !== this.signatureFor(task)) {
-      this.populateBar(existing, task);
+      this.populateBar(existing as HTMLElement, task);
     }
   }
 
   private createBar(task: Task): HTMLElement {
-    const bar = document.createElement("div");
+    const bar = activeDocument.createDiv();
     bar.className = `${BAR_CLASS} kp-portal`;
     this.populateBar(bar, task);
     return bar;
@@ -82,23 +82,23 @@ export class TaskActionBar {
     bar.setAttribute(FLAG_ATTR, this.signatureFor(task));
     while (bar.firstChild) bar.removeChild(bar.firstChild);
 
-    const meta = document.createElement("div");
+    const meta = activeDocument.createDiv();
     meta.className = `${BAR_CLASS}__meta`;
     if (task.code) {
-      const code = document.createElement("span");
+      const code = activeDocument.createSpan();
       code.className = "kp-code";
       code.textContent = task.code;
       meta.appendChild(code);
     }
     if (task.archived) {
-      const badge = document.createElement("span");
+      const badge = activeDocument.createSpan();
       badge.className = `${BAR_CLASS}__badge`;
       badge.textContent = "Archived";
       meta.appendChild(badge);
     }
     bar.appendChild(meta);
 
-    const actions = document.createElement("div");
+    const actions = activeDocument.createDiv();
     actions.className = `${BAR_CLASS}__actions`;
 
     actions.appendChild(
@@ -146,7 +146,7 @@ export class TaskActionBar {
   }
 
   private makeButton(label: string, className: string, onClick: () => void): HTMLButtonElement {
-    const btn = document.createElement("button");
+    const btn = activeDocument.createEl("button");
     btn.className = className;
     btn.textContent = label;
     btn.addEventListener("click", onClick);

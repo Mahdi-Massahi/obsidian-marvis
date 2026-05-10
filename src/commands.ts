@@ -12,17 +12,17 @@ export function registerCommands(plugin: KanbanPlusPlugin): void {
   });
   plugin.addCommand({
     id: "open-timeline",
-    name: "Open Timeline",
+    name: "Open timeline",
     callback: () => plugin.activateView("timeline"),
   });
   plugin.addCommand({
     id: "open-calendar",
-    name: "Open Calendar",
+    name: "Open calendar",
     callback: () => plugin.activateView("calendar"),
   });
   plugin.addCommand({
     id: "open-table",
-    name: "Open Table",
+    name: "Open table",
     callback: () => plugin.activateView("table"),
   });
 
@@ -121,7 +121,7 @@ export function registerCommands(plugin: KanbanPlusPlugin): void {
 
   plugin.addCommand({
     id: "backfill-codes",
-    name: "Backfill IDs (T-/L-/M-/P-)",
+    name: "Backfill stable codes",
     callback: async () => {
       try {
         const r = await backfillCodes(plugin);
@@ -197,10 +197,10 @@ export function registerCommands(plugin: KanbanPlusPlugin): void {
 class TextPromptModal extends Modal {
   private title: string;
   private label: string;
-  private onSubmit: (value: string) => void;
+  private onSubmit: (value: string) => void | Promise<void>;
   private value = "";
 
-  constructor(app: App, title: string, label: string, onSubmit: (value: string) => void) {
+  constructor(app: App, title: string, label: string, onSubmit: (value: string) => void | Promise<void>) {
     super(app);
     this.title = title;
     this.label = label;
@@ -214,7 +214,7 @@ class TextPromptModal extends Modal {
       t.inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") this.submit();
       });
-      setTimeout(() => t.inputEl.focus(), 0);
+      activeWindow.setTimeout(() => t.inputEl.focus(), 0);
     });
     new Setting(this.contentEl)
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
@@ -230,13 +230,13 @@ class TextPromptModal extends Modal {
     const v = this.value.trim();
     if (!v) return;
     this.close();
-    this.onSubmit(v);
+    void this.onSubmit(v);
   }
 }
 
 class QuickLogModal extends Modal {
   private projects: string[];
-  private onSubmit: (project: string, body: string, tags: string[]) => void;
+  private onSubmit: (project: string, body: string, tags: string[]) => void | Promise<void>;
   private project: string;
   private body = "";
   private tagsInput = "";
@@ -244,7 +244,7 @@ class QuickLogModal extends Modal {
   constructor(
     app: App,
     projects: string[],
-    onSubmit: (project: string, body: string, tags: string[]) => void
+    onSubmit: (project: string, body: string, tags: string[]) => void | Promise<void>
   ) {
     super(app);
     this.projects = projects;
@@ -260,18 +260,18 @@ class QuickLogModal extends Modal {
       dd.onChange((v) => (this.project = v));
     });
     new Setting(this.contentEl).setName("Tags").addText((t) => {
-      t.setPlaceholder("comma-separated");
+      t.setPlaceholder("Comma-separated");
       t.onChange((v) => (this.tagsInput = v));
     });
     new Setting(this.contentEl).setName("Body").addTextArea((t) => {
       t.setPlaceholder("What happened?");
       t.onChange((v) => (this.body = v));
       t.inputEl.rows = 5;
-      t.inputEl.style.width = "100%";
+      t.inputEl.addClass("kp-modal__textarea");
       t.inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) this.submit();
       });
-      setTimeout(() => t.inputEl.focus(), 0);
+      activeWindow.setTimeout(() => t.inputEl.focus(), 0);
     });
     new Setting(this.contentEl)
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
@@ -289,17 +289,21 @@ class QuickLogModal extends Modal {
       .map((t) => t.replace(/^#/, "").trim())
       .filter((t) => t.length > 0);
     this.close();
-    this.onSubmit(this.project, this.body.trim(), tags);
+    void this.onSubmit(this.project, this.body.trim(), tags);
   }
 }
 
 class MilestonePromptModal extends Modal {
   private projects: string[];
-  private onSubmit: (project: string, name: string) => void;
+  private onSubmit: (project: string, name: string) => void | Promise<void>;
   private project: string;
   private name = "";
 
-  constructor(app: App, projects: string[], onSubmit: (project: string, name: string) => void) {
+  constructor(
+    app: App,
+    projects: string[],
+    onSubmit: (project: string, name: string) => void | Promise<void>
+  ) {
     super(app);
     this.projects = projects;
     this.project = projects[0];
@@ -318,7 +322,7 @@ class MilestonePromptModal extends Modal {
       t.inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") this.submit();
       });
-      setTimeout(() => t.inputEl.focus(), 0);
+      activeWindow.setTimeout(() => t.inputEl.focus(), 0);
     });
     new Setting(this.contentEl)
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
@@ -334,16 +338,20 @@ class MilestonePromptModal extends Modal {
     const n = this.name.trim();
     if (!n) return;
     this.close();
-    this.onSubmit(this.project, n);
+    void this.onSubmit(this.project, n);
   }
 }
 
 class SkillResetModal extends Modal {
   private projects: string[];
-  private onSubmit: (project: string) => void;
+  private onSubmit: (project: string) => void | Promise<void>;
   private project: string;
 
-  constructor(app: App, projects: string[], onSubmit: (project: string) => void) {
+  constructor(
+    app: App,
+    projects: string[],
+    onSubmit: (project: string) => void | Promise<void>
+  ) {
     super(app);
     this.projects = projects;
     this.project = projects[0];
@@ -369,7 +377,7 @@ class SkillResetModal extends Modal {
           .setWarning()
           .onClick(() => {
             this.close();
-            this.onSubmit(this.project);
+            void this.onSubmit(this.project);
           })
       );
   }

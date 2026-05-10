@@ -31,7 +31,7 @@ export async function openOrFocusFile(
   const existing = findOpenLeafForFile(app, file.path);
   if (existing) {
     app.workspace.setActiveLeaf(existing, { focus: true });
-    app.workspace.revealLeaf(existing);
+    await app.workspace.revealLeaf(existing);
     return;
   }
   let leaf: WorkspaceLeaf | null = null;
@@ -49,5 +49,5 @@ export async function openOrFocusFile(
 
   await leaf.openFile(file);
   if (mode === "sidebar" && cache) cache.set(leaf);
-  app.workspace.revealLeaf(leaf);
+  await app.workspace.revealLeaf(leaf);
 }

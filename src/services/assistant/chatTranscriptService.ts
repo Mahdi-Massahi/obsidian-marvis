@@ -131,7 +131,7 @@ export class ChatTranscriptService {
     const ended = isoWithOffset(ts);
     try {
       const content = await this.app.vault.read(file);
-      const updated = content.replace(/^---\r?\n([\s\S]*?)\r?\n---/, (m, fm) => {
+      const updated = content.replace(/^---\r?\n([\s\S]*?)\r?\n---/, (_m, fm) => {
         const trimmed = String(fm).replace(/\nended:.*$/m, "");
         return `---\n${trimmed}\nended: ${ended}\n---`;
       });

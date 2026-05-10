@@ -91,7 +91,7 @@ export async function dispatch(
     return {
       id: call.id,
       name: call.name,
-      response: { ok: true, summary, data: data as Record<string, unknown> },
+      response: { ok: true, summary, data: data },
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

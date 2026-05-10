@@ -1,4 +1,4 @@
-import { App, EventRef, TAbstractFile, TFile, TFolder } from "obsidian";
+import { App, EventRef, TFile, TFolder } from "obsidian";
 import {
   getKind,
   parseEvent,
@@ -196,9 +196,6 @@ export class Indexer {
         if (child.name === "skills") continue;
         if (child.name === "_chats") continue;
         this.walk(child, visit);
-      }
-      else if ((child as TAbstractFile) && (child as TFolder).children) {
-        this.walk(child as TFolder, visit);
       }
     }
   }

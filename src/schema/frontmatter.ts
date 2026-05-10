@@ -242,7 +242,7 @@ function asResponseStatus(raw: unknown): import("./types").ResponseStatus | unde
   if (typeof raw !== "string") return undefined;
   const s = raw.toLowerCase();
   if (s === "accepted" || s === "needsaction" || s === "tentative" || s === "declined" || s === "unknown") {
-    return s === "needsaction" ? "needsAction" : (s as import("./types").ResponseStatus);
+    return s === "needsaction" ? "needsAction" : (s);
   }
   return undefined;
 }

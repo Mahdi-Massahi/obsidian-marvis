@@ -192,9 +192,7 @@ export const TimelineRoot: React.FC = () => {
       }
       setDraft(next);
     };
-    const onUp = async () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
+    const finalize = async () => {
       const finalDraft = currentDraftRef.current;
       setDraft(null);
       if (!finalDraft) return;
@@ -232,6 +230,11 @@ export const TimelineRoot: React.FC = () => {
         newDate.setHours(h, m, s ?? 0, 0);
         await logService.setTimestamp(log, newDate);
       }
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      void finalize();
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -377,8 +380,8 @@ export const TimelineRoot: React.FC = () => {
                 >
                   {row.bars.map((bar) => {
                     const isDrafting = draft && draft.barPath === bar.path;
-                    const startISO = isDrafting ? draft!.startISO : bar.startISO;
-                    const endISO = isDrafting ? draft!.endISO : bar.endISO;
+                    const startISO = isDrafting ? draft.startISO : bar.startISO;
+                    const endISO = isDrafting ? draft.endISO : bar.endISO;
                     const startDate = parseDate(startISO)!;
                     const endDate = parseDate(endISO)!;
                     const startIdx = dayIndex(days, startDate);
@@ -604,8 +607,11 @@ function taskToBar(
 ): Bar {
   const last = t.milestone?.split("/").pop()?.replace(/\.md$/i, "");
   const m = last ? milestoneByName.get(last) : undefined;
-  const start = t.start ?? t.due ?? m?.start ?? m?.due!;
-  const end = t.due ?? t.start ?? m?.due ?? m?.start!;
+  // Caller already filtered to dated tasks (own dates or milestone dates),
+  // so at least one of these is defined — the empty string fallback is just
+  // a type narrowing hatch and never reached at runtime.
+  const start = t.start ?? t.due ?? m?.start ?? m?.due ?? "";
+  const end = t.due ?? t.start ?? m?.due ?? m?.start ?? "";
   const pri = t.priority ? priorities.find((p) => p.id === t.priority) : undefined;
   return {
     id: t.id,

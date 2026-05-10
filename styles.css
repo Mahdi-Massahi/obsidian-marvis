@@ -3734,6 +3734,25 @@
   background: var(--background-modifier-hover);
 }
 
+/* Code-style textarea for the marvis.md skill template + system instruction
+   override fields in the settings tab — full width, monospace, smaller font. */
+.kp-settings__code-textarea {
+  width: 100%;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+}
+
+/* Wide-enough textarea for the QuickLogModal body field. */
+.kp-modal__textarea {
+  width: 100%;
+}
+
+/* Generic visibility toggle used by Setting rows (e.g. the "Custom RRULE"
+   row that appears only when the Recurrence dropdown is set to "custom"). */
+.is-hidden {
+  display: none !important;
+}
+
 /* Confirmation modal for write tool calls */
 .kp-assistant-confirm .modal-content,
 .modal.kp-assistant-confirm .modal-content {

@@ -431,7 +431,7 @@ export class AssistantSession {
     const maxAttempts = 4;
     while (attempt < maxAttempts) {
       const delay = 500 * Math.pow(2, attempt);
-      await new Promise((r) => setTimeout(r, delay));
+      await new Promise((r) => activeWindow.setTimeout(r, delay));
       try {
         await this.connectClient();
         this.reconnects += 1;
@@ -503,17 +503,17 @@ export class AssistantSession {
     // The OS releases wake locks when the document loses visibility; reacquire
     // when it returns so a session that backgrounds briefly stays alive.
     const handler = () => {
-      if (document.visibilityState === "visible" && this.startedAt && !this.wakeLock) {
+      if (activeDocument.visibilityState === "visible" && this.startedAt && !this.wakeLock) {
         void this.acquireWakeLock();
       }
     };
     this.wakeLockReacquireRef = handler;
-    document.addEventListener("visibilitychange", handler);
+    activeDocument.addEventListener("visibilitychange", handler);
   }
 
   private async releaseWakeLock(): Promise<void> {
     if (this.wakeLockReacquireRef) {
-      document.removeEventListener("visibilitychange", this.wakeLockReacquireRef);
+      activeDocument.removeEventListener("visibilitychange", this.wakeLockReacquireRef);
       this.wakeLockReacquireRef = null;
     }
     const lock = this.wakeLock;

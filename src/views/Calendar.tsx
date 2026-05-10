@@ -1,5 +1,5 @@
 import * as React from "react";
-import { addDays, format, isSameDay, isSameMonth, parseDate, fmtMonth, monthGrid, fmtISO, startOfDay } from "../utils/dates";
+import { addDays, format, isSameDay, isSameMonth, fmtMonth, monthGrid, fmtISO, startOfDay } from "../utils/dates";
 import {
   DndContext,
   DragEndEvent,
@@ -262,7 +262,7 @@ export const CalendarRoot: React.FC = () => {
             ))}
           </div>
 
-          <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+          <DndContext sensors={sensors} onDragEnd={(e) => void onDragEnd(e)}>
             <div className={`kp-cal__grid ${mode === "week" ? "kp-cal__grid--week" : ""}`}>
               {days.map((day) => {
                 const iso = fmtISO(day);
@@ -461,8 +461,7 @@ const DayView: React.FC<DayViewProps> = ({
     if (!gridRef.current) return;
     const target = isToday ? Math.max(0, nowTop - 80) : 8 * HOUR_HEIGHT;
     gridRef.current.scrollTop = target;
-    // Only scroll on first mount per date
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only scroll on first mount per date — date string in deps is intentional.
   }, [date.toDateString()]);
 
   return (

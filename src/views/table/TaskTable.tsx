@@ -34,8 +34,8 @@ export const TaskTable: React.FC = () => {
   const sorted = React.useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
     return filtered.slice().sort((a, b) => {
-      const av = (a[sortKey] ?? "") as string;
-      const bv = (b[sortKey] ?? "") as string;
+      const av = (a[sortKey] ?? "");
+      const bv = (b[sortKey] ?? "");
       if (av < bv) return -1 * dir;
       if (av > bv) return 1 * dir;
       return 0;
@@ -137,7 +137,7 @@ export const TaskTable: React.FC = () => {
               </option>
             ))}
           </select>
-          <button className="kp-btn kp-btn--ghost" onClick={bulkArchive}>
+          <button className="kp-btn kp-btn--ghost" onClick={() => void bulkArchive()}>
             Archive
           </button>
           <button className="kp-btn kp-btn--ghost kp-btn--danger" onClick={bulkDelete}>

@@ -59,10 +59,13 @@ export class QuickCreateModal extends Modal {
 
     const titleSetting = new Setting(contentEl)
       .setName("Title")
-      .setDesc("Smart parse: !!! / !! / ! for priority, @Project, #tag, due:tomorrow.")
+      // Includes literal syntax tokens (`@Project`) that must stay capitalised
+      // to convey "replace with a project name".
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
+      .setDesc("Smart parse — exclamation marks set priority, @Project assigns the project, #tag adds tags, and due:tomorrow sets the date.")
       .addText((t) =>
         t
-          .setPlaceholder("Fix login bug !high due:tomorrow @Brison #bug")
+          .setPlaceholder("Fix login bug !high due:tomorrow @Marvis #bug")
           .setValue(this.title)
           .onChange((v) => {
             this.title = v;
@@ -87,17 +90,13 @@ export class QuickCreateModal extends Modal {
     new Setting(contentEl).setName("Project").addDropdown((dd) => {
       const initial = this.project || projects[0] || "Inbox";
       this.project = initial;
-      const opts: Record<string, string> = { __new: "+ New project…" };
+      const opts: Record<string, string> = {};
       for (const p of projects) opts[p] = p;
       if (projects.length === 0) opts["Inbox"] = "Inbox";
       dd.addOptions(opts);
       dd.setValue(this.project);
       dd.onChange((v) => {
-        if (v === "__new") {
-          const name = window.prompt("Project name");
-          if (name) this.project = name;
-          this.refreshFields();
-        } else this.project = v;
+        this.project = v;
       });
       this.projectDropdown = dd.selectEl;
     });
@@ -148,7 +147,7 @@ export class QuickCreateModal extends Modal {
     }
 
     new Setting(contentEl).setName("Tags").addText((t) =>
-      t.setPlaceholder("comma, separated").setValue(this.tags).onChange((v) => (this.tags = v))
+      t.setPlaceholder("Comma, separated").setValue(this.tags).onChange((v) => (this.tags = v))
     );
 
     new Setting(contentEl)
@@ -170,7 +169,7 @@ export class QuickCreateModal extends Modal {
     if (this.projectDropdown && this.project) {
       const exists = Array.from(this.projectDropdown.options).some((o) => o.value === this.project);
       if (!exists) {
-        const opt = document.createElement("option");
+        const opt = activeDocument.createEl("option");
         opt.value = this.project;
         opt.text = this.project;
         this.projectDropdown.add(opt);

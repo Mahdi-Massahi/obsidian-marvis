@@ -67,7 +67,7 @@ export const FilterBar: React.FC<Props> = ({
       return;
     }
     if (block.selectedCalendars.length === 0) {
-      new Notice("No calendars selected — pick one in Settings → Calendar sync.");
+      new Notice("No calendars selected — pick one in settings → calendar sync.");
       return;
     }
     setIsSyncing(true);
@@ -99,7 +99,7 @@ export const FilterBar: React.FC<Props> = ({
 
   React.useEffect(() => {
     if (searchModalOpen) {
-      setTimeout(() => searchModalInputRef.current?.focus(), 50);
+      activeWindow.setTimeout(() => searchModalInputRef.current?.focus(), 50);
     }
   }, [searchModalOpen]);
 
@@ -355,7 +355,7 @@ export const FilterBar: React.FC<Props> = ({
             </nav>
           </div>
         </div>,
-        document.body
+        activeDocument.body
       )}
 
       {searchModalOpen && ReactDOM.createPortal(
@@ -395,7 +395,7 @@ export const FilterBar: React.FC<Props> = ({
             </button>
           </div>
         </div>,
-        document.body
+        activeDocument.body
       )}
 
       {filterModalOpen && ReactDOM.createPortal(
@@ -517,7 +517,7 @@ export const FilterBar: React.FC<Props> = ({
             )}
           </div>
         </div>,
-        document.body
+        activeDocument.body
       )}
     </div>
   );
@@ -635,11 +635,11 @@ const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggl
         setOpen(false);
     };
     const onScroll = () => updatePos();
-    document.addEventListener("mousedown", onDoc);
+    activeDocument.addEventListener("mousedown", onDoc);
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onScroll);
     return () => {
-      document.removeEventListener("mousedown", onDoc);
+      activeDocument.removeEventListener("mousedown", onDoc);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };
@@ -699,7 +699,7 @@ const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggl
           })}
         </div>
         </div>,
-        document.body
+        activeDocument.body
       )}
     </div>
   );

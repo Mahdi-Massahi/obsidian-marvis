@@ -279,7 +279,7 @@ export default class KanbanPlusPlugin extends Plugin {
     } else {
       await leaf.setViewState({ type: VIEW_TYPE_KANBAN_PLUS, state: { kind }, active: true });
     }
-    this.app.workspace.revealLeaf(leaf);
+    await this.app.workspace.revealLeaf(leaf);
   }
 
   isAssistantLeafOpen(): boolean {

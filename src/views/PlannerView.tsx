@@ -77,7 +77,7 @@ export class PlannerView extends ItemView {
 
   switchKind(kind: ViewKind): void {
     this.kind = kind;
-    this.leaf.setViewState({ type: VIEW_TYPE_KANBAN_PLUS, state: { kind } });
+    void this.leaf.setViewState({ type: VIEW_TYPE_KANBAN_PLUS, state: { kind } });
     this.render();
     this.app.workspace.requestSaveLayout();
   }

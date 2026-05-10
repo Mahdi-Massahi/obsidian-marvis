@@ -27,8 +27,10 @@ function loadNode(): NodeBindings {
   if (cachedNode) return cachedNode;
   // Use indirect `require` so esbuild leaves the calls intact (these modules
   // are in the `external` list) and they're only executed at runtime on
-  // platforms where they exist.
-  const req: NodeRequire = (globalThis as unknown as { require: NodeRequire }).require;
+  // platforms where they exist. The `globalThis` access is deliberate — we
+  // need Node's runtime require, not anything DOM-related.
+  // eslint-disable-next-line obsidianmd/prefer-active-doc
+  const req: NodeJS.Require = (globalThis as unknown as { require: NodeJS.Require }).require;
   if (typeof req !== "function") {
     throw new Error("Apple Calendar provider requires desktop Obsidian.");
   }
@@ -38,7 +40,7 @@ function loadNode(): NodeBindings {
   const path = req("path") as typeof import("path");
   const fs = req("fs") as typeof import("fs");
   cachedNode = {
-    execFileAsync: util.promisify(cp.execFile) as NodeBindings["execFileAsync"],
+    execFileAsync: util.promisify(cp.execFile),
     existsSync: fs.existsSync,
     // Calendar.app's local store. We read with -readonly so concurrent use
     // by Calendar.app itself is safe (the DB uses WAL mode).
@@ -72,7 +74,9 @@ export const macCalendarProvider: CalendarProvider = {
   isAvailable(): boolean {
     if (!Platform.isDesktopApp) return false;
     // Don't trip over the lazy require on non-desktop / non-darwin: only ask
-    // the platform if the desktop guard already passed.
+    // the platform if the desktop guard already passed. The `globalThis`
+    // access here is to Node's `process`, not the DOM.
+    // eslint-disable-next-line obsidianmd/prefer-active-doc
     const p = (globalThis as unknown as { process?: { platform?: string } }).process;
     return p?.platform === "darwin";
   },

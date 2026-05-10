@@ -122,10 +122,10 @@ export class CreateMenuModal extends Modal {
           t.inputEl.blur();
         }
       });
-      setTimeout(() => t.inputEl.focus(), 0);
+      activeWindow.setTimeout(() => t.inputEl.focus(), 0);
     });
     new Setting(this.formEl).setName("Project").addDropdown((dd) => {
-      if (projects.length === 0) dd.addOption("", "(no projects)");
+      if (projects.length === 0) dd.addOption("", "(No projects)");
       for (const p of projects) dd.addOption(p, p);
       dd.setValue(state.project);
       dd.onChange((v) => (state.project = v));
@@ -146,7 +146,7 @@ export class CreateMenuModal extends Modal {
       t.onChange((v) => (state.due = v));
     });
     new Setting(this.formEl).setName("Tags").addText((t) => {
-      t.setPlaceholder("comma-separated").onChange((v) => (state.tags = v));
+      t.setPlaceholder("Comma-separated").onChange((v) => (state.tags = v));
     });
 
     this.renderAttachmentsField(state);
@@ -220,16 +220,16 @@ export class CreateMenuModal extends Modal {
         t.setValue(state.timestamp).onChange((v) => (state.timestamp = v));
       });
     new Setting(this.formEl).setName("Tags").addText((t) => {
-      t.setPlaceholder("comma-separated").onChange((v) => (state.tags = v));
+      t.setPlaceholder("Comma-separated").onChange((v) => (state.tags = v));
     });
     new Setting(this.formEl).setName("Body").addTextArea((t) => {
       t.setPlaceholder("What happened?").onChange((v) => (state.body = v));
       t.inputEl.rows = 5;
-      t.inputEl.style.width = "100%";
+      t.inputEl.addClass("kp-modal__textarea");
       t.inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit();
       });
-      setTimeout(() => t.inputEl.focus(), 0);
+      activeWindow.setTimeout(() => t.inputEl.focus(), 0);
     });
 
     this.renderAttachmentsField(state);
@@ -299,7 +299,7 @@ export class CreateMenuModal extends Modal {
           t.inputEl.blur();
         }
       });
-      setTimeout(() => t.inputEl.focus(), 0);
+      activeWindow.setTimeout(() => t.inputEl.focus(), 0);
     });
 
     new Setting(this.formEl).setName("Date").addText((t) => {
@@ -317,8 +317,8 @@ export class CreateMenuModal extends Modal {
     let endTimeRow: Setting | null = null;
     const updateTimeVisibility = () => {
       const display = state.allDay ? "none" : "";
-      if (timeRow) (timeRow.settingEl as HTMLElement).style.display = display;
-      if (endTimeRow) (endTimeRow.settingEl as HTMLElement).style.display = display;
+      if (timeRow) (timeRow.settingEl).style.display = display;
+      if (endTimeRow) (endTimeRow.settingEl).style.display = display;
     };
 
     new Setting(this.formEl).setName("All-day").addToggle((t) => {
@@ -382,25 +382,26 @@ export class CreateMenuModal extends Modal {
       dd.onChange((v) => {
         state.recurrencePreset = v;
         if (customRow) {
-          (customRow.settingEl as HTMLElement).style.display =
-            v === "custom" ? "" : "none";
+          customRow.settingEl.toggleClass("is-hidden", v !== "custom");
         }
       });
     });
     customRow = new Setting(this.formEl).setName("Custom RRULE").addText((t) => {
+      // RRULE syntax — literal example, not user-facing copy.
+      // eslint-disable-next-line obsidianmd/ui/sentence-case
       t.setPlaceholder("FREQ=WEEKLY;BYDAY=MO,WE")
         .onChange((v) => (state.recurrenceCustom = v));
     });
-    (customRow.settingEl as HTMLElement).style.display = "none";
+    customRow.settingEl.addClass("is-hidden");
 
     new Setting(this.formEl).setName("Tags").addText((t) => {
-      t.setPlaceholder("comma-separated").onChange((v) => (state.tags = v));
+      t.setPlaceholder("Comma-separated").onChange((v) => (state.tags = v));
     });
 
     new Setting(this.formEl).setName("Body").addTextArea((t) => {
       t.setPlaceholder("Notes…").onChange((v) => (state.body = v));
       t.inputEl.rows = 3;
-      t.inputEl.style.width = "100%";
+      t.inputEl.addClass("kp-modal__textarea");
     });
 
     this.renderAttachmentsField(state);
@@ -470,7 +471,7 @@ export class CreateMenuModal extends Modal {
           t.inputEl.blur();
         }
       });
-      setTimeout(() => t.inputEl.focus(), 0);
+      activeWindow.setTimeout(() => t.inputEl.focus(), 0);
     });
     new Setting(this.formEl).setName("Color").addColorPicker((c) =>
       c.setValue(state.color).onChange((v) => (state.color = v))
@@ -513,14 +514,14 @@ export class CreateMenuModal extends Modal {
       dd.onChange((v) => (state.project = v));
     });
     new Setting(this.formEl).setName("Name").addText((t) => {
-      t.setPlaceholder("v1").onChange((v) => (state.name = v));
+      t.setPlaceholder("V1").onChange((v) => (state.name = v));
       t.inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
           t.inputEl.blur();
         }
       });
-      setTimeout(() => t.inputEl.focus(), 0);
+      activeWindow.setTimeout(() => t.inputEl.focus(), 0);
     });
     new Setting(this.formEl).setName("Due").addText((t) => {
       t.inputEl.type = "date";
@@ -554,10 +555,9 @@ export class CreateMenuModal extends Modal {
 
     const input = setting.controlEl.createEl("input", {
       type: "file",
-      cls: "kp-attach__input",
+      cls: "kp-attach__input is-hidden",
       attr: { multiple: "true" },
-    }) as HTMLInputElement;
-    input.style.display = "none";
+    });
 
     setting.addButton((b) =>
       b

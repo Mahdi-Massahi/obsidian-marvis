@@ -3,14 +3,14 @@ import { App, Modal, Setting } from "obsidian";
 export class ConfirmModal extends Modal {
   private title_: string;
   private message: string;
-  private onConfirm: () => void;
+  private onConfirm: () => void | Promise<void>;
   private confirmLabel: string;
 
   constructor(
     app: App,
     title: string,
     message: string,
-    onConfirm: () => void,
+    onConfirm: () => void | Promise<void>,
     confirmLabel = "Delete"
   ) {
     super(app);
@@ -31,7 +31,7 @@ export class ConfirmModal extends Modal {
           .setWarning()
           .onClick(() => {
             this.close();
-            this.onConfirm();
+            void this.onConfirm();
           })
       );
   }

@@ -91,7 +91,7 @@ export class GeminiLiveClient {
       this.listeners[name] = set as never;
     }
     set.add(listener);
-    return () => set!.delete(listener);
+    return () => set.delete(listener);
   }
 
   private emit<K extends keyof EventMap>(name: K, payload: EventMap[K]): void {
@@ -133,7 +133,7 @@ export class GeminiLiveClient {
         resolve();
       };
       ws.onerror = (ev) => {
-        this.emit("error", { message: `WebSocket error: ${(ev as Event).type}` });
+        this.emit("error", { message: `WebSocket error: ${(ev).type}` });
       };
       ws.onclose = (ev) => {
         this.emit("close", { code: ev.code, reason: ev.reason });

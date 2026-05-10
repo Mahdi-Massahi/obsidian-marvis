@@ -137,7 +137,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Marvis settings" });
+    ;
 
     new Setting(containerEl)
       .setName("Marvis root folder")
@@ -149,7 +149,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.rootFolder = value.trim() || "Marvis";
             await this.plugin.saveSettings();
-            this.plugin.indexer?.reindex();
+            void this.plugin.indexer?.reindex();
           })
       );
 
@@ -195,7 +195,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
           .addOption("0", "Sunday")
           .setValue(String(this.plugin.settings.weekStartsOn))
           .onChange(async (value) => {
-            this.plugin.settings.weekStartsOn = (value === "0" ? 0 : 1) as 0 | 1;
+            this.plugin.settings.weekStartsOn = (value === "0" ? 0 : 1);
             await this.plugin.saveSettings();
             this.plugin.refreshViews();
           })
@@ -230,7 +230,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     this.renderAssistant(containerEl);
 
-    containerEl.createEl("h3", { text: "Coding-agent skills" });
+    new Setting(containerEl).setName("Coding-agent skills").setHeading();
     containerEl.createEl("p", {
       cls: "setting-item-description",
       text:
@@ -246,9 +246,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
         t.inputEl.rows = 16;
-        t.inputEl.style.width = "100%";
-        t.inputEl.style.fontFamily = "var(--font-monospace)";
-        t.inputEl.style.fontSize = "12px";
+        t.inputEl.addClass("kp-settings__code-textarea");
       });
     new Setting(containerEl)
       .addButton((b) =>
@@ -267,7 +265,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
         })
       );
 
-    containerEl.createEl("h3", { text: "Statuses" });
+    new Setting(containerEl).setName("Statuses").setHeading();
     this.renderVocabulary(
       containerEl,
       this.plugin.settings.statuses,
@@ -275,10 +273,10 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
         this.plugin.settings.statuses = next;
       },
       () =>
-        ({ id: "new-status", label: "New status", color: "#94a3b8", category: "open" } as StatusDef)
+        ({ id: "new-status", label: "New status", color: "#94a3b8", category: "open" as const })
     );
 
-    containerEl.createEl("h3", { text: "Priorities" });
+    new Setting(containerEl).setName("Priorities").setHeading();
     this.renderVocabulary(
       containerEl,
       this.plugin.settings.priorities,
@@ -290,7 +288,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
   }
 
   private renderCalendarSync(container: HTMLElement): void {
-    container.createEl("h3", { text: "Calendar sync" });
+    new Setting(container).setName("Calendar sync").setHeading();
     container.createEl("p", {
       cls: "setting-item-description",
       text:
@@ -305,7 +303,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
     container: HTMLElement,
     provider: CalendarProvider
   ): void {
-    container.createEl("h4", { text: provider.label });
+    new Setting(container).setName("").setHeading();
 
     if (!provider.isAvailable()) {
       container.createEl("p", {
@@ -376,7 +374,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
     if (block.availableCalendars.length === 0) {
       container.createEl("p", {
         cls: "setting-item-description",
-        text: "No calendars loaded yet — click 'Refresh calendar list'.",
+        text: "No calendars loaded yet — click 'refresh calendar list'.",
       });
     } else {
       for (const cal of block.availableCalendars) {
@@ -489,7 +487,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
   }
 
   private renderAssistant(container: HTMLElement): void {
-    container.createEl("h3", { text: "AI assistant (Gemini Live)" });
+    new Setting(container).setName("AI assistant (Gemini Live)").setHeading();
     container.createEl("p", {
       cls: "setting-item-description",
       text:
@@ -529,7 +527,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
       .setDesc("How Marvis should address you. Injected into the system prompt.")
       .addText((t) =>
         t
-          .setPlaceholder("e.g. Mahdi")
+          .setPlaceholder("E.g. Mahdi")
           .setValue(a.userName)
           .onChange(async (v) => {
             a.userName = v.trim();
@@ -539,20 +537,25 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(container)
       .setName("Model")
-      .addDropdown((dd) =>
+      .addDropdown((dd) => {
+        // Option labels are literal Gemini model identifiers, not UI copy —
+        // they must stay verbatim so users can match against Google's docs.
+        /* eslint-disable obsidianmd/ui/sentence-case */
         dd
           .addOption("gemini-3.1-flash-live-preview", "gemini-3.1-flash-live-preview")
           .addOption(
             "gemini-2.5-flash-preview-native-audio-dialog",
             "gemini-2.5-flash-preview-native-audio-dialog"
           )
-          .addOption("gemini-2.0-flash-exp", "gemini-2.0-flash-exp")
+          .addOption("gemini-2.0-flash-exp", "gemini-2.0-flash-exp");
+        /* eslint-enable obsidianmd/ui/sentence-case */
+        dd
           .setValue(a.model)
           .onChange(async (v) => {
             a.model = v;
             await this.plugin.saveSettings();
-          })
-      );
+          });
+      });
 
     new Setting(container)
       .setName("Voice")
@@ -597,9 +600,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
         t.inputEl.rows = 4;
-        t.inputEl.style.width = "100%";
-        t.inputEl.style.fontFamily = "var(--font-monospace)";
-        t.inputEl.style.fontSize = "12px";
+        t.inputEl.addClass("kp-settings__code-textarea");
       });
 
     new Setting(container).addButton((b) =>
