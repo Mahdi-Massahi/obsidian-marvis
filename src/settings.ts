@@ -41,6 +41,7 @@ export type AssistantVoice = "Aoede" | "Charon" | "Fenrir" | "Kore" | "Puck";
 export interface AssistantSettings {
   enabled: boolean;
   apiKey: string;
+  tavilyApiKey: string;
   model: string;
   voice: AssistantVoice;
   systemInstructionOverride?: string;
@@ -85,6 +86,7 @@ export const DEFAULT_VIEW_STATE: ViewStateSettings = {
 export const DEFAULT_ASSISTANT_SETTINGS: AssistantSettings = {
   enabled: false,
   apiKey: "",
+  tavilyApiKey: "",
   model: "gemini-3.1-flash-live-preview",
   voice: "Kore",
   showTimer: true,
@@ -520,6 +522,17 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
             a.apiKey = v.trim();
             await this.plugin.saveSettings();
           });
+      });
+
+    new Setting(container)
+      .setName("Tavily API key")
+      .setDesc("Enables web search inside the assistant.")
+      .addText((t) => {
+        t.inputEl.type = "password";
+        t.setValue(a.tavilyApiKey).onChange(async (v) => {
+          a.tavilyApiKey = v.trim();
+          await this.plugin.saveSettings();
+        });
       });
 
     new Setting(container)

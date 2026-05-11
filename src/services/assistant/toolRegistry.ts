@@ -1,4 +1,4 @@
-import { App, Notice, TFile } from "obsidian";
+import { App, Notice, requestUrl, TFile } from "obsidian";
 import type KanbanPlusPlugin from "../../main";
 import type { Event, Log, Milestone, Project, Task } from "../../schema/types";
 import { stripWikilink } from "../../schema/frontmatter";
@@ -583,6 +583,82 @@ register({
       }
     }
     return matches.slice(0, limit);
+  },
+});
+
+register({
+  name: "web_search",
+  description:
+    "Search the public web through Tavily for information that isn't in the vault — current events, definitions, references, documentation. Returns a short list of results (title, url, snippet) and, when available, a synthesized answer. Requires a Tavily API key in settings; the tool returns an error if it isn't set. Prefer this over guessing when the user asks about anything time-sensitive or outside their notes.",
+  parameters: {
+    type: "object",
+    required: ["query"],
+    properties: {
+      query: { type: "string", description: "Natural-language search query." },
+      maxResults: {
+        type: "number",
+        description: "Number of results to return (default 5, max 10).",
+      },
+      searchDepth: {
+        type: "string",
+        enum: ["basic", "advanced"],
+        description:
+          "Tavily search depth. 'advanced' costs more credits but returns richer results.",
+      },
+    },
+  },
+  write: false,
+  handler: async (args, ctx) => {
+    const apiKey = ctx.plugin.settings.assistant.tavilyApiKey?.trim();
+    if (!apiKey) {
+      throw new Error(
+        "Tavily API key is not set. Add one in the marvis settings under AI assistant."
+      );
+    }
+    const query = asStr(args.query).trim();
+    if (!query) throw new Error("query cannot be empty");
+    const max = typeof args.maxResults === "number" ? args.maxResults : 5;
+    const maxResults = Math.max(1, Math.min(10, Math.floor(max)));
+    const searchDepth =
+      args.searchDepth === "advanced" ? "advanced" : "basic";
+
+    const res = await requestUrl({
+      url: "https://api.tavily.com/search",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        query,
+        max_results: maxResults,
+        search_depth: searchDepth,
+        include_answer: true,
+      }),
+      throw: false,
+    });
+    if (res.status < 200 || res.status >= 300) {
+      const detail =
+        (res.json as { error?: string; detail?: string } | undefined)?.error ??
+        (res.json as { detail?: string } | undefined)?.detail ??
+        res.text?.slice(0, 200) ??
+        "";
+      throw new Error(
+        `Tavily search failed (${res.status})${detail ? `: ${detail}` : ""}`
+      );
+    }
+    const data = (res.json ?? {}) as {
+      answer?: string;
+      results?: Array<{ title?: string; url?: string; content?: string }>;
+    };
+    return {
+      answer: data.answer ?? null,
+      results: (data.results ?? []).map((r) => ({
+        title: r.title ?? "",
+        url: r.url ?? "",
+        snippet: r.content ?? "",
+      })),
+    };
   },
 });
 
