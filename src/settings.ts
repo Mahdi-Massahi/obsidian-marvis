@@ -511,7 +511,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(container)
       .setName("Gemini API key")
-      .setDesc("Your own API key, stored locally with the rest of your plugin settings.")
+      .setDesc("Stored locally on your device.")
       .addText((t) => {
         t.inputEl.type = "password";
         t.setPlaceholder("Aiza…")
