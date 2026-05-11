@@ -1,12 +1,22 @@
-// Mirrors the rules the obsidianmd community-plugin validation bot enforces.
-// The bot ignores local rule overrides and uses a stricter superset of
-// `eslint-plugin-obsidianmd`'s published `recommended` config — currently
-// adds `require-await` and forbids `eslint-disable` for two rules
-// (`obsidianmd/prefer-active-doc`, `obsidianmd/ui/sentence-case`). We
-// reproduce that here so a clean local lint == a clean bot report.
+// Reproduces what we can of the obsidianmd community-plugin validation bot.
+// Two important caveats:
 //
-// Don't add rule overrides that loosen things; the bot won't honour them
-// and the PR will be rejected anyway.
+// 1. The published `eslint-plugin-obsidianmd` (currently 0.2.9, latest on
+//    npm) is a strict subset of what the bot actually runs. The bot uses an
+//    unreleased / private rule version (the validator is in a non-public
+//    repo). A green local lint is necessary but NOT sufficient — the bot
+//    can still flag `obsidianmd/ui/sentence-case` violations on strings
+//    that the published rule passes. When that happens, either reword the
+//    string to remove the ambiguity or comment `/skip` on the bot's PR
+//    explaining why.
+//
+// 2. We additionally enable `require-await` and forbid inline
+//    `eslint-disable` directives — the bot enforces both even though the
+//    published recommended config doesn't. So our config is stricter than
+//    what's published, but still looser than what the bot actually runs.
+//
+// Don't loosen any rule here; the bot ignores local overrides and the PR
+// will be rejected anyway.
 import tsparser from "@typescript-eslint/parser";
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";

@@ -19,10 +19,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # `npm run lint` mirrors the obsidianmd community-plugin validation bot
-      # (eslint-plugin-obsidianmd recommended + require-await + no inline
-      # disables). A green CI lint here is a strong predictor of the bot's
-      # own report — see eslint.config.mjs for caveats.
+      # `npm run lint` runs the public version of the obsidianmd plugin
+      # rules. It catches most things the community-plugin validation bot
+      # catches, but the bot uses a stricter unreleased rule for
+      # `ui/sentence-case`. A green lint here is necessary but not
+      # sufficient — see eslint.config.mjs for the full caveat.
       - name: Lint
         run: npm run lint
 

@@ -347,7 +347,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
     new Setting(container)
       .setName("Connected")
       .setDesc(
-        "Reads events from any account configured in Calendar.app — iCloud, Google, Exchange, and so on."
+        "Reads events from your selected calendars — read-only, one-way pull into the vault."
       )
       .addButton((b) =>
         b.setButtonText("Refresh calendar list").onClick(async () => {
@@ -511,7 +511,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
 
     new Setting(container)
       .setName("Gemini API key")
-      .setDesc("Your own API key. Stored locally with the rest of your plugin settings.")
+      .setDesc("Your own API key, stored locally with the rest of your plugin settings.")
       .addText((t) => {
         t.inputEl.type = "password";
         t.setPlaceholder("Aiza…")
