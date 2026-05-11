@@ -110,3 +110,13 @@ and [`src/schema/types.ts`](src/schema/types.ts) for the canonical shapes.
 - Obsidian APIs used (and their minimum versions): `ensureSideLeaf` is
   1.7.2 — keep `manifest.json.minAppVersion` aligned with the highest
   required API.
+
+## Community-plugin compliance
+
+Marvis is published to the Obsidian community-plugin registry, and every
+PR is scanned by `ObsidianReviewBot`. The bot enforces stricter rules than
+what `npm run lint` catches locally — particularly for UI string casing.
+Before opening a PR or pushing user-facing strings, read
+[`.marvis/skills/obsidian-plugin-rules.md`](.marvis/skills/obsidian-plugin-rules.md)
+for the full list of patterns to avoid and the workflow when the bot
+flags something the local lint passed.
