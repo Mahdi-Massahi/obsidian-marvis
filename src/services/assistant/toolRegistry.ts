@@ -1,6 +1,7 @@
 import { App, Notice, TFile } from "obsidian";
 import type KanbanPlusPlugin from "../../main";
 import type { Event, Log, Milestone, Project, Task } from "../../schema/types";
+import { stripWikilink } from "../../schema/frontmatter";
 import {
   AssistantConfirmModal,
   ContextSection,
@@ -785,6 +786,54 @@ register({
 });
 
 register({
+  name: "append_to_note",
+  description:
+    "Append markdown content to the body of an existing note (task, log, event, milestone, project, or any other vault file). Frontmatter is left untouched — use update_task or similar tools for field changes. The note must already exist; pass `path` as a vault path (e.g. 'Planner/Foo/logs/2026-05-11-09-00-00.md'), a wikilink ('[[My note]]'), or a bare basename and the tool resolves it. If `heading` is given, content is appended at the end of that `## heading` section (created at the end of the body if it doesn't exist yet).",
+  parameters: {
+    type: "object",
+    required: ["path", "content"],
+    properties: {
+      path: {
+        type: "string",
+        description:
+          "Vault path, wikilink, or bare basename of an existing note.",
+      },
+      content: {
+        type: "string",
+        description: "Markdown content to append.",
+      },
+      heading: {
+        type: "string",
+        description:
+          "Optional level-2 heading to append under (without the leading '## '). Created at the end of the body if missing.",
+      },
+    },
+  },
+  write: true,
+  preview: (args) => {
+    const content = asStr(args.content).trim();
+    const preview = content
+      ? content.slice(0, 60) + (content.length > 60 ? "…" : "")
+      : "(empty)";
+    const where = args.heading ? ` under "## ${asStr(args.heading)}"` : "";
+    return `Append to ${asStr(args.path)}${where}: ${preview}`;
+  },
+  handler: async (args, ctx) => {
+    const rawPath = asStr(args.path);
+    const file = resolveNoteFile(ctx, rawPath);
+    if (!file) throw new Error(`No note found for "${rawPath}"`);
+    const content = asStr(args.content);
+    if (!content.trim()) throw new Error("content cannot be empty");
+    const heading = args.heading ? asStr(args.heading).trim() : undefined;
+
+    const original = await ctx.app.vault.read(file);
+    const updated = appendToNoteBody(original, content, heading);
+    await ctx.app.vault.modify(file, updated);
+    return { path: file.path };
+  },
+});
+
+register({
   name: "create_milestone",
   description: "Create a new milestone in a project.",
   parameters: {
@@ -941,6 +990,75 @@ register({
     return { path };
   },
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Note-body mutation helpers (used by append_to_note)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function resolveNoteFile(ctx: ToolCtx, raw: string): TFile | null {
+  if (!raw) return null;
+  const direct = ctx.app.vault.getAbstractFileByPath(raw);
+  if (direct instanceof TFile) return direct;
+  const stripped = stripWikilink(raw) ?? raw;
+  const dest = ctx.app.metadataCache.getFirstLinkpathDest(stripped, "");
+  return dest ?? null;
+}
+
+function findFrontmatterEnd(text: string): number {
+  if (!text.startsWith("---")) return -1;
+  const second = text.indexOf("\n---", 3);
+  if (second < 0) return -1;
+  const afterFence = second + 4;
+  const newline = text.indexOf("\n", afterFence);
+  return newline >= 0 ? newline : afterFence;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function appendToNoteBody(
+  original: string,
+  content: string,
+  heading: string | undefined
+): string {
+  const fmEnd = findFrontmatterEnd(original);
+  const headPart = fmEnd >= 0 ? original.slice(0, fmEnd) : "";
+  const body = fmEnd >= 0 ? original.slice(fmEnd + 1) : original;
+
+  const toAppend = content.trim();
+  const bodyTrimmed = body.replace(/\s+$/, "");
+
+  let newBody: string;
+  if (!heading) {
+    newBody = bodyTrimmed ? `${bodyTrimmed}\n\n${toAppend}` : toAppend;
+  } else {
+    const headingLine = `## ${heading}`;
+    const re = new RegExp(
+      `(^|\\n)${escapeRegex(headingLine)}[ \\t]*(?=\\n|$)`
+    );
+    const m = re.exec(body);
+    if (!m) {
+      newBody = bodyTrimmed
+        ? `${bodyTrimmed}\n\n${headingLine}\n\n${toAppend}`
+        : `${headingLine}\n\n${toAppend}`;
+    } else {
+      const headingStart = m.index + m[1].length;
+      const headingEnd = headingStart + headingLine.length;
+      const remainder = body.slice(headingEnd);
+      const nextHeading = remainder.match(/\n##\s/);
+      const sectionEnd =
+        headingEnd + (nextHeading?.index ?? remainder.length);
+      const before = body.slice(0, sectionEnd).replace(/\s+$/, "");
+      const after = body.slice(sectionEnd).replace(/^\s+/, "");
+      newBody = after
+        ? `${before}\n\n${toAppend}\n\n${after}`
+        : `${before}\n\n${toAppend}`;
+    }
+  }
+
+  return headPart ? `${headPart}\n${newBody}\n` : `${newBody}\n`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Notice helper for handlers (currently unused but available for handlers
