@@ -222,12 +222,14 @@ export default class KanbanPlusPlugin extends Plugin {
   }
 
   private registerTaskContextMenu(): void {
-    const isTask = (file: { path: string } | null): boolean => {
-      if (!file) return false;
+    const MARVIS_KINDS = new Set(["task", "log", "milestone", "event", "habit"]);
+    const marvisKind = (file: { path: string } | null): string | null => {
+      if (!file) return null;
       const real = this.app.vault.getAbstractFileByPath(file.path);
-      if (!real || (real as { extension?: string }).extension !== "md") return false;
+      if (!real || (real as { extension?: string }).extension !== "md") return null;
       const fm = this.app.metadataCache.getFileCache(real as never)?.frontmatter ?? null;
-      return !!fm && fm["kind"] === "task";
+      const kind = fm && typeof fm["kind"] === "string" ? fm["kind"] : null;
+      return kind && MARVIS_KINDS.has(kind) ? kind : null;
     };
     const confirmAndDelete = (filePath: string) => {
       (
@@ -240,10 +242,11 @@ export default class KanbanPlusPlugin extends Plugin {
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
         const f = file as { path: string } | null;
-        if (!isTask(f)) return;
+        const kind = marvisKind(f);
+        if (!kind) return;
         menu.addItem((item) =>
           item
-            .setTitle("Delete marvis task")
+            .setTitle(`Delete marvis ${kind}`)
             .setIcon("trash")
             .onClick(async () => {
               if (!f) return;
@@ -260,10 +263,11 @@ export default class KanbanPlusPlugin extends Plugin {
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu, _editor, view) => {
         const file = (view as { file?: { path: string } }).file;
-        if (!file || !isTask(file)) return;
+        const kind = file ? marvisKind(file) : null;
+        if (!file || !kind) return;
         menu.addItem((item) =>
           item
-            .setTitle("Delete marvis task")
+            .setTitle(`Delete marvis ${kind}`)
             .setIcon("trash")
             .onClick(() => confirmAndDelete(file.path))
         );

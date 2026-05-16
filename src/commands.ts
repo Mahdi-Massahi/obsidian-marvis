@@ -145,34 +145,49 @@ export function registerCommands(plugin: KanbanPlusPlugin): void {
 
   plugin.addCommand({
     id: "delete-active-task",
-    name: "Delete task",
+    name: "Delete note",
     checkCallback: (checking) => {
       const file = plugin.app.workspace.getActiveFile();
       if (!file) return false;
       const fm = plugin.app.metadataCache.getFileCache(file)?.frontmatter ?? null;
-      if (!fm || fm["kind"] !== "task") return false;
+      const kind = typeof fm?.["kind"] === "string" ? fm["kind"] : null;
+      if (!kind || !["task", "log", "milestone", "event", "habit"].includes(kind)) return false;
       if (checking) return true;
-      const taskPath = file.path;
-      const task = plugin.store.getState().tasks[taskPath];
-      const title =
-        (typeof fm["title"] === "string" && fm["title"]) ||
-        task?.title ||
-        file.basename;
+      const state = plugin.store.getState();
+      const path = file.path;
+      const fmTitle = typeof fm?.["title"] === "string" ? fm["title"] : "";
+      const storeTitle =
+        state.tasks[path]?.title ??
+        state.milestones[path]?.title ??
+        state.events[path]?.title ??
+        state.habits[path]?.title ??
+        state.logs[path]?.excerpt ??
+        "";
+      const title = fmTitle || storeTitle || file.basename;
+      const label = kind === "task" ? "task" : kind;
       new ConfirmModal(
         plugin.app,
-        "Delete task",
+        `Delete ${label}`,
         `Permanently delete "${title}"? This moves the file to the system or vault trash.`,
         async () => {
           try {
-            if (task) {
-              await plugin.taskService.deleteTask(task);
+            if (kind === "task" && state.tasks[path]) {
+              await plugin.taskService.deleteTask(state.tasks[path]);
+            } else if (kind === "log" && state.logs[path]) {
+              await plugin.logService.deleteLog(state.logs[path]);
+            } else if (kind === "milestone" && state.milestones[path]) {
+              await plugin.milestoneService.deleteMilestone(state.milestones[path]);
+            } else if (kind === "event" && state.events[path]) {
+              await plugin.eventService.deleteEvent(state.events[path]);
+            } else if (kind === "habit" && state.habits[path]) {
+              await plugin.habitService.deleteHabit(state.habits[path]);
             } else {
               await plugin.app.fileManager.trashFile(file);
             }
             new Notice(`Deleted "${title}"`);
           } catch (e) {
             console.error(e);
-            new Notice("Failed to delete task — see console");
+            new Notice(`Failed to delete ${label} — see console`);
           }
         }
       ).open();
