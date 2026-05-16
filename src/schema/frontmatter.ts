@@ -1,5 +1,5 @@
 import { App, TFile } from "obsidian";
-import type { Task, Project, Milestone, Log, Event, Kind } from "./types";
+import type { Task, Project, Milestone, Log, Event, Habit, HabitFrequency, HabitState, Kind } from "./types";
 import { DEFAULT_PROJECT_COLOR } from "./types";
 
 export const WIKILINK_RE = /^\[\[(.+?)(?:\|.+?)?\]\]$/;
@@ -93,10 +93,23 @@ export function getKind(fm: Record<string, unknown> | null | undefined): Kind | 
     k === "project" ||
     k === "milestone" ||
     k === "log" ||
-    k === "event"
+    k === "event" ||
+    k === "habit"
   )
     return k;
   return null;
+}
+
+export function asHabitFrequency(value: unknown): HabitFrequency {
+  const s = asString(value)?.toLowerCase().trim();
+  if (s === "daily" || s === "weekly" || s === "monthly") return s;
+  return "daily";
+}
+
+export function asHabitState(value: unknown): HabitState {
+  const s = asString(value)?.toLowerCase().trim();
+  if (s === "active" || s === "paused" || s === "archived") return s;
+  return "active";
 }
 
 export function asDateTime(value: unknown): string | undefined {
@@ -206,6 +219,7 @@ export function parseLog(file: TFile, fm: Record<string, unknown>): Log {
     path: file.path,
     name: base,
     project: stripWikilink(fm["project"]),
+    habit: stripWikilink(fm["habit"]),
     timestamp: ts,
     tags: asTags(fm["tags"]),
     created: asDate(fm["created"]),
@@ -276,6 +290,31 @@ export function parseMilestone(file: TFile, fm: Record<string, unknown>): Milest
     due: asDate(fm["due"]) ?? asDate(fm["end"]),
     status: (asString(fm["status"]) as Milestone["status"]) ?? "planned",
     created: asDate(fm["created"]),
+    code: asString(fm["code"]),
+  };
+}
+
+export function parseHabit(file: TFile, fm: Record<string, unknown>): Habit {
+  const stateRaw = asHabitState(fm["state"]);
+  const archivedInPath = file.path.includes("/archive/");
+  const archived = archivedInPath || asBool(fm["archived"], false) || stateRaw === "archived";
+  const state: HabitState = archived ? "archived" : stateRaw;
+  const target = Math.max(1, Math.round(asNumber(fm["target"], 1)));
+  return {
+    id: file.path,
+    path: file.path,
+    name: fileBaseName(file.path),
+    title: asString(fm["title"]) ?? fileBaseName(file.path),
+    project: stripWikilink(fm["project"]) ?? "",
+    milestone: stripWikilink(fm["milestone"]),
+    frequency: asHabitFrequency(fm["frequency"]),
+    target,
+    goal: asString(fm["goal"]),
+    state,
+    archived,
+    tags: asTags(fm["tags"]),
+    created: asDate(fm["created"]),
+    order: asNumber(fm["order"], 0),
     code: asString(fm["code"]),
   };
 }

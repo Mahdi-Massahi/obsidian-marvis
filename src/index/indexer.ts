@@ -2,6 +2,7 @@ import { App, EventRef, TFile, TFolder } from "obsidian";
 import {
   getKind,
   parseEvent,
+  parseHabit,
   parseLog,
   parseMilestone,
   parseProject,
@@ -59,6 +60,7 @@ export class Indexer {
     const milestones: ReturnType<typeof parseMilestone>[] = [];
     const logs: ReturnType<typeof parseLog>[] = [];
     const events: ReturnType<typeof parseEvent>[] = [];
+    const habits: ReturnType<typeof parseHabit>[] = [];
     // Logs only have a body — no title in frontmatter — so we load their
     // bodies eagerly before the first render to avoid the "Log @ HH:MM" →
     // excerpt flicker on Calendar/Timeline. Tasks/events have a stable title
@@ -84,6 +86,8 @@ export class Indexer {
         } else if (kind === "event") {
           events.push(parseEvent(file, fm!));
           otherBodyFiles.push(file);
+        } else if (kind === "habit") {
+          habits.push(parseHabit(file, fm!));
         }
       });
     }
@@ -94,6 +98,7 @@ export class Indexer {
     state.setMilestones(milestones);
     state.setLogs(logs);
     state.setEvents(events);
+    state.setHabits(habits);
 
     // Eager: log bodies first (small, drives the visible label).
     await this.loadExcerpts(logFiles);
@@ -129,6 +134,8 @@ export class Indexer {
       const event = parseEvent(file, fm!);
       state.upsertEvent(event);
       void this.loadExcerptForFile(file);
+    } else if (kind === "habit") {
+      state.upsertHabit(parseHabit(file, fm!));
     }
   }
 

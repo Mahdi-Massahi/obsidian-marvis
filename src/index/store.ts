@@ -1,5 +1,5 @@
 import { create, StoreApi, UseBoundStore } from "zustand";
-import type { Milestone, Project, Task, Log, Event, FilterState } from "../schema/types";
+import type { Milestone, Project, Task, Log, Event, Habit, FilterState } from "../schema/types";
 import { EMPTY_FILTER } from "../schema/types";
 
 export interface PlannerState {
@@ -8,6 +8,7 @@ export interface PlannerState {
   milestones: Record<string, Milestone>;
   logs: Record<string, Log>;
   events: Record<string, Event>;
+  habits: Record<string, Habit>;
   filter: FilterState;
   focusTaskPath: string | null;
   focusTask: (path: string | null) => void;
@@ -16,12 +17,14 @@ export interface PlannerState {
   setMilestones: (milestones: Milestone[]) => void;
   setLogs: (logs: Log[]) => void;
   setEvents: (events: Event[]) => void;
+  setHabits: (habits: Habit[]) => void;
   upsertTask: (task: Task) => void;
   removeByPath: (path: string) => void;
   upsertProject: (project: Project) => void;
   upsertMilestone: (milestone: Milestone) => void;
   upsertLog: (log: Log) => void;
   upsertEvent: (event: Event) => void;
+  upsertHabit: (habit: Habit) => void;
   setFilter: (next: Partial<FilterState>) => void;
   resetFilter: () => void;
 }
@@ -35,6 +38,7 @@ export function createPlannerStore(initialFilter: FilterState = EMPTY_FILTER): P
     milestones: {},
     logs: {},
     events: {},
+    habits: {},
     filter: initialFilter,
     focusTaskPath: null,
     focusTask: (path) => set({ focusTaskPath: path }),
@@ -58,6 +62,10 @@ export function createPlannerStore(initialFilter: FilterState = EMPTY_FILTER): P
       set(() => ({
         events: Object.fromEntries(events.map((e) => [e.path, e])),
       })),
+    setHabits: (habits) =>
+      set(() => ({
+        habits: Object.fromEntries(habits.map((h) => [h.path, h])),
+      })),
     upsertTask: (task) =>
       set((s) => ({ tasks: { ...s.tasks, [task.path]: task } })),
     upsertProject: (project) =>
@@ -68,6 +76,8 @@ export function createPlannerStore(initialFilter: FilterState = EMPTY_FILTER): P
       set((s) => ({ logs: { ...s.logs, [log.path]: log } })),
     upsertEvent: (event) =>
       set((s) => ({ events: { ...s.events, [event.path]: event } })),
+    upsertHabit: (habit) =>
+      set((s) => ({ habits: { ...s.habits, [habit.path]: habit } })),
     removeByPath: (path) =>
       set((s) => {
         const tasks = { ...s.tasks };
@@ -75,12 +85,14 @@ export function createPlannerStore(initialFilter: FilterState = EMPTY_FILTER): P
         const milestones = { ...s.milestones };
         const logs = { ...s.logs };
         const events = { ...s.events };
+        const habits = { ...s.habits };
         delete tasks[path];
         delete projects[path];
         delete milestones[path];
         delete logs[path];
         delete events[path];
-        return { tasks, projects, milestones, logs, events };
+        delete habits[path];
+        return { tasks, projects, milestones, logs, events, habits };
       }),
     setFilter: (next) =>
       set((s) => ({ filter: { ...s.filter, ...next } })),
@@ -102,4 +114,12 @@ export function selectMilestoneList(s: PlannerState): Milestone[] {
 
 export function selectEventList(s: PlannerState): Event[] {
   return Object.values(s.events);
+}
+
+export function selectHabitList(s: PlannerState): Habit[] {
+  return Object.values(s.habits);
+}
+
+export function selectLogList(s: PlannerState): Log[] {
+  return Object.values(s.logs);
 }

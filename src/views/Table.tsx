@@ -5,16 +5,18 @@ import { ProjectTable } from "./table/ProjectTable";
 import { MilestoneTable } from "./table/MilestoneTable";
 import { LogTable } from "./table/LogTable";
 import { EventTable } from "./table/EventTable";
+import { HabitTable } from "./table/HabitTable";
 import { Icon, IconName } from "./shared/Icon";
 import { usePersistedViewState } from "./context";
 
-type Tab = "tasks" | "projects" | "milestones" | "events" | "logs";
+type Tab = "tasks" | "projects" | "milestones" | "events" | "logs" | "habits";
 
 const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: "tasks", label: "Tasks", icon: "check" },
   { id: "projects", label: "Projects", icon: "folder" },
   { id: "milestones", label: "Milestones", icon: "flag" },
   { id: "events", label: "Events", icon: "calendar" },
+  { id: "habits", label: "Habits", icon: "repeat" },
   { id: "logs", label: "Logs", icon: "notebook" },
 ];
 
@@ -50,6 +52,7 @@ export const TableRoot: React.FC = () => {
       {tab === "projects" && <ProjectTable />}
       {tab === "milestones" && <MilestoneTable />}
       {tab === "events" && <EventTable />}
+      {tab === "habits" && <HabitTable />}
       {tab === "logs" && <LogTable />}
     </div>
   );

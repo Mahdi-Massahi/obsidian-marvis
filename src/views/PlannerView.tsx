@@ -8,6 +8,7 @@ import { KanbanRoot } from "./Kanban";
 import { TableRoot } from "./Table";
 import { CalendarRoot } from "./Calendar";
 import { TimelineRoot } from "./Timeline";
+import { HabitsRoot } from "./Habits";
 import { QuickCreateModal, QuickCreateDefaults } from "./shared/QuickCreateModal";
 import { CreateMenuModal } from "./shared/CreateMenuModal";
 
@@ -42,7 +43,14 @@ export class PlannerView extends ItemView {
 
   async setState(state: unknown, result: ViewStateResult): Promise<void> {
     const s = state as Partial<PlannerViewState> | null;
-    if (s && (s.kind === "kanban" || s.kind === "timeline" || s.kind === "calendar" || s.kind === "table")) {
+    if (
+      s &&
+      (s.kind === "kanban" ||
+        s.kind === "timeline" ||
+        s.kind === "calendar" ||
+        s.kind === "table" ||
+        s.kind === "habits")
+    ) {
       this.kind = s.kind;
     }
     await super.setState(state, result);
@@ -112,6 +120,7 @@ export class PlannerView extends ItemView {
       milestoneService: this.plugin.milestoneService,
       logService: this.plugin.logService,
       eventService: this.plugin.eventService,
+      habitService: this.plugin.habitService,
       calendarSyncEngine: this.plugin.calendarSyncEngine,
       assistantSession: this.plugin.assistantSession,
       settings: this.plugin.settings,
@@ -140,6 +149,8 @@ function renderRoot(kind: ViewKind): React.ReactNode {
       return <CalendarRoot />;
     case "table":
       return <TableRoot />;
+    case "habits":
+      return <HabitsRoot />;
   }
 }
 
@@ -147,6 +158,7 @@ function labelFor(kind: ViewKind): string {
   if (kind === "kanban") return "Kanban";
   if (kind === "timeline") return "Timeline";
   if (kind === "calendar") return "Calendar";
+  if (kind === "habits") return "Habits";
   return "Table";
 }
 
@@ -154,5 +166,6 @@ function iconFor(kind: ViewKind): string {
   if (kind === "kanban") return "kanban-square";
   if (kind === "timeline") return "gantt-chart";
   if (kind === "calendar") return "calendar-days";
+  if (kind === "habits") return "repeat";
   return "table";
 }

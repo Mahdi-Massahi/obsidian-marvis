@@ -57,6 +57,7 @@ export class AssistantView extends ItemView {
       milestoneService: this.plugin.milestoneService,
       logService: this.plugin.logService,
       eventService: this.plugin.eventService,
+      habitService: this.plugin.habitService,
       calendarSyncEngine: this.plugin.calendarSyncEngine,
       assistantSession: this.plugin.assistantSession,
       settings: this.plugin.settings,

@@ -1,17 +1,19 @@
 import { App, Modal, Notice, Setting, setIcon } from "obsidian";
 import type KanbanPlusPlugin from "../../main";
 import { listProjectFolders } from "../../services/taskService";
-import { PROJECT_PALETTE } from "../../schema/types";
+import { PROJECT_PALETTE, HABIT_FREQUENCY_LABEL } from "../../schema/types";
+import type { HabitFrequency } from "../../schema/types";
 import { saveAttachmentFile } from "../../utils/attachments";
 import { presetToRRule } from "../../utils/recurrence";
 import { DEFAULT_EVENT_PROJECT } from "../../services/eventService";
 
-type Tab = "task" | "log" | "event" | "project" | "milestone";
+type Tab = "task" | "log" | "event" | "project" | "milestone" | "habit";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "task", label: "Task", icon: "check" },
   { id: "log", label: "Log", icon: "book" },
   { id: "event", label: "Event", icon: "calendar" },
+  { id: "habit", label: "Habit", icon: "repeat" },
   { id: "project", label: "Project", icon: "folder" },
   { id: "milestone", label: "Milestone", icon: "flag" },
 ];
@@ -86,6 +88,7 @@ export class CreateMenuModal extends Modal {
     if (this.tab === "task") this.renderTaskForm();
     else if (this.tab === "log") this.renderLogForm();
     else if (this.tab === "event") this.renderEventForm();
+    else if (this.tab === "habit") this.renderHabitForm();
     else if (this.tab === "project") this.renderProjectForm();
     else this.renderMilestoneForm();
   }
@@ -456,6 +459,111 @@ export class CreateMenuModal extends Modal {
     };
 
     this.renderActions(submit, "Create event");
+  }
+
+  private renderHabitForm(): void {
+    const projects = this.projectOptions();
+    if (projects.length === 0) {
+      this.formEl.createEl("p", {
+        text: "Create a project first.",
+        cls: "setting-item-description",
+      });
+      return;
+    }
+    const milestones = Object.values(this.plugin.store.getState().milestones)
+      .map((m) => ({ name: m.name, project: m.project }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const state = {
+      title: "",
+      project: projects[0],
+      frequency: "daily" as HabitFrequency,
+      target: 1,
+      goal: "",
+      milestone: "",
+      tags: "",
+    };
+
+    new Setting(this.formEl).setName("Title").addText((t) => {
+      t.setPlaceholder("Habit name").onChange((v) => (state.title = v));
+      t.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          t.inputEl.blur();
+        }
+      });
+      activeWindow.setTimeout(() => t.inputEl.focus(), 0);
+    });
+    new Setting(this.formEl).setName("Project").addDropdown((dd) => {
+      for (const p of projects) dd.addOption(p, p);
+      dd.setValue(state.project);
+      dd.onChange((v) => (state.project = v));
+    });
+    new Setting(this.formEl).setName("Frequency").addDropdown((dd) => {
+      dd.addOption("daily", HABIT_FREQUENCY_LABEL.daily);
+      dd.addOption("weekly", HABIT_FREQUENCY_LABEL.weekly);
+      dd.addOption("monthly", HABIT_FREQUENCY_LABEL.monthly);
+      dd.setValue(state.frequency);
+      dd.onChange((v) => (state.frequency = v as HabitFrequency));
+    });
+    new Setting(this.formEl)
+      .setName("Target")
+      .setDesc("How many times per period to count it done.")
+      .addText((t) => {
+        t.inputEl.type = "number";
+        t.inputEl.min = "1";
+        t.inputEl.step = "1";
+        t.setValue(String(state.target)).onChange((v) => {
+          const n = parseInt(v, 10);
+          state.target = Number.isFinite(n) && n >= 1 ? n : 1;
+        });
+      });
+    new Setting(this.formEl).setName("Goal").addText((t) => {
+      t.setPlaceholder("What to do each period").onChange((v) => (state.goal = v));
+    });
+    if (milestones.length > 0) {
+      new Setting(this.formEl).setName("Milestone").addDropdown((dd) => {
+        dd.addOption("", "—");
+        for (const m of milestones) {
+          const label = m.project ? `${m.name} — ${m.project}` : m.name;
+          dd.addOption(m.name, label);
+        }
+        dd.setValue(state.milestone);
+        dd.onChange((v) => (state.milestone = v));
+      });
+    }
+    new Setting(this.formEl).setName("Tags").addText((t) => {
+      t.setPlaceholder("Comma-separated").onChange((v) => (state.tags = v));
+    });
+
+    const submit = async () => {
+      const title = state.title.trim();
+      if (!title) {
+        new Notice("Title is required.");
+        return;
+      }
+      try {
+        const tags = state.tags
+          .split(/[,\s]+/)
+          .map((t) => t.replace(/^#/, "").trim())
+          .filter(Boolean);
+        await this.plugin.habitService.createHabit({
+          title,
+          project: state.project,
+          frequency: state.frequency,
+          target: state.target,
+          goal: state.goal.trim() || undefined,
+          milestone: state.milestone || undefined,
+          tags: tags.length ? tags : undefined,
+        });
+        new Notice(`Habit "${title}" created`);
+        this.close();
+      } catch (e) {
+        console.error(e);
+        new Notice("Failed to create habit — see console");
+      }
+    };
+
+    this.renderActions(submit, "Create habit");
   }
 
   private renderProjectForm(): void {
