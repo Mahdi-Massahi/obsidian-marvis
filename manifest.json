@@ -1,7 +1,7 @@
 {
   "id": "marvis",
   "name": "Marvis",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "minAppVersion": "1.7.2",
   "description": "AI-powered multi-view project planner and habit tracker: Kanban, Timeline, Calendar, and more over your vault notes.",
   "author": "Mahdi Massahi",
