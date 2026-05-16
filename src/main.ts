@@ -14,6 +14,7 @@ import { MilestoneService } from "./services/milestoneService";
 import { TaskService } from "./services/taskService";
 import { LogService } from "./services/logService";
 import { EventService } from "./services/eventService";
+import { HabitService } from "./services/habitService";
 import { CalendarSyncEngine } from "./services/calendar/syncEngine";
 import { ChatTranscriptService } from "./services/assistant/chatTranscriptService";
 import { AssistantSession } from "./services/assistant/assistantSession";
@@ -32,6 +33,7 @@ export default class KanbanPlusPlugin extends Plugin {
   taskService!: TaskService;
   logService!: LogService;
   eventService!: EventService;
+  habitService!: HabitService;
   calendarSyncEngine!: CalendarSyncEngine;
   chatTranscriptService!: ChatTranscriptService;
   assistantSession!: AssistantSession;
@@ -89,6 +91,14 @@ export default class KanbanPlusPlugin extends Plugin {
       getOpenMode,
       sidebarCache,
       () => this.allocateCode("event")
+    );
+    this.habitService = new HabitService(
+      this.app,
+      this.projectService,
+      this.logService,
+      getOpenMode,
+      sidebarCache,
+      () => this.allocateCode("habit")
     );
     this.calendarSyncEngine = new CalendarSyncEngine(
       this,
@@ -187,35 +197,39 @@ export default class KanbanPlusPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
-  async allocateCode(kind: "task" | "log" | "milestone" | "project" | "event"): Promise<string> {
+  async allocateCode(kind: "task" | "log" | "milestone" | "project" | "event" | "habit"): Promise<string> {
     if (!this.settings.nextCode) {
-      this.settings.nextCode = { task: 1, log: 1, milestone: 1, project: 1, event: 1 };
+      this.settings.nextCode = { task: 1, log: 1, milestone: 1, project: 1, event: 1, habit: 1 };
     }
     if (this.settings.nextCode.event == null) this.settings.nextCode.event = 1;
+    if (this.settings.nextCode.habit == null) this.settings.nextCode.habit = 1;
     const n = this.settings.nextCode[kind] ?? 1;
     this.settings.nextCode[kind] = n + 1;
     await this.saveSettings();
-    const prefix = { task: "T", log: "L", milestone: "M", project: "P", event: "E" }[kind];
+    const prefix = { task: "T", log: "L", milestone: "M", project: "P", event: "E", habit: "H" }[kind];
     return `${prefix}-${n}`;
   }
 
-  bumpCodeCounter(kind: "task" | "log" | "milestone" | "project" | "event", to: number): void {
+  bumpCodeCounter(kind: "task" | "log" | "milestone" | "project" | "event" | "habit", to: number): void {
     if (!this.settings.nextCode) {
-      this.settings.nextCode = { task: 1, log: 1, milestone: 1, project: 1, event: 1 };
+      this.settings.nextCode = { task: 1, log: 1, milestone: 1, project: 1, event: 1, habit: 1 };
     }
     if (this.settings.nextCode.event == null) this.settings.nextCode.event = 1;
+    if (this.settings.nextCode.habit == null) this.settings.nextCode.habit = 1;
     if (to > this.settings.nextCode[kind]) {
       this.settings.nextCode[kind] = to;
     }
   }
 
   private registerTaskContextMenu(): void {
-    const isTask = (file: { path: string } | null): boolean => {
-      if (!file) return false;
+    const MARVIS_KINDS = new Set(["task", "log", "milestone", "event", "habit"]);
+    const marvisKind = (file: { path: string } | null): string | null => {
+      if (!file) return null;
       const real = this.app.vault.getAbstractFileByPath(file.path);
-      if (!real || (real as { extension?: string }).extension !== "md") return false;
+      if (!real || (real as { extension?: string }).extension !== "md") return null;
       const fm = this.app.metadataCache.getFileCache(real as never)?.frontmatter ?? null;
-      return !!fm && fm["kind"] === "task";
+      const kind = fm && typeof fm["kind"] === "string" ? fm["kind"] : null;
+      return kind && MARVIS_KINDS.has(kind) ? kind : null;
     };
     const confirmAndDelete = (filePath: string) => {
       (
@@ -228,10 +242,11 @@ export default class KanbanPlusPlugin extends Plugin {
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
         const f = file as { path: string } | null;
-        if (!isTask(f)) return;
+        const kind = marvisKind(f);
+        if (!kind) return;
         menu.addItem((item) =>
           item
-            .setTitle("Delete marvis task")
+            .setTitle(`Delete marvis ${kind}`)
             .setIcon("trash")
             .onClick(async () => {
               if (!f) return;
@@ -248,10 +263,11 @@ export default class KanbanPlusPlugin extends Plugin {
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu, _editor, view) => {
         const file = (view as { file?: { path: string } }).file;
-        if (!file || !isTask(file)) return;
+        const kind = file ? marvisKind(file) : null;
+        if (!file || !kind) return;
         menu.addItem((item) =>
           item
-            .setTitle("Delete marvis task")
+            .setTitle(`Delete marvis ${kind}`)
             .setIcon("trash")
             .onClick(() => confirmAndDelete(file.path))
         );
@@ -316,4 +332,6 @@ const DEFAULT_SETTINGS_FILTER = {
   includeArchived: false,
   includeLogs: true,
   includeEvents: true,
+  frequencies: [] as import("./schema/types").HabitFrequency[],
+  habitStates: [] as import("./schema/types").HabitState[],
 };

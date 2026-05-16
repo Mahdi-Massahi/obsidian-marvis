@@ -1,10 +1,19 @@
 import { App, Notice, TFile } from "obsidian";
 import type KanbanPlusPlugin from "../../main";
-import type { Event, Log, Milestone, Project, Task } from "../../schema/types";
+import type { Event, Habit, Log, Milestone, Project, Task } from "../../schema/types";
 import {
   AssistantConfirmModal,
   ContextSection,
 } from "../../views/shared/AssistantConfirmModal";
+import {
+  bonusTickDays,
+  completionCounts,
+  computeStreak,
+  dayCounts,
+  pastDays,
+  periodKey,
+} from "../../utils/habits";
+import { fmtISO } from "../../utils/dates";
 
 export interface FunctionCall {
   id?: string;
@@ -268,6 +277,78 @@ function logs(ctx: ToolCtx): Log[] {
 
 function events(ctx: ToolCtx): Event[] {
   return Object.values(ctx.plugin.store.getState().events);
+}
+
+function habits(ctx: ToolCtx): Habit[] {
+  return Object.values(ctx.plugin.store.getState().habits);
+}
+
+function resolveHabit(ctx: ToolCtx, ref: string): Habit | null {
+  const trimmed = ref.trim();
+  if (!trimmed) return null;
+  const s = ctx.plugin.store.getState();
+  const byPath = s.habits[trimmed];
+  if (byPath) return byPath;
+  const list = Object.values(s.habits);
+  const lower = trimmed.toLowerCase();
+  return (
+    list.find((h) => h.name === trimmed) ??
+    list.find((h) => h.name.toLowerCase() === lower) ??
+    list.find((h) => h.title === trimmed) ??
+    list.find((h) => h.title.toLowerCase() === lower) ??
+    null
+  );
+}
+
+function summarizeHabit(
+  habit: Habit,
+  allLogs: Log[],
+  now: Date
+): {
+  title: string;
+  code?: string;
+  project: string;
+  milestone?: string;
+  goal?: string;
+  frequency: string;
+  target: number;
+  state: string;
+  tags: string[];
+  path: string;
+  periodKey: string;
+  periodCount: number;
+  periodMet: boolean;
+  streak: { current: number; longest: number; lastCompleted?: string };
+  lastTickAt?: string;
+} {
+  const habitLogs = allLogs.filter((l) => l.habit === habit.name);
+  const counts = completionCounts(habit, habitLogs);
+  const key = periodKey(now, habit.frequency);
+  const periodCount = counts.get(key) ?? 0;
+  const streak = computeStreak(habit, counts, now);
+  const lastTickAt = habitLogs.length
+    ? habitLogs
+        .map((l) => l.timestamp)
+        .sort()
+        .at(-1)
+    : undefined;
+  return {
+    title: habit.title,
+    code: habit.code,
+    project: habit.project,
+    milestone: habit.milestone,
+    goal: habit.goal,
+    frequency: habit.frequency,
+    target: habit.target,
+    state: habit.state,
+    tags: habit.tags,
+    path: habit.path,
+    periodKey: key,
+    periodCount,
+    periodMet: periodCount >= habit.target,
+    streak,
+    lastTickAt,
+  };
 }
 
 function inDateRange(
@@ -620,6 +701,33 @@ register({
       (m) => m.due && m.due >= today && m.due <= horizonISO && m.status !== "done"
     );
 
+    const now = new Date();
+    const allLogs = logs(ctx);
+    const activeHabits = habits(ctx).filter((h) => h.state === "active" && !h.archived);
+    const habitSummaries = activeHabits.map((h) => summarizeHabit(h, allLogs, now));
+    const habitsDueToday = habitSummaries
+      .filter((h) => !h.periodMet)
+      .slice(0, 10)
+      .map((h) => ({
+        title: h.title,
+        project: h.project,
+        frequency: h.frequency,
+        target: h.target,
+        periodCount: h.periodCount,
+        path: h.path,
+      }));
+    const habitsOnStreak = habitSummaries
+      .filter((h) => h.streak.current > 0)
+      .sort((a, b) => b.streak.current - a.streak.current)
+      .slice(0, 10)
+      .map((h) => ({
+        title: h.title,
+        project: h.project,
+        frequency: h.frequency,
+        current: h.streak.current,
+        longest: h.streak.longest,
+      }));
+
     return {
       today,
       horizon: horizonISO,
@@ -631,6 +739,9 @@ register({
         activeProjects: activeProjects.length,
         upcomingEvents: upcomingEvents.length,
         upcomingMilestones: upcomingMilestones.length,
+        activeHabits: activeHabits.length,
+        habitsDueToday: habitsDueToday.length,
+        habitsOnStreak: habitsOnStreak.length,
       },
       dueToday: dueToday.map((t) => ({ title: t.title, project: t.project, status: t.status, path: t.path })),
       overdue: overdue.slice(0, 20).map((t) => ({
@@ -662,6 +773,11 @@ register({
         project: m.project,
         due: m.due,
       })),
+      habits: {
+        activeCount: activeHabits.length,
+        dueToday: habitsDueToday,
+        onStreak: habitsOnStreak,
+      },
     };
   },
 });
@@ -682,6 +798,132 @@ register({
     const found = findItemByPath(ctx, path);
     if (!found) throw new Error(`No item at path ${path}`);
     return { kind: found.kind, item: found.item };
+  },
+});
+
+register({
+  name: "list_habits",
+  description:
+    "List the user's habits with their current period progress and streak — the same data shown in the habits Today view. Defaults to active habits only. Filter by project, state, or frequency.",
+  parameters: {
+    type: "object",
+    properties: {
+      project: { type: "string" },
+      state: {
+        type: "string",
+        enum: ["active", "paused", "archived", "any"],
+        description: "Default 'active'.",
+      },
+      frequency: {
+        type: "string",
+        enum: ["daily", "weekly", "monthly"],
+      },
+      includeArchived: { type: "boolean" },
+    },
+  },
+  write: false,
+  handler: (args, ctx) => {
+    const stateFilter = typeof args.state === "string" ? args.state : "active";
+    const includeArchived = !!args.includeArchived || stateFilter === "archived" || stateFilter === "any";
+    const all = habits(ctx);
+    const allLogs = logs(ctx);
+    const now = new Date();
+    return all
+      .filter((h) => {
+        if (!includeArchived && h.archived) return false;
+        if (stateFilter !== "any" && h.state !== stateFilter) return false;
+        if (args.project && h.project !== args.project) return false;
+        if (args.frequency && h.frequency !== args.frequency) return false;
+        return true;
+      })
+      .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))
+      .map((h) => summarizeHabit(h, allLogs, now));
+  },
+});
+
+register({
+  name: "get_habit_review",
+  description:
+    "Get a per-day completion history for a habit over the last N days — the same data shown in the habits Review view. Returns the day-by-day tick counts, which days met the period target, bonus ticks, and an overall summary (completion rate, streak).",
+  parameters: {
+    type: "object",
+    required: ["habit"],
+    properties: {
+      habit: {
+        type: "string",
+        description: "Habit name or path.",
+      },
+      days: {
+        type: "number",
+        description: "Days to look back. Defaults to the user's habitReviewDays setting. Capped at 365.",
+      },
+    },
+  },
+  write: false,
+  handler: (args, ctx) => {
+    const habit = resolveHabit(ctx, asStr(args.habit));
+    if (!habit) throw new Error(`No habit matching '${asStr(args.habit)}'`);
+    const settingDefault = ctx.plugin.settings.habitReviewDays ?? 60;
+    const requested = typeof args.days === "number" && args.days > 0 ? args.days : settingDefault;
+    const windowDays = Math.min(365, Math.max(1, Math.round(requested)));
+    const now = new Date();
+    const days = pastDays(now, windowDays);
+    const allLogs = logs(ctx);
+    const habitLogs = allLogs.filter((l) => l.habit === habit.name);
+    const dCounts = dayCounts(habit, habitLogs);
+    const bonus = bonusTickDays(habit, habitLogs);
+    const pCounts = completionCounts(habit, habitLogs);
+
+    let totalTicks = 0;
+    let daysWithTick = 0;
+    const periodsSeen = new Set<string>();
+    const periodsMetSet = new Set<string>();
+
+    const series = days.map((d) => {
+      const date = fmtISO(d);
+      const count = dCounts.get(date) ?? 0;
+      const key = periodKey(d, habit.frequency);
+      const periodCount = pCounts.get(key) ?? 0;
+      const periodMet = periodCount >= habit.target;
+      totalTicks += count;
+      if (count > 0) daysWithTick++;
+      periodsSeen.add(key);
+      if (periodMet) periodsMetSet.add(key);
+      return {
+        date,
+        count,
+        isBonus: bonus.has(date),
+        periodKey: key,
+        periodCount,
+        periodMet,
+      };
+    });
+
+    const periodsInWindow = periodsSeen.size;
+    const periodsMet = periodsMetSet.size;
+    const completionRate = periodsInWindow ? periodsMet / periodsInWindow : 0;
+
+    return {
+      habit: {
+        title: habit.title,
+        project: habit.project,
+        frequency: habit.frequency,
+        target: habit.target,
+        state: habit.state,
+        goal: habit.goal,
+        path: habit.path,
+      },
+      windowDays,
+      days: series,
+      summary: {
+        totalTicks,
+        daysWithTick,
+        periodsMet,
+        periodsInWindow,
+        completionRate,
+        streak: computeStreak(habit, pCounts, now),
+      },
+    };
   },
 });
 

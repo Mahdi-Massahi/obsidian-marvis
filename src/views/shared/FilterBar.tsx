@@ -2,7 +2,8 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { Notice, Platform } from "obsidian";
 import { usePlugin } from "../context";
-import type { ViewKind } from "../../schema/types";
+import type { HabitFrequency, HabitState, ViewKind } from "../../schema/types";
+import { HABIT_FREQUENCIES, HABIT_FREQUENCY_LABEL, HABIT_STATES, HABIT_STATE_LABEL } from "../../schema/types";
 import { Icon, IconName } from "./Icon";
 import { macCalendarProvider } from "../../services/calendar/macCalendarProvider";
 import { CalendarSyncResultModal } from "./CalendarSyncResultModal";
@@ -23,6 +24,7 @@ const VIEWS: { id: ViewKind; label: string; icon: IconName }[] = [
   { id: "kanban", label: "Kanban", icon: "kanban" },
   { id: "timeline", label: "Timeline", icon: "timeline" },
   { id: "calendar", label: "Calendar", icon: "calendar" },
+  { id: "habits", label: "Habits", icon: "repeat" },
   { id: "table", label: "Table", icon: "table" },
 ];
 
@@ -32,6 +34,8 @@ const CHIP_ICONS: Record<string, IconName> = {
   Status: "status",
   Priority: "priority",
   Tag: "hash",
+  Frequency: "repeat",
+  State: "status",
 };
 
 export const FilterBar: React.FC<Props> = ({
@@ -109,6 +113,8 @@ export const FilterBar: React.FC<Props> = ({
     filter.statuses.length +
     filter.priorities.length +
     filter.tags.length +
+    filter.frequencies.length +
+    filter.habitStates.length +
     (filter.includeLogs ? 1 : 0) +
     (filter.includeEvents ? 1 : 0) +
     (filter.includeArchived ? 1 : 0);
@@ -260,23 +266,49 @@ export const FilterBar: React.FC<Props> = ({
               suffixes={milestoneProjects}
             />
           )}
-          <ChipGroup
-            label="Status"
-            options={settings.statuses.map((s) => s.id)}
-            labels={Object.fromEntries(settings.statuses.map((s) => [s.id, s.label]))}
-            selected={filter.statuses}
-            onToggle={(v) => setFilter({ statuses: toggle(filter.statuses, v) })}
-            colors={statusColors}
-          />
-          <ChipGroup
-            label="Priority"
-            options={settings.priorities.map((p) => p.id)}
-            labels={Object.fromEntries(settings.priorities.map((p) => [p.id, p.label]))}
-            selected={filter.priorities}
-            onToggle={(v) => setFilter({ priorities: toggle(filter.priorities, v) })}
-            colors={priorityColors}
-            colorMode="text"
-          />
+          {activeView !== "habits" && (
+            <ChipGroup
+              label="Status"
+              options={settings.statuses.map((s) => s.id)}
+              labels={Object.fromEntries(settings.statuses.map((s) => [s.id, s.label]))}
+              selected={filter.statuses}
+              onToggle={(v) => setFilter({ statuses: toggle(filter.statuses, v) })}
+              colors={statusColors}
+            />
+          )}
+          {activeView !== "habits" && (
+            <ChipGroup
+              label="Priority"
+              options={settings.priorities.map((p) => p.id)}
+              labels={Object.fromEntries(settings.priorities.map((p) => [p.id, p.label]))}
+              selected={filter.priorities}
+              onToggle={(v) => setFilter({ priorities: toggle(filter.priorities, v) })}
+              colors={priorityColors}
+              colorMode="text"
+            />
+          )}
+          {activeView === "habits" && (
+            <ChipGroup
+              label="Frequency"
+              options={HABIT_FREQUENCIES}
+              labels={HABIT_FREQUENCY_LABEL}
+              selected={filter.frequencies}
+              onToggle={(v) =>
+                setFilter({ frequencies: toggle(filter.frequencies, v as HabitFrequency) })
+              }
+            />
+          )}
+          {activeView === "habits" && (
+            <ChipGroup
+              label="State"
+              options={HABIT_STATES.filter((s) => s !== "archived")}
+              labels={HABIT_STATE_LABEL}
+              selected={filter.habitStates.filter((s) => s !== "archived")}
+              onToggle={(v) =>
+                setFilter({ habitStates: toggle(filter.habitStates, v as HabitState) })
+              }
+            />
+          )}
           {allTags.length > 0 && (
             <ChipGroup
               label="Tag"
@@ -434,23 +466,49 @@ export const FilterBar: React.FC<Props> = ({
                   suffixes={milestoneProjects}
                 />
               )}
-              <FilterSection
-                label="Status"
-                options={settings.statuses.map((s) => s.id)}
-                labels={Object.fromEntries(settings.statuses.map((s) => [s.id, s.label]))}
-                selected={filter.statuses}
-                onToggle={(v) => setFilter({ statuses: toggle(filter.statuses, v) })}
-                colors={statusColors}
-              />
-              <FilterSection
-                label="Priority"
-                options={settings.priorities.map((p) => p.id)}
-                labels={Object.fromEntries(settings.priorities.map((p) => [p.id, p.label]))}
-                selected={filter.priorities}
-                onToggle={(v) => setFilter({ priorities: toggle(filter.priorities, v) })}
-                colors={priorityColors}
-                colorMode="text"
-              />
+              {activeView !== "habits" && (
+                <FilterSection
+                  label="Status"
+                  options={settings.statuses.map((s) => s.id)}
+                  labels={Object.fromEntries(settings.statuses.map((s) => [s.id, s.label]))}
+                  selected={filter.statuses}
+                  onToggle={(v) => setFilter({ statuses: toggle(filter.statuses, v) })}
+                  colors={statusColors}
+                />
+              )}
+              {activeView !== "habits" && (
+                <FilterSection
+                  label="Priority"
+                  options={settings.priorities.map((p) => p.id)}
+                  labels={Object.fromEntries(settings.priorities.map((p) => [p.id, p.label]))}
+                  selected={filter.priorities}
+                  onToggle={(v) => setFilter({ priorities: toggle(filter.priorities, v) })}
+                  colors={priorityColors}
+                  colorMode="text"
+                />
+              )}
+              {activeView === "habits" && (
+                <FilterSection
+                  label="Frequency"
+                  options={[...HABIT_FREQUENCIES]}
+                  labels={HABIT_FREQUENCY_LABEL}
+                  selected={filter.frequencies}
+                  onToggle={(v) =>
+                    setFilter({ frequencies: toggle(filter.frequencies, v as HabitFrequency) })
+                  }
+                />
+              )}
+              {activeView === "habits" && (
+                <FilterSection
+                  label="State"
+                  options={HABIT_STATES.filter((s) => s !== "archived")}
+                  labels={HABIT_STATE_LABEL}
+                  selected={filter.habitStates.filter((s) => s !== "archived")}
+                  onToggle={(v) =>
+                    setFilter({ habitStates: toggle(filter.habitStates, v as HabitState) })
+                  }
+                />
+              )}
               {allTags.length > 0 && (
                 <FilterSection
                   label="Tag"
@@ -505,6 +563,8 @@ export const FilterBar: React.FC<Props> = ({
                       statuses: [],
                       priorities: [],
                       tags: [],
+                      frequencies: [],
+                      habitStates: [],
                       includeLogs: false,
                       includeEvents: false,
                       includeArchived: false,

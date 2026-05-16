@@ -3,6 +3,9 @@ import type KanbanPlusPlugin from "./main";
 import { QuickCreateModal } from "./views/shared/QuickCreateModal";
 import { listProjectFolders } from "./services/taskService";
 import { ConfirmModal } from "./views/shared/ConfirmModal";
+import type { HabitFrequency } from "./schema/types";
+import { HABIT_FREQUENCY_LABEL } from "./schema/types";
+import { selectHabitList, selectLogList } from "./index/store";
 
 export function registerCommands(plugin: KanbanPlusPlugin): void {
   plugin.addCommand({
@@ -24,6 +27,11 @@ export function registerCommands(plugin: KanbanPlusPlugin): void {
     id: "open-table",
     name: "Open table",
     callback: () => plugin.activateView("table"),
+  });
+  plugin.addCommand({
+    id: "open-habits",
+    name: "Open habits",
+    callback: () => plugin.activateView("habits"),
   });
 
   plugin.addCommand({
@@ -126,7 +134,7 @@ export function registerCommands(plugin: KanbanPlusPlugin): void {
       try {
         const r = await backfillCodes(plugin);
         new Notice(
-          `IDs assigned — tasks: ${r.task}, logs: ${r.log}, milestones: ${r.milestone}, projects: ${r.project}`
+          `IDs assigned — tasks: ${r.task}, logs: ${r.log}, milestones: ${r.milestone}, projects: ${r.project}, habits: ${r.habit}`
         );
       } catch (e) {
         console.error(e);
@@ -137,38 +145,101 @@ export function registerCommands(plugin: KanbanPlusPlugin): void {
 
   plugin.addCommand({
     id: "delete-active-task",
-    name: "Delete task",
+    name: "Delete note",
     checkCallback: (checking) => {
       const file = plugin.app.workspace.getActiveFile();
       if (!file) return false;
       const fm = plugin.app.metadataCache.getFileCache(file)?.frontmatter ?? null;
-      if (!fm || fm["kind"] !== "task") return false;
+      const kind = typeof fm?.["kind"] === "string" ? fm["kind"] : null;
+      if (!kind || !["task", "log", "milestone", "event", "habit"].includes(kind)) return false;
       if (checking) return true;
-      const taskPath = file.path;
-      const task = plugin.store.getState().tasks[taskPath];
-      const title =
-        (typeof fm["title"] === "string" && fm["title"]) ||
-        task?.title ||
-        file.basename;
+      const state = plugin.store.getState();
+      const path = file.path;
+      const fmTitle = typeof fm?.["title"] === "string" ? fm["title"] : "";
+      const storeTitle =
+        state.tasks[path]?.title ??
+        state.milestones[path]?.title ??
+        state.events[path]?.title ??
+        state.habits[path]?.title ??
+        state.logs[path]?.excerpt ??
+        "";
+      const title = fmTitle || storeTitle || file.basename;
+      const label = kind === "task" ? "task" : kind;
       new ConfirmModal(
         plugin.app,
-        "Delete task",
+        `Delete ${label}`,
         `Permanently delete "${title}"? This moves the file to the system or vault trash.`,
         async () => {
           try {
-            if (task) {
-              await plugin.taskService.deleteTask(task);
+            if (kind === "task" && state.tasks[path]) {
+              await plugin.taskService.deleteTask(state.tasks[path]);
+            } else if (kind === "log" && state.logs[path]) {
+              await plugin.logService.deleteLog(state.logs[path]);
+            } else if (kind === "milestone" && state.milestones[path]) {
+              await plugin.milestoneService.deleteMilestone(state.milestones[path]);
+            } else if (kind === "event" && state.events[path]) {
+              await plugin.eventService.deleteEvent(state.events[path]);
+            } else if (kind === "habit" && state.habits[path]) {
+              await plugin.habitService.deleteHabit(state.habits[path]);
             } else {
               await plugin.app.fileManager.trashFile(file);
             }
             new Notice(`Deleted "${title}"`);
           } catch (e) {
             console.error(e);
-            new Notice("Failed to delete task — see console");
+            new Notice(`Failed to delete ${label} — see console`);
           }
         }
       ).open();
       return true;
+    },
+  });
+
+  plugin.addCommand({
+    id: "create-habit",
+    name: "Create habit",
+    callback: () => {
+      const projects = listProjectFolders(plugin.app, plugin.settings.rootFolder);
+      if (projects.length === 0) {
+        new Notice("Create a project first.");
+        return;
+      }
+      new HabitPromptModal(plugin.app, projects, async (project, title, frequency, target, goal) => {
+        try {
+          await plugin.habitService.createHabit({ project, title, frequency, target, goal });
+          new Notice(`Habit ${title} added to ${project}`);
+        } catch (e) {
+          console.error(e);
+          new Notice("Failed to create habit — see console");
+        }
+      }).open();
+    },
+  });
+
+  plugin.addCommand({
+    id: "log-habit-completion",
+    name: "Log habit completion",
+    callback: () => {
+      const habits = selectHabitList(plugin.store.getState()).filter((h) => !h.archived);
+      if (habits.length === 0) {
+        new Notice("Create a habit first.");
+        return;
+      }
+      new HabitPickModal(plugin.app, habits.map((h) => ({ path: h.path, title: h.title, project: h.project })), async (path) => {
+        const habit = plugin.store.getState().habits[path];
+        if (!habit) {
+          new Notice("Habit not found.");
+          return;
+        }
+        try {
+          const logs = selectLogList(plugin.store.getState());
+          await plugin.habitService.logCompletion(habit, logs);
+          new Notice(`Marked ${habit.title} done`);
+        } catch (e) {
+          console.error(e);
+          new Notice("Failed to log completion — see console");
+        }
+      }).open();
     },
   });
 
@@ -383,22 +454,152 @@ class SkillResetModal extends Modal {
   }
 }
 
+class HabitPromptModal extends Modal {
+  private projects: string[];
+  private onSubmit: (
+    project: string,
+    title: string,
+    frequency: HabitFrequency,
+    target: number,
+    goal?: string
+  ) => void | Promise<void>;
+  private project: string;
+  private title = "";
+  private frequency: HabitFrequency = "daily";
+  private target = 1;
+  private goal = "";
+
+  constructor(
+    app: App,
+    projects: string[],
+    onSubmit: (
+      project: string,
+      title: string,
+      frequency: HabitFrequency,
+      target: number,
+      goal?: string
+    ) => void | Promise<void>
+  ) {
+    super(app);
+    this.projects = projects;
+    this.project = projects[0];
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen(): void {
+    this.contentEl.createEl("h2", { text: "New habit" });
+    new Setting(this.contentEl).setName("Project").addDropdown((dd) => {
+      for (const p of this.projects) dd.addOption(p, p);
+      dd.setValue(this.project);
+      dd.onChange((v) => (this.project = v));
+    });
+    new Setting(this.contentEl).setName("Title").addText((t) => {
+      t.setPlaceholder("Habit name");
+      t.onChange((v) => (this.title = v));
+      t.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") this.submit();
+      });
+      activeWindow.setTimeout(() => t.inputEl.focus(), 0);
+    });
+    new Setting(this.contentEl).setName("Frequency").addDropdown((dd) => {
+      dd.addOption("daily", HABIT_FREQUENCY_LABEL.daily);
+      dd.addOption("weekly", HABIT_FREQUENCY_LABEL.weekly);
+      dd.addOption("monthly", HABIT_FREQUENCY_LABEL.monthly);
+      dd.setValue(this.frequency);
+      dd.onChange((v) => (this.frequency = v as HabitFrequency));
+    });
+    new Setting(this.contentEl)
+      .setName("Target")
+      .setDesc("How many times per period to count it done.")
+      .addText((t) => {
+        t.inputEl.type = "number";
+        t.inputEl.min = "1";
+        t.inputEl.step = "1";
+        t.setValue(String(this.target)).onChange((v) => {
+          const n = parseInt(v, 10);
+          this.target = Number.isFinite(n) && n >= 1 ? n : 1;
+        });
+      });
+    new Setting(this.contentEl).setName("Goal").addText((t) => {
+      t.setPlaceholder("What to do each period");
+      t.onChange((v) => (this.goal = v));
+    });
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) =>
+        b
+          .setButtonText("Create")
+          .setCta()
+          .onClick(() => this.submit())
+      );
+  }
+
+  private submit(): void {
+    const t = this.title.trim();
+    if (!t) return;
+    const goal = this.goal.trim() || undefined;
+    this.close();
+    void this.onSubmit(this.project, t, this.frequency, this.target, goal);
+  }
+}
+
+class HabitPickModal extends Modal {
+  private habits: { path: string; title: string; project: string }[];
+  private onSubmit: (path: string) => void | Promise<void>;
+  private path: string;
+
+  constructor(
+    app: App,
+    habits: { path: string; title: string; project: string }[],
+    onSubmit: (path: string) => void | Promise<void>
+  ) {
+    super(app);
+    this.habits = habits;
+    this.path = habits[0]?.path ?? "";
+    this.onSubmit = onSubmit;
+  }
+
+  onOpen(): void {
+    this.contentEl.createEl("h2", { text: "Log habit completion" });
+    new Setting(this.contentEl).setName("Habit").addDropdown((dd) => {
+      for (const h of this.habits) {
+        dd.addOption(h.path, `${h.title} — ${h.project}`);
+      }
+      dd.setValue(this.path);
+      dd.onChange((v) => (this.path = v));
+    });
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) =>
+        b
+          .setButtonText("Mark done")
+          .setCta()
+          .onClick(() => {
+            this.close();
+            void this.onSubmit(this.path);
+          })
+      );
+  }
+}
+
 async function backfillCodes(plugin: KanbanPlusPlugin): Promise<{
   task: number;
   log: number;
   milestone: number;
   project: number;
+  habit: number;
 }> {
-  const counts = { task: 0, log: 0, milestone: 0, project: 0 };
+  const counts = { task: 0, log: 0, milestone: 0, project: 0, habit: 0 };
   const state = plugin.store.getState();
   const groups: Array<{
-    kind: "task" | "log" | "milestone" | "project";
+    kind: "task" | "log" | "milestone" | "project" | "habit";
     items: { path: string; created?: string; code?: string }[];
   }> = [
     { kind: "project", items: Object.values(state.projects) },
     { kind: "milestone", items: Object.values(state.milestones) },
     { kind: "task", items: Object.values(state.tasks) },
     { kind: "log", items: Object.values(state.logs) },
+    { kind: "habit", items: Object.values(state.habits) },
   ];
   // First pass: bump counters past any existing codes so new allocations don't collide.
   const codeRegex = /^[A-Z]-(\d+)$/;

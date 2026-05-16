@@ -1,7 +1,10 @@
-export type Kind = "task" | "project" | "milestone" | "log" | "event";
+export type Kind = "task" | "project" | "milestone" | "log" | "event" | "habit";
 
 export type Status = string;
 export type Priority = string;
+
+export type HabitFrequency = "daily" | "weekly" | "monthly";
+export type HabitState = "active" | "paused" | "archived";
 
 export interface StatusDef {
   id: string;
@@ -80,11 +83,31 @@ export interface Log {
   path: string;
   name: string;
   project?: string;
+  habit?: string;            // optional wikilink target — habit name when log is a habit completion
   timestamp: string; // ISO with minute precision: YYYY-MM-DDTHH:mm
   tags: string[];
   created?: string;
   excerpt?: string;
   body?: string;
+  code?: string;
+}
+
+export interface Habit {
+  id: string;
+  path: string;
+  name: string;
+  title: string;
+  project: string;
+  milestone?: string;
+  frequency: HabitFrequency;
+  /** Required completion count per period to meet the goal. Defaults to 1. */
+  target: number;
+  goal?: string;
+  state: HabitState;
+  archived: boolean;
+  tags: string[];
+  created?: string;
+  order: number;
   code?: string;
 }
 
@@ -118,7 +141,7 @@ export interface Event {
   code?: string;
 }
 
-export type ViewKind = "kanban" | "timeline" | "calendar" | "table";
+export type ViewKind = "kanban" | "timeline" | "calendar" | "table" | "habits";
 
 export interface FilterState {
   projects: string[];
@@ -131,6 +154,8 @@ export interface FilterState {
   includeArchived: boolean;
   includeLogs: boolean;
   includeEvents: boolean;
+  frequencies: HabitFrequency[];
+  habitStates: HabitState[];
   preset?: string;
 }
 
@@ -179,4 +204,21 @@ export const EMPTY_FILTER: FilterState = {
   includeArchived: false,
   includeLogs: true,
   includeEvents: true,
+  frequencies: [],
+  habitStates: [],
+};
+
+export const HABIT_FREQUENCIES: HabitFrequency[] = ["daily", "weekly", "monthly"];
+export const HABIT_STATES: HabitState[] = ["active", "paused", "archived"];
+
+export const HABIT_FREQUENCY_LABEL: Record<HabitFrequency, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+};
+
+export const HABIT_STATE_LABEL: Record<HabitState, string> = {
+  active: "Active",
+  paused: "Paused",
+  archived: "Archived",
 };

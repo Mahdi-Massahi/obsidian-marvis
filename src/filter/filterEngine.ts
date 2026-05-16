@@ -1,4 +1,4 @@
-import type { FilterState, Task } from "../schema/types";
+import type { FilterState, Habit, Task } from "../schema/types";
 import { isInRange } from "../utils/dates";
 
 export function applyFilter(tasks: Task[], filter: FilterState): Task[] {
@@ -27,6 +27,28 @@ export function applyFilter(tasks: Task[], filter: FilterState): Task[] {
       const haystack = `${t.title} ${t.tags.join(" ")} ${t.project ?? ""} ${
         t.milestone ?? ""
       } ${t.body ?? ""}`.toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+export function applyHabitFilter(habits: Habit[], filter: FilterState): Habit[] {
+  const search = filter.search.trim().toLowerCase();
+  return habits.filter((h) => {
+    if (!filter.includeArchived && h.archived) return false;
+    if (filter.projects.length && !filter.projects.includes(h.project)) return false;
+    if (filter.milestones.length) {
+      if (!h.milestone || !filter.milestones.includes(h.milestone)) return false;
+    }
+    if (filter.frequencies.length && !filter.frequencies.includes(h.frequency)) return false;
+    if (filter.habitStates.length && !filter.habitStates.includes(h.state)) return false;
+    if (filter.tags.length) {
+      const habitTags = new Set(h.tags);
+      if (!filter.tags.every((tag) => habitTags.has(tag))) return false;
+    }
+    if (search) {
+      const haystack = `${h.title} ${h.tags.join(" ")} ${h.project} ${h.milestone ?? ""} ${h.goal ?? ""}`.toLowerCase();
       if (!haystack.includes(search)) return false;
     }
     return true;

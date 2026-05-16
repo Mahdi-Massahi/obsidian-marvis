@@ -54,7 +54,7 @@ export interface ViewStateSettings {
   calendarMode: "month" | "week" | "day";
   timelineZoom: "day" | "week" | "month";
   timelineGroupBy: "project" | "milestone";
-  tableTab: "tasks" | "projects" | "milestones" | "events" | "logs";
+  tableTab: "tasks" | "projects" | "milestones" | "events" | "logs" | "habits";
 }
 
 export interface KanbanPlusSettings {
@@ -68,7 +68,8 @@ export interface KanbanPlusSettings {
   filterPresets: FilterPreset[];
   openIn: "sidebar" | "window" | "tab";
   marvisSkillTemplate: string;
-  nextCode: { task: number; log: number; milestone: number; project: number; event: number };
+  nextCode: { task: number; log: number; milestone: number; project: number; event: number; habit: number };
+  habitReviewDays: number;
   calendarSync: CalendarSyncSettings;
   assistant: AssistantSettings;
   viewState: ViewStateSettings;
@@ -103,7 +104,8 @@ export const DEFAULT_SETTINGS: KanbanPlusSettings = {
   filterPresets: [],
   openIn: "sidebar",
   marvisSkillTemplate: DEFAULT_MARVIS_SKILL,
-  nextCode: { task: 1, log: 1, milestone: 1, project: 1, event: 1 },
+  nextCode: { task: 1, log: 1, milestone: 1, project: 1, event: 1, habit: 1 },
+  habitReviewDays: 60,
   calendarSync: {
     macos: { availableCalendars: [], selectedCalendars: [] },
   },
@@ -162,6 +164,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
           .addOption("timeline", "Timeline")
           .addOption("calendar", "Calendar")
           .addOption("table", "Table")
+          .addOption("habits", "Habits")
           .setValue(this.plugin.settings.defaultView)
           .onChange(async (value) => {
             this.plugin.settings.defaultView = value as ViewKind;
@@ -225,6 +228,23 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
           this.plugin.refreshViews();
         })
       );
+
+    new Setting(containerEl)
+      .setName("Habit review days")
+      .setDesc("Number of past days shown in the habit review grid.")
+      .addText((t) => {
+        t.inputEl.type = "number";
+        t.inputEl.min = "7";
+        t.inputEl.max = "365";
+        t.inputEl.step = "1";
+        t.setValue(String(this.plugin.settings.habitReviewDays)).onChange(async (v) => {
+          const n = parseInt(v, 10);
+          if (!Number.isFinite(n)) return;
+          this.plugin.settings.habitReviewDays = Math.min(365, Math.max(7, n));
+          await this.plugin.saveSettings();
+          this.plugin.refreshViews();
+        });
+      });
 
     this.renderCalendarSync(containerEl);
 

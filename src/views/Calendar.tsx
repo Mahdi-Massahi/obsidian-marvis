@@ -597,10 +597,13 @@ const DayTimedLog: React.FC<{
   const startMin = parseTimeToMin(time) ?? 0;
   const top = (startMin / 60) * HOUR_HEIGHT;
   const color = project?.color ?? "var(--background-modifier-border)";
-  const label = log.excerpt ?? `Log @ ${time}`;
+  const isHabit = !!log.habit;
+  const label = isHabit
+    ? (log.habit as string)
+    : (log.excerpt ?? `Log @ ${time}`);
   return (
     <div
-      className="kp-cal__day-log"
+      className={`kp-cal__day-log ${isHabit ? "kp-cal__day-log--habit" : ""}`}
       style={{ top, borderColor: color }}
       title={label}
       onClick={(e) => {
@@ -609,7 +612,7 @@ const DayTimedLog: React.FC<{
         void logService.openInNewLeaf(log, overrideMode);
       }}
     >
-      <Icon name="notebook" size={11} className="kp-cal__day-event-icon" />
+      <Icon name={isHabit ? "repeat" : "notebook"} size={11} className="kp-cal__day-event-icon" />
       <span className="kp-cal__day-event-time">{time}</span>
       <span className="kp-cal__day-event-title">{label}</span>
     </div>
@@ -688,7 +691,11 @@ const LogCalChip: React.FC<{
     ? Object.values(projectsMap).find((p) => p.name === log.project)
     : undefined;
   const time = log.timestamp.length >= 16 ? log.timestamp.slice(11, 16) : "";
-  const label = log.excerpt ?? (time ? `Log @ ${time}` : "Log");
+  const isHabit = !!log.habit;
+  const title = isHabit
+    ? (log.habit as string)
+    : (log.excerpt ?? "Log");
+  const label = isHabit ? title : (log.excerpt ?? (time ? `Log @ ${time}` : "Log"));
   const style: React.CSSProperties = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     borderColor: project?.color ?? "var(--background-modifier-border)",
@@ -697,7 +704,7 @@ const LogCalChip: React.FC<{
   return (
     <div
       ref={setNodeRef}
-      className={`kp-cal__chip kp-cal__chip--log ${time ? "kp-cal__chip--stacked" : ""}`.trim()}
+      className={`kp-cal__chip kp-cal__chip--log ${isHabit ? "kp-cal__chip--habit" : ""} ${time ? "kp-cal__chip--stacked" : ""}`.trim()}
       style={style}
       title={label}
       onClick={(e) => {
@@ -710,10 +717,10 @@ const LogCalChip: React.FC<{
       {...attributes}
       {...listeners}
     >
-      <Icon name="notebook" size={11} className="kp-cal__chip-icon" />
+      <Icon name={isHabit ? "repeat" : "notebook"} size={11} className="kp-cal__chip-icon" />
       <div className="kp-cal__chip-stack">
         {time && <span className="kp-cal__chip-time">{time}</span>}
-        <span className="kp-cal__chip-title">{log.excerpt ?? "Log"}</span>
+        <span className="kp-cal__chip-title">{title}</span>
       </div>
     </div>
   );

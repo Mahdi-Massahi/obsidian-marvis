@@ -7,9 +7,11 @@ import type { ProjectService } from "../services/projectService";
 import type { MilestoneService } from "../services/milestoneService";
 import type { LogService } from "../services/logService";
 import type { EventService } from "../services/eventService";
+import type { HabitService } from "../services/habitService";
 import type { CalendarSyncEngine } from "../services/calendar/syncEngine";
 import type { AssistantSession } from "../services/assistant/assistantSession";
 import type { KanbanPlusSettings, ViewStateSettings } from "../settings";
+import type { ViewKind } from "../schema/types";
 
 export interface PluginContextValue {
   app: App;
@@ -19,11 +21,12 @@ export interface PluginContextValue {
   milestoneService: MilestoneService;
   logService: LogService;
   eventService: EventService;
+  habitService: HabitService;
   calendarSyncEngine: CalendarSyncEngine;
   assistantSession: AssistantSession;
   settings: KanbanPlusSettings;
   savePluginSettings: () => Promise<void>;
-  switchView: (kind: "kanban" | "timeline" | "calendar" | "table") => void;
+  switchView: (kind: ViewKind) => void;
   openQuickCreate: (defaults?: Partial<{ due: string; project: string }>) => void;
   openCreateMenu: () => void;
   toggleAssistant: () => void;

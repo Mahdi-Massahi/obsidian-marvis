@@ -2343,6 +2343,16 @@
   opacity: 0.92;
 }
 
+.kp-cal__chip--habit {
+  font-style: normal;
+  opacity: 1;
+  background: color-mix(in oklab, var(--interactive-accent) 14%, var(--kp-bg));
+}
+
+.kp-cal__day-log--habit {
+  background: color-mix(in oklab, var(--interactive-accent) 14%, var(--background-primary));
+}
+
 .kp-cal__chip--event {
   background: color-mix(in oklab, var(--kp-accent) 18%, var(--kp-bg));
   border-style: solid;
@@ -3897,3 +3907,507 @@
     height: 38px;
   }
 }
+
+/* ----- Habits view ----- */
+.kp-view--habits {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.kp-habits__empty {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.kp-habit-row__streak-sep { opacity: 0.5; }
+
+.kp-chip--frequency {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+.kp-habit-card__streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.kp-table__streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.kp-habit-target-input {
+  width: 64px;
+}
+
+/* Progress intensity colour scale, shared by Today rows and Review cells. */
+.kp-progress-0 { --kp-progress-tint: transparent; }
+.kp-progress-1 { --kp-progress-tint: color-mix(in oklab, var(--interactive-accent) 14%, transparent); }
+.kp-progress-2 { --kp-progress-tint: color-mix(in oklab, var(--interactive-accent) 30%, transparent); }
+.kp-progress-3 { --kp-progress-tint: color-mix(in oklab, var(--interactive-accent) 55%, transparent); }
+.kp-progress-4 { --kp-progress-tint: color-mix(in oklab, var(--interactive-accent) 80%, transparent); }
+
+/* Today view */
+.kp-habits__today {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 12px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.kp-habits__datebar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0 8px 0;
+}
+
+.kp-habits__daylabel {
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.kp-today-row {
+  display: grid;
+  /* action | title | pips (grows leftward) | pill (fixed) | streak (reserved
+     width so the right edge doesn't jitter when the chip hides on past days) */
+  grid-template-columns: auto 1fr auto minmax(84px, auto) minmax(56px, auto);
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  border: 1px solid var(--kp-card-border, var(--background-modifier-border));
+  border-left: 3px solid var(--kp-card-stripe, var(--background-modifier-border));
+  border-radius: 6px;
+  background: linear-gradient(
+    to right,
+    var(--kp-progress-tint, transparent),
+    transparent 40%
+  ), var(--background-primary);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+  min-height: 30px;
+  font-size: 13px;
+}
+
+.kp-today-row:hover {
+  background: linear-gradient(
+    to right,
+    var(--kp-progress-tint, transparent),
+    transparent 40%
+  ), var(--background-secondary);
+}
+
+.kp-today-row.is-paused { opacity: 0.6; }
+
+.kp-today-row__pips {
+  /* Anchored to the right of its grid cell; pips grow leftward as the
+     count rises. The freq pill and streak (next to it) carry their own
+     min-widths, so the right edge of this group sits at the same x in
+     every row regardless of pip count. */
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+/* A single tick mark — no chrome; color encodes state.
+   - is-pending: gray placeholder for unfilled target slots
+   - is-done:    green for completed ticks within the target
+   - is-bonus:   shiny gold with sparkle animation for ticks beyond target */
+.kp-tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--text-faint);
+  opacity: 0.45;
+}
+
+.kp-tick svg {
+  width: 16px;
+  height: 16px;
+}
+
+.kp-tick.is-done {
+  color: #22c55e; /* green-500 */
+  opacity: 1;
+}
+
+.kp-tick.is-bonus {
+  color: #facc15; /* yellow-400 — base gold */
+  opacity: 1;
+  /* Soft warm glow + animated sparkle pulse. */
+  filter: drop-shadow(0 0 3px rgba(250, 204, 21, 0.6))
+          drop-shadow(0 0 1px rgba(255, 255, 255, 0.8));
+  animation: kp-tick-sparkle 2.4s ease-in-out infinite;
+}
+
+@keyframes kp-tick-sparkle {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgba(250, 204, 21, 0.45))
+            drop-shadow(0 0 1px rgba(255, 255, 255, 0.6));
+    transform: scale(1);
+  }
+  45% {
+    filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.9))
+            drop-shadow(0 0 2px rgba(255, 240, 180, 0.95));
+    transform: scale(1.08);
+  }
+  55% {
+    filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.95))
+            drop-shadow(0 0 3px rgba(255, 255, 255, 0.9));
+    transform: scale(1.1);
+  }
+}
+
+/* Stagger sparkles so adjacent bonus ticks don't pulse in lockstep. */
+.kp-tick.is-bonus:nth-of-type(2n) { animation-delay: 0.4s; }
+.kp-tick.is-bonus:nth-of-type(3n) { animation-delay: 0.9s; }
+.kp-tick.is-bonus:nth-of-type(5n) { animation-delay: 1.3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kp-tick.is-bonus { animation: none; }
+}
+
+/* Leading action button in each Today row — semantically "mark done".
+   Rendered as a clickable check box-style affordance at the leftmost edge,
+   before the habit code and title. */
+.kp-tick-action {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  padding: 0;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent, white);
+  border: 1.5px solid var(--interactive-accent);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 80ms ease, filter 80ms ease;
+  flex-shrink: 0;
+}
+
+.kp-tick-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.kp-tick-action:hover {
+  transform: scale(1.08);
+  filter: brightness(1.1);
+}
+
+.kp-tick-action:active {
+  transform: scale(0.96);
+}
+
+.kp-today-row__main {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.kp-today-row__name {
+  font-weight: 500;
+  color: var(--text-normal);
+  flex-shrink: 0;
+}
+
+.kp-today-row__goal {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kp-today-row__goal {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.kp-today-row__cadencepill {
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--background-modifier-border) 60%, transparent);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  /* Fixed slot so the right edge of every row aligns regardless of pip count. */
+  min-width: 84px;
+  /* Centers the label text inside the pill (the chip is an inline-flex). */
+  justify-content: center;
+  text-align: center;
+}
+
+.kp-today-row__streak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  /* Reserved even when hidden so pill column doesn't jitter between today/past. */
+  min-width: 56px;
+}
+
+.kp-today-row__streak.is-hot {
+  color: #f97316; /* warm orange */
+  font-weight: 600;
+}
+
+.kp-today-row__streak.is-hot .kp-habit-row__streak-sep {
+  color: color-mix(in oklab, #f97316 60%, var(--text-muted));
+  opacity: 0.7;
+}
+
+.kp-today-row__streak.is-stale {
+  opacity: 0.5;
+}
+
+/* Review view: two parallel panes.
+   - Left  (.kp-review__sidebar): fixed, never scrolls — holds the habit
+     rowheads + a corner block that matches the right pane's header height.
+   - Right (.kp-review__scroll):  horizontally scrolling grid with the
+     month/week/day header rows + one cell row per habit. */
+.kp-habits__review {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 8px 12px 12px 12px;
+}
+
+.kp-review {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.kp-review__sidebar {
+  flex: 0 0 auto;
+  display: grid;
+  /* Corner block (matches the right pane's stacked header rows) + one
+     cell-height row per habit. */
+  grid-template-rows: var(--kp-review-header-h, 60px);
+  grid-auto-rows: var(--kp-review-cell, 22px);
+  width: clamp(180px, 32%, 240px);
+  background: var(--background-primary);
+  border-right: 1px solid var(--background-modifier-border);
+}
+
+.kp-review__scroll {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.kp-review__grid {
+  --kp-review-cell: 22px;
+  --kp-review-header-h: 60px;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--kp-review-cols, 60), var(--kp-review-cell));
+  /* 3 header rows summing to var(--kp-review-header-h), then one cell row per habit. */
+  grid-template-rows: 24px 18px 18px;
+  grid-auto-rows: var(--kp-review-cell);
+  align-items: center;
+}
+
+.kp-review__corner {
+  /* Just a placeholder block in the sidebar to match the right side's
+     header row stack height. No content. */
+}
+
+.kp-review__monthhead {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  border-right: 1px solid color-mix(in oklab, var(--background-modifier-border) 60%, transparent);
+  background: var(--background-secondary);
+  text-align: left;
+  grid-row: 1;
+}
+
+.kp-review__weekhead {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  border-right: 1px solid color-mix(in oklab, var(--background-modifier-border) 30%, transparent);
+  text-align: center;
+  background: var(--background-primary);
+  grid-row: 2;
+}
+
+.kp-review__dayhead {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 2px 0;
+  border-bottom: 2px solid var(--background-modifier-border);
+  border-right: 1px solid color-mix(in oklab, var(--background-modifier-border) 15%, transparent);
+  background: var(--background-primary);
+  font-variant-numeric: tabular-nums;
+  grid-row: 3;
+}
+
+.kp-review__dayhead.is-today {
+  color: var(--interactive-accent);
+  font-weight: 700;
+}
+
+.kp-review__rowhead {
+  background: var(--background-primary);
+  border-bottom: 1px solid color-mix(in oklab, var(--background-modifier-border) 50%, transparent);
+  border-left: 3px solid var(--kp-card-stripe, var(--background-modifier-border));
+  padding: 0 8px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.kp-review__rowhead:hover { background: var(--background-secondary); }
+
+/* Cadence pill — sits before the title so it acts as a visual prefix
+   marker for the habit's frequency. */
+.kp-review__rowcadence {
+  flex-shrink: 0;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--background-modifier-border) 60%, transparent);
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.kp-review__rowtitle {
+  font-weight: 500;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.kp-review__cell {
+  /* Read-only: the Review grid is a journal, not an editor. The actual
+     tinted rectangle is rendered by `.kp-review__cellbg` inset from the
+     cell edges so neighbouring cells have visible horizontal margin. */
+  position: relative;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+}
+
+.kp-review__cellbg {
+  position: absolute;
+  inset: 2px;
+  border-radius: 3px;
+  background: var(--kp-progress-tint,
+    color-mix(in oklab, var(--background-modifier-border) 35%, transparent));
+  border: 1px solid color-mix(in oklab, var(--background-modifier-border) 55%, transparent);
+  pointer-events: none;
+}
+
+.kp-review__cellcheck {
+  position: relative;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+.kp-review__cell.is-done .kp-review__cellcheck {
+  color: #22c55e; /* matches .kp-tick.is-done */
+}
+
+.kp-review__cell.is-bonus .kp-review__cellcheck {
+  color: #facc15; /* matches .kp-tick.is-bonus */
+  filter: drop-shadow(0 0 3px rgba(250, 204, 21, 0.6))
+          drop-shadow(0 0 1px rgba(255, 255, 255, 0.8));
+  animation: kp-tick-sparkle 2.4s ease-in-out infinite;
+}
+
+.kp-review__cell.is-today .kp-review__cellbg {
+  outline: 1.5px solid var(--interactive-accent);
+  outline-offset: -1px;
+}
+
+/* Per-row vertical separators are rendered as a right-border on each header
+   element (.kp-review__monthhead, .kp-review__weekhead, .kp-review__dayhead).
+   That keeps each separator scoped to its own row — the cell/square area
+   below stays free of vertical guide lines. */
+
+@media (max-width: 760px) {
+  .kp-today-row {
+    gap: 8px;
+    padding: 4px 8px;
+  }
+  .kp-today-row__pips { gap: 3px; }
+  .kp-today-row__goal { display: none; }
+  .kp-review__grid { --kp-review-cell: 18px; }
+  .kp-review__sidebar { width: clamp(140px, 32%, 180px); }
+  .kp-review__cell { width: 18px; height: 18px; }
+}
+
+@media (max-width: 600px) {
+  .kp-today-row__streak { display: none; }
+  .kp-today-row__pips { gap: 2px; }
+  .kp-review__grid { --kp-review-cell: 16px; }
+  .kp-review__sidebar { width: clamp(120px, 36%, 150px); }
+  .kp-review__cell { width: 16px; height: 16px; }
+}
+
