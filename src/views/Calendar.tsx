@@ -51,12 +51,10 @@ export const CalendarRoot: React.FC = () => {
     });
   }, [logsMap, filter]);
 
-  const [cursor, setCursor] = React.useState(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d;
-  });
   const [mode, setMode] = usePersistedViewState("calendarMode");
+  const [cursor, setCursor] = React.useState(() =>
+    mode === "month" ? firstOfMonth(new Date()) : new Date()
+  );
 
   const weeks = React.useMemo(
     () => monthGrid(cursor, settings.weekStartsOn),
@@ -193,10 +191,12 @@ export const CalendarRoot: React.FC = () => {
             key={m}
             className={`kp-segmented__btn ${mode === m ? "is-active" : ""}`}
             onClick={() => {
-              // Cursor was set to the 1st of the month on mount, which is
-              // fine for month/week but means day view lands on day 1 instead
-              // of today. Snap to today whenever the user enters day mode.
-              if (m === "day" && mode !== "day") setCursor(new Date());
+              // When switching mode, snap the cursor onto today's slot so the
+              // new view always opens on a useful range (today / this week /
+              // this month) instead of wherever the previous mode left it.
+              if (m !== mode) {
+                setCursor(m === "month" ? firstOfMonth(new Date()) : new Date());
+              }
               setMode(m);
             }}
             title={m}
