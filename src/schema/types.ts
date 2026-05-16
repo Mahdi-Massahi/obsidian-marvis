@@ -139,6 +139,7 @@ export interface Event {
   excerpt?: string;
   body?: string;
   code?: string;
+  archived: boolean;
 }
 
 export type ViewKind = "kanban" | "timeline" | "calendar" | "table" | "habits";

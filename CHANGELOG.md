@@ -8,6 +8,13 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-05-16
+
+### Fixed
+
+- Archived events were rendering in the Calendar and Timeline views. They now respect the existing `Include archived` filter toggle (same behaviour as archived tasks/habits) — hidden by default, visible when the toggle is on. `Event.archived` is parsed from frontmatter or an `/archive/` path segment, matching tasks.
+
+
 ## [0.2.1] — 2026-05-16
 
 ### Fixed

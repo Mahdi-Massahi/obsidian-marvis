@@ -73,6 +73,7 @@ export const CalendarRoot: React.FC = () => {
   const filteredEvents = React.useMemo(() => {
     if (!filter.includeEvents) return [];
     return Object.values(eventsMap).filter((ev) => {
+      if (!filter.includeArchived && ev.archived) return false;
       if (filter.projects.length && (!ev.project || !filter.projects.includes(ev.project)))
         return false;
       if (filter.milestones.length && (!ev.milestone || !filter.milestones.includes(ev.milestone)))

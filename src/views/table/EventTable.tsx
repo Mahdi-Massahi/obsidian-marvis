@@ -19,6 +19,7 @@ export const EventTable: React.FC = () => {
   const events = React.useMemo(() => {
     return Object.values(eventsMap)
       .filter((ev) => {
+        if (!filter.includeArchived && ev.archived) return false;
         if (filter.projects.length && (!ev.project || !filter.projects.includes(ev.project)))
           return false;
         if (filter.priorities.length && (!ev.priority || !filter.priorities.includes(ev.priority)))

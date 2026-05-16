@@ -249,6 +249,7 @@ export function parseEvent(file: TFile, fm: Record<string, unknown>): Event {
     extHash: asString(fm["extHash"]),
     created: asDate(fm["created"]),
     code: asString(fm["code"]),
+    archived: asBool(fm["archived"], false) || file.path.includes("/archive/"),
   };
 }
 
