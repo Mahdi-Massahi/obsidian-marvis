@@ -1,6 +1,6 @@
 {
   "name": "marvis",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Multi-view project planner for Obsidian.",
   "main": "main.js",
   "scripts": {
