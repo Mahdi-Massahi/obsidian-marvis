@@ -5,6 +5,7 @@ import { ChatTranscriptService } from "./chatTranscriptService";
 import {
   GeminiLiveClient,
   FunctionCall as ClientFunctionCall,
+  InlineImage,
 } from "./geminiLiveClient";
 import {
   buildFunctionDeclarations,
@@ -24,11 +25,17 @@ export type SessionState =
 
 export type MessageKind = "user" | "assistant" | "tool-call" | "tool-result" | "note";
 
+export interface SessionImage {
+  mimeType: string;
+  dataUrl: string; // for in-panel rendering only
+}
+
 export interface SessionMessage {
   kind: MessageKind;
   text: string;
   ts: number;
   id?: string;
+  images?: SessionImage[];
 }
 
 export interface SessionMetrics {
@@ -255,7 +262,7 @@ export class AssistantSession {
     if (this.state === "speaking") this.setState("listening");
   }
 
-  sendText(text: string): void {
+  sendText(text: string, images: InlineImage[] = []): void {
     if (!this.client) return;
     const ts = new Date();
     // Prepend [YYYY-MM-DD HH:mm:ss] so the model has an authoritative "now"
@@ -270,8 +277,17 @@ export class AssistantSession {
       : `[${formatDateTimeStamp(ts)}] ${activePrefix}${text}`;
     // Display the user's raw text in the panel/transcript; only the model sees the stamp.
     this.transcript.appendUser(text, ts);
-    this.emitMessage({ kind: "user", text, ts: ts.getTime() });
-    this.client.sendUserText(stamped);
+    const sessionImages: SessionImage[] = images.map((img) => ({
+      mimeType: img.mimeType,
+      dataUrl: `data:${img.mimeType};base64,${img.data}`,
+    }));
+    this.emitMessage({
+      kind: "user",
+      text,
+      ts: ts.getTime(),
+      images: sessionImages.length > 0 ? sessionImages : undefined,
+    });
+    this.client.sendUserText(stamped, images);
     this.setState("thinking");
   }
 

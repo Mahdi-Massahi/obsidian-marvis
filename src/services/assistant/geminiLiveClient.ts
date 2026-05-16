@@ -29,6 +29,11 @@ export interface FunctionCall {
   args: Record<string, unknown>;
 }
 
+export interface InlineImage {
+  mimeType: string;
+  data: string; // base64-encoded payload
+}
+
 export interface ClientOptions {
   apiKey: string;
   model: string;
@@ -202,11 +207,16 @@ export class GeminiLiveClient {
     });
   }
 
-  sendUserText(text: string): void {
+  sendUserText(text: string, images: InlineImage[] = []): void {
     if (!this.isOpen()) return;
+    const parts: Array<Record<string, unknown>> = [];
+    for (const img of images) {
+      parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+    }
+    parts.push({ text });
     this.send({
       clientContent: {
-        turns: [{ role: "user", parts: [{ text }] }],
+        turns: [{ role: "user", parts }],
         turnComplete: true,
       },
     });

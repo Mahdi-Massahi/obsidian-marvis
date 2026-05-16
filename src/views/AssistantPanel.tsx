@@ -1,5 +1,5 @@
 import * as React from "react";
-import { TFile } from "obsidian";
+import { TFile, Notice } from "obsidian";
 import { usePlugin } from "./context";
 import { Icon } from "./shared/Icon";
 import type {
@@ -11,6 +11,40 @@ import type {
 interface Props {
   onClose: () => void;
   session: AssistantSession;
+}
+
+interface PendingImage {
+  name: string;
+  mimeType: string;
+  base64: string;
+  dataUrl: string;
+}
+
+const SUPPORTED_IMAGE_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]);
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+async function fileToPendingImage(file: File): Promise<PendingImage | null> {
+  if (!SUPPORTED_IMAGE_TYPES.has(file.type)) return null;
+  if (file.size > MAX_IMAGE_BYTES) return null;
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
+  }
+  const base64 = btoa(binary);
+  return {
+    name: file.name,
+    mimeType: file.type,
+    base64,
+    dataUrl: `data:${file.type};base64,${base64}`,
+  };
 }
 
 const STATE_LABEL: Record<SessionState, string> = {
@@ -78,7 +112,9 @@ export const AssistantPanel: React.FC<Props> = ({ onClose, session }) => {
   const [elapsed, setElapsed] = React.useState(0);
   const [textInput, setTextInput] = React.useState("");
   const [transcriptPath, setTranscriptPath] = React.useState<string | null>(null);
+  const [pendingImages, setPendingImages] = React.useState<PendingImage[]>([]);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     session.configure({
@@ -126,18 +162,42 @@ export const AssistantPanel: React.FC<Props> = ({ onClose, session }) => {
 
   const submitText = () => {
     const value = textInput.trim();
-    if (!value) return;
+    if (!value && pendingImages.length === 0) return;
+    const payload = value || "(image)";
+    const images = pendingImages.map((p) => ({ mimeType: p.mimeType, data: p.base64 }));
     if (!session.isActive() || state === "error") {
       void (async () => {
         if (state === "error") setMessages([]);
         await session.start({ withMic: false });
-        session.sendText(value);
+        session.sendText(payload, images);
         setTextInput("");
+        setPendingImages([]);
       })();
     } else {
-      session.sendText(value);
+      session.sendText(payload, images);
       setTextInput("");
+      setPendingImages([]);
     }
+  };
+
+  const onPickFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const next: PendingImage[] = [];
+    let skipped = 0;
+    for (let i = 0; i < files.length; i++) {
+      const img = await fileToPendingImage(files[i]);
+      if (img) next.push(img);
+      else skipped += 1;
+    }
+    if (skipped > 0) {
+      new Notice(`Skipped ${skipped} unsupported or oversized image${skipped === 1 ? "" : "s"}.`);
+    }
+    if (next.length > 0) setPendingImages((prev) => [...prev, ...next]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removePendingImage = (idx: number) => {
+    setPendingImages((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const openTranscript = () => {
@@ -230,7 +290,47 @@ export const AssistantPanel: React.FC<Props> = ({ onClose, session }) => {
               {voicePrompt(state, micActive)}
             </div>
           </div>
+          {pendingImages.length > 0 && (
+            <div className="kp-assistant__attachments" aria-label="Pending image attachments">
+              {pendingImages.map((img, i) => (
+                <div className="kp-assistant__chip" key={`${img.name}-${i}`}>
+                  <img
+                    className="kp-assistant__chip-thumb"
+                    src={img.dataUrl}
+                    alt={img.name}
+                  />
+                  <span className="kp-assistant__chip-name" title={img.name}>
+                    {img.name}
+                  </span>
+                  <button
+                    className="kp-assistant__chip-remove"
+                    title="Remove attachment"
+                    aria-label={`Remove ${img.name}`}
+                    onClick={() => removePendingImage(i)}
+                  >
+                    <Icon name="x" size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="kp-assistant__textrow">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+              multiple
+              className="kp-assistant__fileinput"
+              onChange={(e) => void onPickFiles(e.target.files)}
+            />
+            <button
+              className="kp-iconbtn kp-iconbtn--round kp-assistant__attach"
+              title="Attach image"
+              aria-label="Attach image"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Icon name="image" size={14} />
+            </button>
             <input
               type="text"
               className="kp-assistant__textinput"
@@ -246,7 +346,7 @@ export const AssistantPanel: React.FC<Props> = ({ onClose, session }) => {
               title="Send"
               aria-label="Send"
               onClick={submitText}
-              disabled={!textInput.trim()}
+              disabled={!textInput.trim() && pendingImages.length === 0}
             >
               <Icon name="send" size={14} />
             </button>
@@ -275,7 +375,19 @@ const Bubble: React.FC<{ message: SessionMessage }> = ({ message }) => {
   return (
     <div className={cls}>
       <span className="kp-assistant__bubble-time">{time}</span>
-      <span className="kp-assistant__bubble-text">{message.text}</span>
+      {message.images && message.images.length > 0 && (
+        <div className="kp-assistant__bubble-images">
+          {message.images.map((img, i) => (
+            <img
+              key={i}
+              className="kp-assistant__bubble-image"
+              src={img.dataUrl}
+              alt=""
+            />
+          ))}
+        </div>
+      )}
+      {message.text && <span className="kp-assistant__bubble-text">{message.text}</span>}
     </div>
   );
 };
