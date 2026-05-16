@@ -24,8 +24,8 @@ const VIEWS: { id: ViewKind; label: string; icon: IconName }[] = [
   { id: "kanban", label: "Kanban", icon: "kanban" },
   { id: "timeline", label: "Timeline", icon: "timeline" },
   { id: "calendar", label: "Calendar", icon: "calendar" },
-  { id: "table", label: "Table", icon: "table" },
   { id: "habits", label: "Habits", icon: "repeat" },
+  { id: "table", label: "Table", icon: "table" },
 ];
 
 const CHIP_ICONS: Record<string, IconName> = {
