@@ -72,7 +72,7 @@ export class TaskActionBar {
   }
 
   private createBar(task: Task): HTMLElement {
-    const bar = activeDocument.createDiv();
+    const bar = createDiv();
     bar.className = `${BAR_CLASS} kp-portal`;
     this.populateBar(bar, task);
     return bar;
@@ -82,23 +82,23 @@ export class TaskActionBar {
     bar.setAttribute(FLAG_ATTR, this.signatureFor(task));
     while (bar.firstChild) bar.removeChild(bar.firstChild);
 
-    const meta = activeDocument.createDiv();
+    const meta = createDiv();
     meta.className = `${BAR_CLASS}__meta`;
     if (task.code) {
-      const code = activeDocument.createSpan();
+      const code = createSpan();
       code.className = "kp-code";
       code.textContent = task.code;
       meta.appendChild(code);
     }
     if (task.archived) {
-      const badge = activeDocument.createSpan();
+      const badge = createSpan();
       badge.className = `${BAR_CLASS}__badge`;
       badge.textContent = "Archived";
       meta.appendChild(badge);
     }
     bar.appendChild(meta);
 
-    const actions = activeDocument.createDiv();
+    const actions = createDiv();
     actions.className = `${BAR_CLASS}__actions`;
 
     actions.appendChild(
@@ -146,7 +146,7 @@ export class TaskActionBar {
   }
 
   private makeButton(label: string, className: string, onClick: () => void): HTMLButtonElement {
-    const btn = activeDocument.createEl("button");
+    const btn = createEl("button");
     btn.className = className;
     btn.textContent = label;
     btn.addEventListener("click", onClick);

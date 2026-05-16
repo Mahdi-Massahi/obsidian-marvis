@@ -166,7 +166,7 @@ export class QuickCreateModal extends Modal {
     if (this.projectDropdown && this.project) {
       const exists = Array.from(this.projectDropdown.options).some((o) => o.value === this.project);
       if (!exists) {
-        const opt = activeDocument.createEl("option");
+        const opt = createEl("option");
         opt.value = this.project;
         opt.text = this.project;
         this.projectDropdown.add(opt);

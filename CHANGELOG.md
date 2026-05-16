@@ -8,6 +8,12 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-05-16
+
+### Fixed
+
+- App becoming unresponsive to subsequent actions after a task property edit. The task action bar was calling `activeDocument.createDiv()` (which tries to append to the document root and throws `HierarchyRequestError: Only one element on document allowed`), aborting the Zustand store subscriber chain mid-tick and leaving the React tree out of sync until reload. Switched to the bare `createDiv()` / `createSpan()` / `createEl()` globals that return a detached element; same pattern fixed in `QuickCreateModal`.
+
 ## [0.2.0] — 2026-05-16
 
 ### Added
