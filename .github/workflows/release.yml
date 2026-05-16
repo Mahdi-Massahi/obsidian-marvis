@@ -38,6 +38,27 @@ jobs:
             exit 1
           fi
 
+      - name: Extract changelog section
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          # Pull the body for ## [<TAG>] up to (but not including) the next
+          # ## heading. Falls back to auto-generated notes if the section is
+          # missing or empty.
+          awk -v ver="$TAG" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            found && /^## / { exit }
+            found && /^\[.*\]: / { next }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          # Trim leading/trailing blank lines.
+          sed -i -e '/./,$!d' -e ':a' -e '/^\n*$/{$d;N;ba' -e '}' RELEASE_NOTES.md
+          if [ -s RELEASE_NOTES.md ]; then
+            echo "HAS_NOTES=1" >> "$GITHUB_ENV"
+          else
+            echo "No CHANGELOG section found for $TAG — falling back to auto-generated notes."
+            echo "HAS_NOTES=0" >> "$GITHUB_ENV"
+          fi
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -45,7 +66,14 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/}"
           # Obsidian's installer fetches main.js, manifest.json, and styles.css
           # as individual files attached to the release — never zipped.
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --generate-notes \
-            main.js manifest.json styles.css
+          if [ "$HAS_NOTES" = "1" ]; then
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file RELEASE_NOTES.md \
+              main.js manifest.json styles.css
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes \
+              main.js manifest.json styles.css
+          fi
