@@ -13,6 +13,7 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 ### Fixed
 
 - Archived events were rendering in the Calendar and Timeline views. They now respect the existing `Include archived` filter toggle (same behaviour as archived tasks/habits) — hidden by default, visible when the toggle is on. `Event.archived` is parsed from frontmatter or an `/archive/` path segment, matching tasks.
+- Recurring events with `BYDAY` were rendering one weekday too late for users in positive UTC offsets — e.g. a `FREQ=WEEKLY;BYDAY=TU,FR` event appeared on Wednesday/Saturday. `rrule.js` interprets `dtstart`'s UTC components, but `eventStartDate` constructs the anchor in local time, so local midnight Tuesday looks like Monday late-evening in UTC and the weekday resolution shifts forward. Switched the recurrence pipeline to floating-UTC dates: anchors and the query range are converted UTC-side-up before expansion, and occurrences are converted back to local Dates for display.
 
 
 ## [0.2.1] — 2026-05-16

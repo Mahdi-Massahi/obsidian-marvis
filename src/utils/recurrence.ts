@@ -55,9 +55,39 @@ export function eventStartDate(event: Event): Date {
   return new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0);
 }
 
+// rrule.js reads a Date's UTC components when interpreting BYDAY / BYMONTHDAY /
+// etc. — so passing a local-time Date directly causes a one-day weekday drift
+// for anyone in a UTC+ timezone (local midnight Tue is Mon evening in UTC, so
+// BYDAY=TU resolves to the next UTC Tuesday, which is local Wednesday). The
+// standard workaround is "floating dates": build a Date whose UTC components
+// match the intended local components, then reverse the transform on output.
+function toFloating(d: Date): Date {
+  return new Date(
+    Date.UTC(
+      d.getFullYear(),
+      d.getMonth(),
+      d.getDate(),
+      d.getHours(),
+      d.getMinutes(),
+      d.getSeconds()
+    )
+  );
+}
+
+function fromFloating(d: Date): Date {
+  return new Date(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate(),
+    d.getUTCHours(),
+    d.getUTCMinutes(),
+    d.getUTCSeconds()
+  );
+}
+
 function parseRule(event: Event): RRule | null {
   if (!event.recurrence) return null;
-  const dtstart = eventStartDate(event);
+  const dtstart = toFloating(eventStartDate(event));
   try {
     const opts = RRule.parseString(event.recurrence);
     opts.dtstart = dtstart;
@@ -81,7 +111,9 @@ export function expandOccurrences(
     const start = eventStartDate(event);
     return start >= rangeStart && start <= rangeEnd ? [start] : [];
   }
-  return rule.between(rangeStart, rangeEnd, true);
+  const floatingStart = toFloating(rangeStart);
+  const floatingEnd = toFloating(rangeEnd);
+  return rule.between(floatingStart, floatingEnd, true).map(fromFloating);
 }
 
 const HUMAN_FREQ: Record<number, string> = {
