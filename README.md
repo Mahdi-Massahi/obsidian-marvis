@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![GitHub release](https://img.shields.io/github/v/release/Mahdi-Massahi/obsidian-marvis)](https://github.com/Mahdi-Massahi/obsidian-marvis/releases)
 
+> ⭐️ **Marvis is brand new and shipping weekly.** Expect rough edges. If you hit a bug or have an idea, please [open an issue](https://github.com/Mahdi-Massahi/obsidian-marvis/issues) — every report helps shape the next release. Thanks for trying it!
+
 A multi-view project planner and habit tracker for Obsidian. Projects, milestones, tasks, logs, habits and events are real markdown notes; views (Kanban, Timeline, Calendar, Table) sit on top.
 
 ![`docs/screenshots/`](./docs/screenshots/mainscreen.png)
