@@ -38,7 +38,8 @@ export const KanbanRoot: React.FC = () => {
   const columns = React.useMemo(() => buildColumns(filtered, groupBy, settings, milestones), [
     filtered,
     groupBy,
-    settings,
+    settings.statuses,
+    settings.priorities,
     milestones,
   ]);
 

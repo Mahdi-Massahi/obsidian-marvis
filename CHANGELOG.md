@@ -8,6 +8,14 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 ## [Unreleased]
 
+### Added
+
+- Status and priority rows in Settings now have up/down arrow buttons to reorder them. The Kanban view follows this order for its columns, so users who accidentally remove and re-add a status can move it back into place instead of being stuck with the new column at the end.
+
+### Fixed
+
+- Reordering a status or priority in Settings did not update the open Kanban view until the plugin was reloaded. The `columns` memo in `src/views/Kanban.tsx` depended on the whole `settings` object reference, which doesn't change when `settings.statuses` is replaced in-place; the memo now depends on `settings.statuses` and `settings.priorities` directly so reorders take effect immediately.
+
 ## [0.2.3] — 2026-05-16
 
 ### Fixed

@@ -673,6 +673,30 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
           this.plugin.refreshViews();
         })
       );
+      row.addExtraButton((b) => {
+        b.setIcon("arrow-up").setTooltip("Move up").onClick(async () => {
+          if (idx === 0) return;
+          const next = items.slice();
+          [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+          set(next);
+          await this.plugin.saveSettings();
+          this.plugin.refreshViews();
+          this.display();
+        });
+        if (idx === 0) b.setDisabled(true);
+      });
+      row.addExtraButton((b) => {
+        b.setIcon("arrow-down").setTooltip("Move down").onClick(async () => {
+          if (idx === items.length - 1) return;
+          const next = items.slice();
+          [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+          set(next);
+          await this.plugin.saveSettings();
+          this.plugin.refreshViews();
+          this.display();
+        });
+        if (idx === items.length - 1) b.setDisabled(true);
+      });
       row.addExtraButton((b) =>
         b
           .setIcon("trash")
