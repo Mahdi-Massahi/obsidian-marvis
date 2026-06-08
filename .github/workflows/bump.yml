@@ -1,0 +1,170 @@
+name: Bump and release
+
+# Manual one-click release. Pick a bump type and this workflow will:
+#   1. Compute the next semver from manifest.json.
+#   2. Update manifest.json, package.json, package-lock.json.
+#   3. Roll CHANGELOG.md: rename ## [Unreleased] -> ## [<next>] — <date>
+#      and insert a fresh empty ## [Unreleased] on top.
+#   4. Commit, tag (no `v` prefix — Obsidian requires plain semver), push.
+#   5. Build and publish the GitHub release with main.js/manifest.json/styles.css
+#      attached as individual files (Obsidian downloads them directly).
+#
+# Pushed tags from GITHUB_TOKEN do NOT trigger other workflows, so the existing
+# release.yml won't double-run. The build + publish steps live inline here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compute next version
+        id: bump
+        run: |
+          CURRENT=$(node -p "require('./manifest.json').version")
+          BUMP="${{ inputs.bump }}"
+          NEXT=$(node -e "
+            const [maj, min, pat] = process.argv[1].split('.').map(Number);
+            const t = process.argv[2];
+            const v = t === 'major' ? [maj+1, 0, 0]
+                    : t === 'minor' ? [maj, min+1, 0]
+                    :                 [maj, min, pat+1];
+            console.log(v.join('.'));
+          " "$CURRENT" "$BUMP")
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "next=$NEXT"       >> "$GITHUB_OUTPUT"
+          echo "Bumping $CURRENT -> $NEXT ($BUMP)"
+
+      - name: Guard against existing tag
+        run: |
+          NEXT="${{ steps.bump.outputs.next }}"
+          if git rev-parse -q --verify "refs/tags/$NEXT" >/dev/null; then
+            echo "Tag $NEXT already exists — refusing to overwrite." >&2
+            exit 1
+          fi
+
+      - name: Update manifest.json
+        run: |
+          NEXT="${{ steps.bump.outputs.next }}"
+          node -e "
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+            m.version = process.argv[1];
+            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2) + '\n');
+          " "$NEXT"
+
+      - name: Update package.json + lockfile
+        run: |
+          NEXT="${{ steps.bump.outputs.next }}"
+          npm version "$NEXT" --no-git-tag-version --allow-same-version
+
+      - name: Roll CHANGELOG.md
+        run: |
+          NEXT="${{ steps.bump.outputs.next }}"
+          DATE=$(date -u +%Y-%m-%d)
+          if ! grep -q "^## \[Unreleased\]" CHANGELOG.md; then
+            echo "No ## [Unreleased] heading in CHANGELOG.md." >&2
+            exit 1
+          fi
+          # Bail if the [Unreleased] section is empty — we don't want to cut
+          # a release with no notes.
+          HAS_CONTENT=$(awk '
+            /^## \[Unreleased\]/ { found=1; next }
+            found && /^## / { exit }
+            found && NF { print; exit }
+          ' CHANGELOG.md)
+          if [ -z "$HAS_CONTENT" ]; then
+            echo "## [Unreleased] is empty — add changelog entries before releasing." >&2
+            exit 1
+          fi
+          DASH=$(printf '\xe2\x80\x94')
+          awk -v ver="$NEXT" -v date="$DATE" -v dash="$DASH" '
+            /^## \[Unreleased\]/ && !done {
+              print "## [Unreleased]"
+              print ""
+              print "## [" ver "] " dash " " date
+              done=1
+              next
+            }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.md.tmp
+          mv CHANGELOG.md.tmp CHANGELOG.md
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit, tag, push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEXT="${{ steps.bump.outputs.next }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json package.json package-lock.json CHANGELOG.md
+          git commit -m "chore(release): $NEXT"
+          git tag "$NEXT"
+          git push origin HEAD
+          git push origin "$NEXT"
+
+      - name: Extract release notes
+        run: |
+          NEXT="${{ steps.bump.outputs.next }}"
+          awk -v ver="$NEXT" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            found && /^## / { exit }
+            found && /^\[.*\]: / { next }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          sed -i -e '/./,$!d' -e ':a' -e '/^\n*$/{$d;N;ba' -e '}' RELEASE_NOTES.md
+          if [ -s RELEASE_NOTES.md ]; then
+            echo "HAS_NOTES=1" >> "$GITHUB_ENV"
+          else
+            echo "HAS_NOTES=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEXT="${{ steps.bump.outputs.next }}"
+          if [ "$HAS_NOTES" = "1" ]; then
+            gh release create "$NEXT" \
+              --title "$NEXT" \
+              --notes-file RELEASE_NOTES.md \
+              main.js manifest.json styles.css
+          else
+            gh release create "$NEXT" \
+              --title "$NEXT" \
+              --generate-notes \
+              main.js manifest.json styles.css
+          fi
