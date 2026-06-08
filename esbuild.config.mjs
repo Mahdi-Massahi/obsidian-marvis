@@ -2,7 +2,7 @@ import esbuild from "esbuild";
 import process from "process";
 import path from "path";
 import { watch as fsWatch } from "fs";
-import { mkdir, copyFile, access } from "fs/promises";
+import { mkdir, copyFile, access, writeFile } from "fs/promises";
 import { builtinModules as builtins } from "module";
 
 const banner = `/*
@@ -12,6 +12,7 @@ If you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = process.argv[2] === "production";
+const emitMeta = prod && process.env.MARVIS_METAFILE === "1";
 
 // Optional: copy build outputs to your Obsidian plugin folder on every rebuild.
 // Set the env var MARVIS_PLUGIN_DIR to the absolute path of
@@ -72,11 +73,15 @@ const context = await esbuild.context({
   outfile: "main.js",
   jsx: "automatic",
   minify: prod,
+  metafile: emitMeta,
   plugins: [installPlugin],
 });
 
 if (prod) {
-  await context.rebuild();
+  const result = await context.rebuild();
+  if (emitMeta && result.metafile) {
+    await writeFile("meta.json", JSON.stringify(result.metafile));
+  }
   process.exit(0);
 } else {
   await context.watch();

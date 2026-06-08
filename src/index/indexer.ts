@@ -10,11 +10,21 @@ import {
 } from "../schema/frontmatter";
 import type { PlannerStore } from "./store";
 
+// Coalesce bursts of vault events (Apple Calendar sync, iCloud bursts, vault
+// reload) into a single flush. Each flush triggers ~one React render across
+// subscribed views; without this, hundreds of cascading renders per second
+// freeze the UI on real-world syncs.
+const FLUSH_DELAY_MS = 60;
+
 export class Indexer {
   private app: App;
   private store: PlannerStore;
   private getRoot: () => string;
   private refs: EventRef[] = [];
+
+  private pendingChanges = new Map<string, TFile>();
+  private pendingDeletes = new Set<string>();
+  private flushHandle: number | null = null;
 
   constructor(app: App, store: PlannerStore, getRoot: () => string) {
     this.app = app;
@@ -26,23 +36,23 @@ export class Indexer {
     void this.reindex();
     this.refs.push(
       this.app.metadataCache.on("changed", (file) => {
-        if (file instanceof TFile) this.handleFile(file);
+        if (file instanceof TFile) this.queueChange(file);
       })
     );
     this.refs.push(
       this.app.vault.on("create", (file) => {
-        if (file instanceof TFile) this.handleFile(file);
+        if (file instanceof TFile) this.queueChange(file);
       })
     );
     this.refs.push(
       this.app.vault.on("delete", (file) => {
-        this.store.getState().removeByPath(file.path);
+        this.queueDelete(file.path);
       })
     );
     this.refs.push(
       this.app.vault.on("rename", (file, oldPath) => {
-        this.store.getState().removeByPath(oldPath);
-        if (file instanceof TFile) this.handleFile(file);
+        this.queueDelete(oldPath);
+        if (file instanceof TFile) this.queueChange(file);
       })
     );
   }
@@ -50,6 +60,43 @@ export class Indexer {
   stop(): void {
     for (const ref of this.refs) this.app.metadataCache.offref(ref);
     this.refs = [];
+    if (this.flushHandle !== null) {
+      window.clearTimeout(this.flushHandle);
+      this.flushHandle = null;
+    }
+    this.pendingChanges.clear();
+    this.pendingDeletes.clear();
+  }
+
+  private queueChange(file: TFile): void {
+    this.pendingDeletes.delete(file.path);
+    this.pendingChanges.set(file.path, file);
+    this.scheduleFlush();
+  }
+
+  private queueDelete(path: string): void {
+    this.pendingChanges.delete(path);
+    this.pendingDeletes.add(path);
+    this.scheduleFlush();
+  }
+
+  private scheduleFlush(): void {
+    if (this.flushHandle !== null) return;
+    this.flushHandle = window.setTimeout(() => {
+      this.flushHandle = null;
+      this.flushPending();
+    }, FLUSH_DELAY_MS);
+  }
+
+  private flushPending(): void {
+    const deletes = this.pendingDeletes;
+    const changes = this.pendingChanges;
+    if (deletes.size === 0 && changes.size === 0) return;
+    this.pendingDeletes = new Set();
+    this.pendingChanges = new Map();
+    const state = this.store.getState();
+    for (const path of deletes) state.removeByPath(path);
+    for (const file of changes.values()) this.handleFile(file);
   }
 
   async reindex(): Promise<void> {

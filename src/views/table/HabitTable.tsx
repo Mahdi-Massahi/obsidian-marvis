@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Notice } from "obsidian";
-import { usePlugin } from "../context";
+import { usePlugin, useProjectByName } from "../context";
 import type { Habit, HabitFrequency, HabitState } from "../../schema/types";
 import { HABIT_FREQUENCIES, HABIT_FREQUENCY_LABEL, HABIT_STATES, HABIT_STATE_LABEL } from "../../schema/types";
 import { listProjectFolders } from "../../services/taskService";
@@ -8,13 +8,28 @@ import { Icon, IconName } from "../shared/Icon";
 import { ConfirmModal } from "../shared/ConfirmModal";
 import { applyHabitFilter } from "../../filter/filterEngine";
 import { completionCounts, computeStreak } from "../../utils/habits";
-import { selectLogList } from "../../index/store";
+import type { Log } from "../../schema/types";
+
+const EMPTY_LOGS: Log[] = [];
+
+function groupLogsByHabit(logsMap: Record<string, Log>): Map<string, Log[]> {
+  const out = new Map<string, Log[]>();
+  for (const log of Object.values(logsMap)) {
+    const name = log.habit;
+    if (!name) continue;
+    const arr = out.get(name);
+    if (arr) arr.push(log);
+    else out.set(name, [log]);
+  }
+  return out;
+}
 
 export const HabitTable: React.FC = () => {
   const { store, app, settings, habitService } = usePlugin();
   const habitsMap = store((s) => s.habits);
   const filter = store((s) => s.filter);
-  const logs = store(selectLogList);
+  const logsMap = store((s) => s.logs);
+  const logsByHabit = React.useMemo(() => groupLogsByHabit(logsMap), [logsMap]);
 
   const habits = React.useMemo(() => {
     return applyHabitFilter(Object.values(habitsMap), filter).sort((a, b) => {
@@ -23,7 +38,10 @@ export const HabitTable: React.FC = () => {
     });
   }, [habitsMap, filter]);
 
-  const projects = listProjectFolders(app, settings.rootFolder);
+  const projects = React.useMemo(
+    () => listProjectFolders(app, settings.rootFolder),
+    [app, settings.rootFolder]
+  );
 
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
 
@@ -165,7 +183,7 @@ export const HabitTable: React.FC = () => {
                 key={h.id}
                 habit={h}
                 projects={projects}
-                logs={logs}
+                logs={logsByHabit.get(h.name) ?? EMPTY_LOGS}
                 checked={selected.has(h.id)}
                 onToggle={() => toggleRow(h.id)}
               />
@@ -196,15 +214,15 @@ const HabitTh: React.FC<{ icon: IconName; label: string }> = ({ icon, label }) =
 interface RowProps {
   habit: Habit;
   projects: string[];
-  logs: ReturnType<typeof selectLogList>;
+  logs: Log[];
   checked: boolean;
   onToggle: () => void;
 }
 
 const HabitRow: React.FC<RowProps> = ({ habit, projects, logs, checked, onToggle }) => {
-  const { habitService, store } = usePlugin();
-  const projectsMap = store((s) => s.projects);
-  const projectObj = Object.values(projectsMap).find((p) => p.name === habit.project);
+  const { habitService } = usePlugin();
+  const projectByName = useProjectByName();
+  const projectObj = projectByName.get(habit.project);
   const streak = React.useMemo(
     () => computeStreak(habit, completionCounts(habit, logs), new Date()),
     [habit, logs]

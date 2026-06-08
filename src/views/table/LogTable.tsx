@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Notice } from "obsidian";
-import { usePlugin } from "../context";
+import { usePlugin, useProjectByName } from "../context";
 import type { Log } from "../../schema/types";
 import { listProjectFolders } from "../../services/taskService";
 import { Icon, IconName } from "../shared/Icon";
@@ -190,11 +190,9 @@ interface RowProps {
 }
 
 const LogRow: React.FC<RowProps> = ({ log, projects, checked, onToggle }) => {
-  const { logService, store } = usePlugin();
-  const projectsMap = store((s) => s.projects);
-  const projectObj = log.project
-    ? Object.values(projectsMap).find((p) => p.name === log.project)
-    : undefined;
+  const { logService } = usePlugin();
+  const projectByName = useProjectByName();
+  const projectObj = log.project ? projectByName.get(log.project) : undefined;
 
   const tsForInput = log.timestamp.length >= 16 ? log.timestamp.slice(0, 16) : log.timestamp;
 

@@ -2,6 +2,7 @@ import * as React from "react";
 import { createContext, useContext } from "react";
 import type { App } from "obsidian";
 import type { PlannerStore } from "../index/store";
+import type { Project } from "../schema/types";
 import type { TaskService } from "../services/taskService";
 import type { ProjectService } from "../services/projectService";
 import type { MilestoneService } from "../services/milestoneService";
@@ -39,6 +40,20 @@ export function usePlugin(): PluginContextValue {
   const ctx = useContext(PluginContext);
   if (!ctx) throw new Error("PluginContext not provided");
   return ctx;
+}
+
+// Project lookup by name is hot — calendar chips, timeline bars, every table
+// row do it. Object.values(projects).find(...) per call is O(n) and runs
+// hundreds of times per render. Memoising a Map<name, Project> keyed by the
+// projects Record reference makes lookups O(1) and keeps memory bounded.
+export function useProjectByName(): Map<string, Project> {
+  const { store } = usePlugin();
+  const projectsMap = store((s) => s.projects);
+  return React.useMemo(() => {
+    const out = new Map<string, Project>();
+    for (const p of Object.values(projectsMap)) out.set(p.name, p);
+    return out;
+  }, [projectsMap]);
 }
 
 export function usePersistedViewState<K extends keyof ViewStateSettings>(

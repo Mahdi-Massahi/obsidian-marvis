@@ -1,6 +1,6 @@
 import * as React from "react";
 import { addDays, fmtISO, format, isSameDay, parseDate, startOfDay } from "../utils/dates";
-import { usePersistedViewState, usePlugin } from "./context";
+import { usePersistedViewState, usePlugin, useProjectByName } from "./context";
 import { FilterBar } from "./shared/FilterBar";
 import { applyFilter } from "../filter/filterEngine";
 import { Icon, IconName } from "./shared/Icon";
@@ -32,7 +32,7 @@ interface Bar {
 export const TimelineRoot: React.FC = () => {
   const { store, settings, taskService, milestoneService, logService, eventService } = usePlugin();
   const tasksMap = store((s) => s.tasks);
-  const projectsMap = store((s) => s.projects);
+  const projectByName = useProjectByName();
   const milestonesMap = store((s) => s.milestones);
   const logsMap = store((s) => s.logs);
   const eventsMap = store((s) => s.events);
@@ -114,7 +114,7 @@ export const TimelineRoot: React.FC = () => {
         filteredMilestones,
         filteredLogs,
         eventOccurrences,
-        projectsMap,
+        projectByName,
         milestonesMap,
         settings.priorities
       ),
@@ -124,7 +124,7 @@ export const TimelineRoot: React.FC = () => {
       filteredMilestones,
       filteredLogs,
       eventOccurrences,
-      projectsMap,
+      projectByName,
       milestonesMap,
       settings.priorities,
     ]
@@ -515,7 +515,7 @@ function buildRows(
   milestones: Milestone[],
   logs: Log[],
   eventOccurrences: { event: Event; date: Date }[],
-  projectsMap: Record<string, Project>,
+  projectByName: Map<string, Project>,
   milestonesMap: Record<string, Milestone>,
   priorities: { id: string; label: string; color: string }[]
 ): Row[] {
@@ -546,7 +546,7 @@ function buildRows(
       ...eventByProject.keys(),
     ]);
     return Array.from(projectKeys).map((name) => {
-      const project = Object.values(projectsMap).find((p) => p.name === name);
+      const project = projectByName.get(name);
       const color = project?.color ?? "#3b82f6";
       const taskList = taskByProject.get(name) ?? [];
       const logList = logByProject.get(name) ?? [];
@@ -579,7 +579,7 @@ function buildRows(
     byProject.get(key)!.push(m);
   }
   return Array.from(byProject.entries()).map(([name, list]) => {
-    const project = Object.values(projectsMap).find((p) => p.name === name);
+    const project = projectByName.get(name);
     const color = project?.color ?? "#8b5cf6";
     const sorted = list.slice().sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""));
     return {
@@ -745,11 +745,23 @@ function buildDays(from: Date, to: Date): Date[] {
   return out;
 }
 
+// The `days` array is a contiguous calendar-day range, so day index is just
+// arithmetic from the offset to days[0]. Linear search was O(n) per call and
+// got hit four times per bar — for a 500-bar/720-day chart that was ~1.5M
+// comparisons per render. DST shifts mean the literal millisecond delta can
+// drift by ±1 hour, so we round to the nearest day instead of integer-dividing.
+const MS_PER_DAY = 86_400_000;
 function dayIndex(days: Date[], target: Date): number {
+  if (days.length === 0) return 0;
   const t = startOfDay(target).getTime();
-  for (let i = 0; i < days.length; i++) if (days[i].getTime() === t) return i;
-  if (t < days[0].getTime()) return 0;
-  return days.length - 1;
+  const base = days[0].getTime();
+  if (t <= base) return 0;
+  const last = days.length - 1;
+  if (t >= days[last].getTime()) return last;
+  const idx = Math.round((t - base) / MS_PER_DAY);
+  if (idx < 0) return 0;
+  if (idx > last) return last;
+  return idx;
 }
 
 function isWeekend(d: Date): boolean {

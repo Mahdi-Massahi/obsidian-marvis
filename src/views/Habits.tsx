@@ -14,8 +14,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { usePlugin } from "./context";
-import { selectLogList } from "../index/store";
+import { usePlugin, useProjectByName } from "./context";
 import type { Habit, Log } from "../schema/types";
 import { HABIT_FREQUENCY_LABEL } from "../schema/types";
 import { applyHabitFilter } from "../filter/filterEngine";
@@ -151,7 +150,11 @@ interface TodayModeProps {
 
 const TodayMode: React.FC<TodayModeProps> = ({ habits, cursor, today }) => {
   const { store, habitService } = usePlugin();
-  const logs = store(selectLogList);
+  const logsMap = store((s) => s.logs);
+  // Group logs by habit name once per render so each row only walks its own
+  // slice instead of the entire log corpus — without this, ReviewMode is
+  // O(habits × logs) per render which dominates on real vaults.
+  const logsByHabit = React.useMemo(() => groupLogsByHabit(logsMap), [logsMap]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
@@ -196,7 +199,13 @@ const TodayMode: React.FC<TodayModeProps> = ({ habits, cursor, today }) => {
           strategy={verticalListSortingStrategy}
         >
           {habits.map((h) => (
-            <TodayRow key={h.path} habit={h} logs={logs} when={cursor} today={today} />
+            <TodayRow
+              key={h.path}
+              habit={h}
+              logs={logsByHabit.get(h.name) ?? EMPTY_LOGS}
+              when={cursor}
+              today={today}
+            />
           ))}
         </SortableContext>
       </DndContext>
@@ -210,9 +219,9 @@ const TodayRow: React.FC<{ habit: Habit; logs: Log[]; when: Date; today: Date }>
   when,
   today,
 }) => {
-  const { habitService, store } = usePlugin();
-  const projectsMap = store((s) => s.projects);
-  const project = Object.values(projectsMap).find((p) => p.name === habit.project);
+  const { habitService } = usePlugin();
+  const projectByName = useProjectByName();
+  const project = projectByName.get(habit.project);
   const isCursorToday = isSameDay(when, today);
   const counts = React.useMemo(() => completionCounts(habit, logs), [habit, logs]);
   // Streak is "as of now," not "as of cursor day" — looking back at a past day
@@ -379,7 +388,8 @@ const TodayRow: React.FC<{ habit: Habit; logs: Log[]; when: Date; today: Date }>
 
 const ReviewMode: React.FC<{ habits: Habit[] }> = ({ habits }) => {
   const { store, settings } = usePlugin();
-  const logs = store(selectLogList);
+  const logsMap = store((s) => s.logs);
+  const logsByHabit = React.useMemo(() => groupLogsByHabit(logsMap), [logsMap]);
   const days = React.useMemo(() => pastDays(new Date(), settings.habitReviewDays), [settings.habitReviewDays]);
   const monthHeaders = React.useMemo(() => buildMonthHeaders(days), [days]);
   const weekHeaders = React.useMemo(() => buildWeekHeaders(days), [days]);
@@ -447,7 +457,12 @@ const ReviewMode: React.FC<{ habits: Habit[] }> = ({ habits }) => {
             })}
 
             {habits.map((habit) => (
-              <ReviewCells key={habit.path} habit={habit} days={days} logs={logs} />
+              <ReviewCells
+                key={habit.path}
+                habit={habit}
+                days={days}
+                logs={logsByHabit.get(habit.name) ?? EMPTY_LOGS}
+              />
             ))}
           </div>
         </div>
@@ -457,9 +472,9 @@ const ReviewMode: React.FC<{ habits: Habit[] }> = ({ habits }) => {
 };
 
 const ReviewRowhead: React.FC<{ habit: Habit }> = ({ habit }) => {
-  const { habitService, store } = usePlugin();
-  const projectsMap = store((s) => s.projects);
-  const project = Object.values(projectsMap).find((p) => p.name === habit.project);
+  const { habitService } = usePlugin();
+  const projectByName = useProjectByName();
+  const project = projectByName.get(habit.project);
   const accent = project?.color ?? "var(--background-modifier-border)";
   const cadence = `${habit.target}× ${HABIT_FREQUENCY_LABEL[habit.frequency].toLowerCase()}`;
   return (
@@ -540,6 +555,20 @@ const ReviewCells: React.FC<{ habit: Habit; days: Date[]; logs: Log[] }> = ({
 };
 
 // ----- helpers -----
+
+const EMPTY_LOGS: Log[] = [];
+
+function groupLogsByHabit(logsMap: Record<string, Log>): Map<string, Log[]> {
+  const out = new Map<string, Log[]>();
+  for (const log of Object.values(logsMap)) {
+    const name = log.habit;
+    if (!name) continue;
+    const arr = out.get(name);
+    if (arr) arr.push(log);
+    else out.set(name, [log]);
+  }
+  return out;
+}
 
 type Intensity = "0" | "1" | "2" | "3" | "4";
 

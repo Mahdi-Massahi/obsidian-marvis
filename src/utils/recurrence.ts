@@ -85,16 +85,33 @@ function fromFloating(d: Date): Date {
   );
 }
 
+// Parsing an RRULE string + constructing the RRule object are not free, and
+// rule.between() walks every period in the range. Timeline expands every
+// recurring event over a ±2-year window on every filter change. Cache by the
+// Event reference (which the indexer swaps on edit), keyed internally by the
+// rule string + dtstart ms so we invalidate cleanly when those change.
+const ruleCache = new WeakMap<Event, { key: string; rule: RRule | null }>();
+const occurrenceCache = new WeakMap<
+  Event,
+  { key: string; result: Date[] }
+>();
+
 function parseRule(event: Event): RRule | null {
   if (!event.recurrence) return null;
   const dtstart = toFloating(eventStartDate(event));
+  const key = `${event.recurrence}|${dtstart.getTime()}`;
+  const cached = ruleCache.get(event);
+  if (cached && cached.key === key) return cached.rule;
+  let rule: RRule | null = null;
   try {
     const opts = RRule.parseString(event.recurrence);
     opts.dtstart = dtstart;
-    return new RRule(opts);
+    rule = new RRule(opts);
   } catch {
-    return null;
+    rule = null;
   }
+  ruleCache.set(event, { key, rule });
+  return rule;
 }
 
 /**
@@ -111,9 +128,14 @@ export function expandOccurrences(
     const start = eventStartDate(event);
     return start >= rangeStart && start <= rangeEnd ? [start] : [];
   }
+  const key = `${event.recurrence ?? ""}|${rangeStart.getTime()}|${rangeEnd.getTime()}`;
+  const cached = occurrenceCache.get(event);
+  if (cached && cached.key === key) return cached.result;
   const floatingStart = toFloating(rangeStart);
   const floatingEnd = toFloating(rangeEnd);
-  return rule.between(floatingStart, floatingEnd, true).map(fromFloating);
+  const result = rule.between(floatingStart, floatingEnd, true).map(fromFloating);
+  occurrenceCache.set(event, { key, result });
+  return result;
 }
 
 const HUMAN_FREQ: Record<number, string> = {

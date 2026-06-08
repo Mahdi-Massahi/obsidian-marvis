@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Notice } from "obsidian";
-import { usePlugin } from "../context";
+import { usePlugin, useProjectByName } from "../context";
 import type { Event } from "../../schema/types";
 import { listProjectFolders } from "../../services/taskService";
 import { Icon, IconName } from "../shared/Icon";
@@ -203,11 +203,9 @@ interface RowProps {
 }
 
 const EventRow: React.FC<RowProps> = ({ event, projects, checked, onToggle }) => {
-  const { eventService, store, settings } = usePlugin();
-  const projectsMap = store((s) => s.projects);
-  const projectObj = event.project
-    ? Object.values(projectsMap).find((p) => p.name === event.project)
-    : undefined;
+  const { eventService, settings } = usePlugin();
+  const projectByName = useProjectByName();
+  const projectObj = event.project ? projectByName.get(event.project) : undefined;
   const respLabel = responseStatusLabel(event);
   const respKey = event.responseStatus ?? "";
 

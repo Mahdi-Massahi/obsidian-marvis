@@ -12,6 +12,16 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 - Calendar Week and Month chips (events, tasks, logs/habits) now fill with the project colour at the same low-opacity tint used in Day view, instead of only carrying a coloured border. Project membership is readable at a glance across all three calendar modes; chips without a project keep their plain background.
 
+### Performance
+
+- Indexer now coalesces vault and `metadataCache` events into a single 60ms flush. Bursty change streams (Apple Calendar sync, iCloud bursts, vault reload) previously triggered hundreds of cascading store updates and React re-renders; they now collapse to one. (`src/index/indexer.ts`)
+- Habit views (Today, Review, Habit table, Habit card) no longer re-derive `Object.values(s.logs)` on every store mutation. The list selector returned a new array on every tick, defeating Zustand's identity check and causing every habit view to re-run `completionCounts` / `dayCounts` / `bonusTickDays` / `computeStreak` per habit. Subscribers now read the logs map directly and group logs by habit name once per render, collapsing the worst case from O(habits × logs) to O(logs + habits). (`src/views/Habits.tsx`, `src/views/shared/HabitCard.tsx`, `src/views/table/HabitTable.tsx`)
+- Search filter caches the lowercased haystack per task and per habit in a `WeakMap` instead of rebuilding the (up-to-8000-char) body string on every keystroke. List-valued filter fields also pre-build their lookup `Set`s once per call. (`src/filter/filterEngine.ts`)
+- Project lookup by name now goes through a memoised `Map<name, Project>` (`useProjectByName` in `src/views/context.ts`) instead of an `Object.values(projects).find(...)` per row in every chip, bar, and table row.
+- Timeline `dayIndex` is now an arithmetic offset rather than a linear scan; for a 500-bar / 720-day chart this cuts ~1.5 M comparisons per render. (`src/views/Timeline.tsx`)
+- Timeline now caches parsed RRules and the resulting occurrence arrays in a `WeakMap` keyed by the event reference + range, instead of re-parsing every recurring event over a ±2-year window on every filter change. (`src/utils/recurrence.ts`)
+- `PlannerView` skips React re-renders when `layout-change` fires without an actual change in the assistant-leaf state. Tab focus, sidebar resize, and other layout events no longer rebuild the entire React tree. (`src/views/PlannerView.tsx`)
+
 ### Added
 
 - Drag-to-reorder for habits in the Today view. Each row now exposes a grip handle on hover; dragging persists a fractional `order` to the habit's frontmatter so the new sequence carries across both Today and Review modes (and survives reloads). Uses the same dnd-kit + fractional-indexing pattern as Kanban cards.

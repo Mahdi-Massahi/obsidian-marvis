@@ -2,8 +2,7 @@ import * as React from "react";
 import { Menu, Notice } from "obsidian";
 import type { Habit } from "../../schema/types";
 import { HABIT_FREQUENCY_LABEL, HABIT_STATE_LABEL } from "../../schema/types";
-import { usePlugin } from "../context";
-import { selectLogList } from "../../index/store";
+import { usePlugin, useProjectByName } from "../context";
 import { Icon } from "./Icon";
 import { ConfirmModal } from "./ConfirmModal";
 import { completionCounts, computeStreak } from "../../utils/habits";
@@ -15,13 +14,23 @@ interface Props {
 
 export const HabitCard: React.FC<Props> = ({ habit, compact }) => {
   const { app, store, habitService } = usePlugin();
-  const projects = store((s) => s.projects);
-  const logs = store(selectLogList);
-  const project = Object.values(projects).find((p) => p.name === habit.project);
+  const projectByName = useProjectByName();
+  const logsMap = store((s) => s.logs);
+  const project = projectByName.get(habit.project);
+
+  // Filter logs to just this habit's once per logs-map change; downstream
+  // `completionCounts`/`computeStreak` are already O(n) over what we pass in.
+  const habitLogs = React.useMemo(() => {
+    const out = [];
+    for (const log of Object.values(logsMap)) {
+      if (log.habit === habit.name) out.push(log);
+    }
+    return out;
+  }, [logsMap, habit.name]);
 
   const streak = React.useMemo(
-    () => computeStreak(habit, completionCounts(habit, logs), new Date()),
-    [habit, logs]
+    () => computeStreak(habit, completionCounts(habit, habitLogs), new Date()),
+    [habit, habitLogs]
   );
   const cadence = `${habit.target}× ${HABIT_FREQUENCY_LABEL[habit.frequency].toLowerCase()}`;
 
@@ -40,7 +49,7 @@ export const HabitCard: React.FC<Props> = ({ habit, compact }) => {
         .setTitle("Mark done today")
         .setIcon("check")
         .onClick(() => {
-          void habitService.logCompletion(habit, logs).then(() => {
+          void habitService.logCompletion(habit, habitLogs).then(() => {
             new Notice(`Marked ${habit.title} done`);
           });
         })

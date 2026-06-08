@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Menu, Notice } from "obsidian";
 import type { Task } from "../../schema/types";
-import { usePlugin } from "../context";
+import { usePlugin, useProjectByName } from "../context";
 import { parseDate, fmtShort, formatAge } from "../../utils/dates";
 import { Icon } from "./Icon";
 import { ConfirmModal } from "./ConfirmModal";
@@ -16,10 +16,10 @@ interface Props {
 
 export const TaskCard: React.FC<Props> = ({ task, compact, draggableProps, innerRef, style }) => {
   const { app, settings, taskService, store } = usePlugin();
-  const projects = store((s) => s.projects);
+  const projectByName = useProjectByName();
   const focusTaskPath = store((s) => s.focusTaskPath);
   const focusTask = store((s) => s.focusTask);
-  const project = task.project ? Object.values(projects).find((p) => p.name === task.project) : undefined;
+  const project = task.project ? projectByName.get(task.project) : undefined;
   const status = settings.statuses.find((s) => s.id === task.status);
   const priority = settings.priorities.find((p) => p.id === task.priority);
   const due = parseDate(task.due);

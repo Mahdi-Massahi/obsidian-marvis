@@ -1,5 +1,5 @@
 import * as React from "react";
-import { usePlugin } from "../context";
+import { usePlugin, useProjectByName } from "../context";
 import { applyFilter } from "../../filter/filterEngine";
 import type { Task } from "../../schema/types";
 import { listProjectFolders } from "../../services/taskService";
@@ -229,10 +229,8 @@ interface RowProps {
 const Row: React.FC<RowProps> = ({ task, projects, checked, onToggle }) => {
   const { settings, taskService, store } = usePlugin();
   const milestonesMap = store((s) => s.milestones);
-  const projectsMap = store((s) => s.projects);
-  const projectObj = task.project
-    ? Object.values(projectsMap).find((p) => p.name === task.project)
-    : undefined;
+  const projectByName = useProjectByName();
+  const projectObj = task.project ? projectByName.get(task.project) : undefined;
   const milestones = React.useMemo(
     () =>
       Object.values(milestonesMap)
@@ -380,8 +378,8 @@ const Row: React.FC<RowProps> = ({ task, projects, checked, onToggle }) => {
 };
 
 const NewTaskRow: React.FC<{ projects: string[] }> = ({ projects }) => {
-  const { taskService, settings, openQuickCreate, store } = usePlugin();
-  const projectsMap = store((s) => s.projects);
+  const { taskService, settings, openQuickCreate } = usePlugin();
+  const projectByName = useProjectByName();
   const [editing, setEditing] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [project, setProject] = React.useState(projects[0] ?? "Inbox");
@@ -466,7 +464,7 @@ const NewTaskRow: React.FC<{ projects: string[] }> = ({ projects }) => {
             className="kp-table__color-dot"
             style={{
               background:
-                Object.values(projectsMap).find((p) => p.name === project)?.color ??
+                projectByName.get(project)?.color ??
                 "transparent",
             }}
             aria-hidden

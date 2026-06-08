@@ -22,6 +22,11 @@ export class PlannerView extends ItemView {
   private plugin: KanbanPlusPlugin;
   private root: Root | null = null;
   private kind: ViewKind;
+  // Tracks the last-rendered assistant-leaf state so we can skip layout-change
+  // renders that don't actually affect the toolbar. Layout-change fires on tab
+  // focus, sidebar resize, leaf moves — re-rendering the whole React tree on
+  // every one of those was the worst hit on top of debouncing.
+  private lastAssistantOpen: boolean | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: KanbanPlusPlugin, initialKind: ViewKind) {
     super(leaf);
@@ -70,7 +75,15 @@ export class PlannerView extends ItemView {
     this.plugin.registerOpenView(this);
     // Re-render when the assistant leaf opens or closes so the toolbar's
     // assistant button reflects the current state without manual refresh.
-    this.registerEvent(this.app.workspace.on("layout-change", () => this.render()));
+    // Skip layout-change events that don't change the assistant state — they
+    // otherwise re-render the whole React tree on every tab focus/leaf move.
+    this.registerEvent(
+      this.app.workspace.on("layout-change", () => {
+        const open = this.plugin.isAssistantLeafOpen();
+        if (open === this.lastAssistantOpen) return;
+        this.render();
+      })
+    );
     return Promise.resolve();
   }
 
@@ -112,6 +125,8 @@ export class PlannerView extends ItemView {
 
   private render(): void {
     if (!this.root) return;
+    const isAssistantOpen = this.plugin.isAssistantLeafOpen();
+    this.lastAssistantOpen = isAssistantOpen;
     const ctx = {
       app: this.app,
       store: this.plugin.store,
@@ -129,7 +144,7 @@ export class PlannerView extends ItemView {
       openQuickCreate: this.openQuickCreate,
       openCreateMenu: this.openCreateMenu,
       toggleAssistant: this.toggleAssistant,
-      isAssistantOpen: this.plugin.isAssistantLeafOpen(),
+      isAssistantOpen,
     };
     this.root.render(
       <PluginContext.Provider value={ctx}>

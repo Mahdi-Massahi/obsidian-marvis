@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Notice } from "obsidian";
-import { usePlugin } from "../context";
+import { usePlugin, useProjectByName } from "../context";
 import type { Milestone } from "../../schema/types";
 import { listProjectFolders } from "../../services/taskService";
 import { Icon, IconName } from "../shared/Icon";
@@ -206,11 +206,9 @@ const MilestoneRow: React.FC<RowProps> = ({
   checked,
   onToggle,
 }) => {
-  const { milestoneService, store } = usePlugin();
-  const projectsMap = store((s) => s.projects);
-  const projectObj = milestone.project
-    ? Object.values(projectsMap).find((p) => p.name === milestone.project)
-    : undefined;
+  const { milestoneService } = usePlugin();
+  const projectByName = useProjectByName();
+  const projectObj = milestone.project ? projectByName.get(milestone.project) : undefined;
   return (
     <tr>
       <td className="kp-table__check">
@@ -295,8 +293,8 @@ const MilestoneRow: React.FC<RowProps> = ({
 };
 
 const NewMilestoneRow: React.FC<{ projects: string[] }> = ({ projects }) => {
-  const { milestoneService, store } = usePlugin();
-  const projectsMap = store((s) => s.projects);
+  const { milestoneService } = usePlugin();
+  const projectByName = useProjectByName();
   const [editing, setEditing] = React.useState(false);
   const [name, setName] = React.useState("");
   const [project, setProject] = React.useState(projects[0] ?? "");
@@ -377,8 +375,7 @@ const NewMilestoneRow: React.FC<{ projects: string[] }> = ({ projects }) => {
             className="kp-table__color-dot"
             style={{
               background:
-                Object.values(projectsMap).find((p) => p.name === project)?.color ??
-                "transparent",
+                projectByName.get(project)?.color ?? "transparent",
             }}
             aria-hidden
           />

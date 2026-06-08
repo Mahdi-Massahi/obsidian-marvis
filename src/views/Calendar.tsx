@@ -9,7 +9,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { usePersistedViewState, usePlugin } from "./context";
+import { usePersistedViewState, usePlugin, useProjectByName } from "./context";
 import { FilterBar } from "./shared/FilterBar";
 import { applyFilter } from "../filter/filterEngine";
 import { Icon } from "./shared/Icon";
@@ -27,7 +27,7 @@ export const CalendarRoot: React.FC = () => {
   const logsMap = store((s) => s.logs);
   const eventsMap = store((s) => s.events);
   const filter = store((s) => s.filter);
-  const projectsMap = store((s) => s.projects);
+  const projectByName = useProjectByName();
   const allTasks = React.useMemo(() => Object.values(tasksMap), [tasksMap]);
   const filtered = React.useMemo(() => applyFilter(allTasks, filter), [allTasks, filter]);
 
@@ -248,7 +248,7 @@ export const CalendarRoot: React.FC = () => {
               tasks={tasksByDay.get(iso) ?? []}
               logs={logsByDay.get(iso) ?? []}
               events={eventsByDay.get(iso) ?? []}
-              projectsMap={projectsMap}
+              projectByName={projectByName}
               onCreate={() => openQuickCreate({ due: iso })}
             />
           );
@@ -280,7 +280,7 @@ export const CalendarRoot: React.FC = () => {
                     events={events}
                     inMonth={isSameMonth(day, cursor)}
                     onCreate={() => openQuickCreate({ due: iso })}
-                    projectsMap={projectsMap}
+                    projectByName={projectByName}
                   />
                 );
               })}
@@ -318,7 +318,7 @@ interface DayCellProps {
   events: EventOccurrence[];
   inMonth: boolean;
   onCreate: () => void;
-  projectsMap: Record<string, import("../schema/types").Project>;
+  projectByName: Map<string, import("../schema/types").Project>;
 }
 
 const DayCell: React.FC<DayCellProps> = ({
@@ -329,7 +329,7 @@ const DayCell: React.FC<DayCellProps> = ({
   events,
   inMonth,
   onCreate,
-  projectsMap,
+  projectByName,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: `day:${iso}` });
   const today = isSameDay(date, new Date());
@@ -350,14 +350,14 @@ const DayCell: React.FC<DayCellProps> = ({
             key={`${occ.event.id}-${i}`}
             event={occ.event}
             date={occ.date}
-            projectsMap={projectsMap}
+            projectByName={projectByName}
           />
         ))}
         {tasks.map((task) => (
-          <CalChip key={task.id} task={task} projectsMap={projectsMap} />
+          <CalChip key={task.id} task={task} projectByName={projectByName} />
         ))}
         {logs.map((log) => (
-          <LogCalChip key={log.id} log={log} projectsMap={projectsMap} />
+          <LogCalChip key={log.id} log={log} projectByName={projectByName} />
         ))}
       </div>
     </div>
@@ -429,7 +429,7 @@ interface DayViewProps {
   tasks: Task[];
   logs: Log[];
   events: EventOccurrence[];
-  projectsMap: Record<string, import("../schema/types").Project>;
+  projectByName: Map<string, import("../schema/types").Project>;
   onCreate: () => void;
 }
 
@@ -438,7 +438,7 @@ const DayView: React.FC<DayViewProps> = ({
   tasks,
   logs,
   events,
-  projectsMap,
+  projectByName,
   onCreate,
 }) => {
   const allDayEvents = events.filter((o) => !o.event.time);
@@ -478,16 +478,16 @@ const DayView: React.FC<DayViewProps> = ({
               key={`${occ.event.id}-${i}`}
               event={occ.event}
               date={occ.date}
-              projectsMap={projectsMap}
+              projectByName={projectByName}
             />
           ))}
           {tasks.map((task) => (
-            <CalChip key={task.id} task={task} projectsMap={projectsMap} />
+            <CalChip key={task.id} task={task} projectByName={projectByName} />
           ))}
           {logs
             .filter((l) => !l.timestamp.includes("T"))
             .map((log) => (
-              <LogCalChip key={log.id} log={log} projectsMap={projectsMap} />
+              <LogCalChip key={log.id} log={log} projectByName={projectByName} />
             ))}
         </div>
       </div>
@@ -507,7 +507,7 @@ const DayView: React.FC<DayViewProps> = ({
             <DayTimedEvent
               key={`${item.occ.event.id}-${i}`}
               event={item.occ.event}
-              projectsMap={projectsMap}
+              projectByName={projectByName}
               col={item.col}
               totalCols={item.totalCols}
             />
@@ -515,7 +515,7 @@ const DayView: React.FC<DayViewProps> = ({
           {logs
             .filter((l) => l.timestamp.includes("T"))
             .map((log) => (
-              <DayTimedLog key={log.id} log={log} projectsMap={projectsMap} />
+              <DayTimedLog key={log.id} log={log} projectByName={projectByName} />
             ))}
           {isToday && nowTop >= 0 && nowTop <= HOUR_HEIGHT * 24 && (
             <div className="kp-cal__day-now" style={{ top: nowTop }} />
@@ -528,13 +528,13 @@ const DayView: React.FC<DayViewProps> = ({
 
 const DayTimedEvent: React.FC<{
   event: Event;
-  projectsMap: Record<string, import("../schema/types").Project>;
+  projectByName: Map<string, import("../schema/types").Project>;
   col: number;
   totalCols: number;
-}> = ({ event, projectsMap, col, totalCols }) => {
+}> = ({ event, projectByName, col, totalCols }) => {
   const { eventService, settings } = usePlugin();
   const project = event.project
-    ? Object.values(projectsMap).find((p) => p.name === event.project)
+    ? projectByName.get(event.project)
     : undefined;
   const priority = event.priority
     ? settings.priorities.find((p) => p.id === event.priority)
@@ -588,11 +588,11 @@ const DayTimedEvent: React.FC<{
 
 const DayTimedLog: React.FC<{
   log: Log;
-  projectsMap: Record<string, import("../schema/types").Project>;
-}> = ({ log, projectsMap }) => {
+  projectByName: Map<string, import("../schema/types").Project>;
+}> = ({ log, projectByName }) => {
   const { logService } = usePlugin();
   const project = log.project
-    ? Object.values(projectsMap).find((p) => p.name === log.project)
+    ? projectByName.get(log.project)
     : undefined;
   const time = log.timestamp.length >= 16 ? log.timestamp.slice(11, 16) : "00:00";
   const startMin = parseTimeToMin(time) ?? 0;
@@ -630,11 +630,11 @@ function parseTimeToMin(t: string | undefined): number | null {
 const EventCalChip: React.FC<{
   event: Event;
   date: Date;
-  projectsMap: Record<string, import("../schema/types").Project>;
-}> = ({ event, projectsMap }) => {
+  projectByName: Map<string, import("../schema/types").Project>;
+}> = ({ event, projectByName }) => {
   const { eventService, settings } = usePlugin();
   const project = event.project
-    ? Object.values(projectsMap).find((p) => p.name === event.project)
+    ? projectByName.get(event.project)
     : undefined;
   const priority = event.priority
     ? settings.priorities.find((p) => p.id === event.priority)
@@ -686,14 +686,14 @@ const EventCalChip: React.FC<{
 
 const LogCalChip: React.FC<{
   log: Log;
-  projectsMap: Record<string, import("../schema/types").Project>;
-}> = ({ log, projectsMap }) => {
+  projectByName: Map<string, import("../schema/types").Project>;
+}> = ({ log, projectByName }) => {
   const { logService } = usePlugin();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `log:${log.path}`,
   });
   const project = log.project
-    ? Object.values(projectsMap).find((p) => p.name === log.project)
+    ? projectByName.get(log.project)
     : undefined;
   const time = log.timestamp.length >= 16 ? log.timestamp.slice(11, 16) : "";
   const isHabit = !!log.habit;
@@ -737,11 +737,11 @@ const LogCalChip: React.FC<{
 
 const CalChip: React.FC<{
   task: Task;
-  projectsMap: Record<string, import("../schema/types").Project>;
-}> = ({ task, projectsMap }) => {
+  projectByName: Map<string, import("../schema/types").Project>;
+}> = ({ task, projectByName }) => {
   const { taskService, settings } = usePlugin();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
-  const project = task.project ? Object.values(projectsMap).find((p) => p.name === task.project) : undefined;
+  const project = task.project ? projectByName.get(task.project) : undefined;
   const priority = task.priority
     ? settings.priorities.find((p) => p.id === task.priority)
     : undefined;
