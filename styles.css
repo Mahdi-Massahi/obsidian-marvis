@@ -3988,9 +3988,10 @@
 
 .kp-today-row {
   display: grid;
-  /* action | title | pips (grows leftward) | pill (fixed) | streak (reserved
-     width so the right edge doesn't jitter when the chip hides on past days) */
-  grid-template-columns: auto 1fr auto minmax(84px, auto) minmax(56px, auto);
+  /* drag | action | title | pips (grows leftward) | pill (fixed) | streak
+     (reserved width so the right edge doesn't jitter when the chip hides on
+     past days) */
+  grid-template-columns: auto auto 1fr auto minmax(84px, auto) minmax(56px, auto);
   align-items: center;
   gap: 10px;
   padding: 4px 10px;
@@ -4017,6 +4018,27 @@
 }
 
 .kp-today-row.is-paused { opacity: 0.6; }
+
+.kp-today-row__drag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+
+.kp-today-row:hover .kp-today-row__drag,
+.kp-today-row__drag:focus-visible { opacity: 1; }
+
+.kp-today-row__drag:hover { color: var(--text-muted); }
+.kp-today-row__drag:active { cursor: grabbing; }
 
 .kp-today-row__pips {
   /* Anchored to the right of its grid cell; pips grow leftward as the

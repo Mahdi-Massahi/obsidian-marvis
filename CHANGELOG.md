@@ -10,6 +10,7 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 ### Added
 
+- Drag-to-reorder for habits in the Today view. Each row now exposes a grip handle on hover; dragging persists a fractional `order` to the habit's frontmatter so the new sequence carries across both Today and Review modes (and survives reloads). Uses the same dnd-kit + fractional-indexing pattern as Kanban cards.
 - Status and priority rows in Settings now have up/down arrow buttons to reorder them. The Kanban view follows this order for its columns, so users who accidentally remove and re-add a status can move it back into place instead of being stuck with the new column at the end.
 
 ### Fixed

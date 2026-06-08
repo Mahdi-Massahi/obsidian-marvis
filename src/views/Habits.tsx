@@ -1,5 +1,19 @@
 import * as React from "react";
 import { Notice } from "obsidian";
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { usePlugin } from "./context";
 import { selectLogList } from "../index/store";
 import type { Habit, Log } from "../schema/types";
@@ -13,6 +27,7 @@ import {
   pastDays,
   periodKey,
 } from "../utils/habits";
+import { between } from "../utils/fractionalIndex";
 import { FilterBar } from "./shared/FilterBar";
 import { Icon } from "./shared/Icon";
 import { fmtISO } from "../utils/dates";
@@ -135,16 +150,56 @@ interface TodayModeProps {
 }
 
 const TodayMode: React.FC<TodayModeProps> = ({ habits, cursor, today }) => {
-  const { store } = usePlugin();
+  const { store, habitService } = usePlugin();
   const logs = store(selectLogList);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+  );
+
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const activeHabit = habits.find((h) => h.path === active.id);
+    if (!activeHabit) return;
+    const peers = habits.filter((h) => h.path !== activeHabit.path);
+    const overIdx = peers.findIndex((h) => h.path === over.id);
+    if (overIdx < 0) return;
+    const activeIdx = habits.findIndex((h) => h.path === activeHabit.path);
+    // dnd-kit fires `over` on the row being hovered; for downward moves the
+    // insertion point should land *after* that row, for upward moves *before*.
+    const insertIdx = activeIdx < overIdx ? overIdx + 1 : overIdx;
+    const prev = peers[insertIdx - 1]?.order;
+    const next = peers[insertIdx]?.order;
+    const newOrder = between(prev, next);
+
+    store.getState().upsertHabit({ ...activeHabit, order: newOrder });
+    void habitService.setOrder(activeHabit, newOrder).catch((err) => {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      new Notice(`Failed to reorder habit: ${msg}`);
+    });
+  };
+
   return (
     <div className="kp-habits__today">
       <div className="kp-habits__datebar">
         <span className="kp-habits__daylabel">{format(cursor, "EEEE, MMMM d, yyyy")}</span>
       </div>
-      {habits.map((h) => (
-        <TodayRow key={h.path} habit={h} logs={logs} when={cursor} today={today} />
-      ))}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        autoScroll={false}
+        onDragEnd={onDragEnd}
+      >
+        <SortableContext
+          items={habits.map((h) => h.path)}
+          strategy={verticalListSortingStrategy}
+        >
+          {habits.map((h) => (
+            <TodayRow key={h.path} habit={h} logs={logs} when={cursor} today={today} />
+          ))}
+        </SortableContext>
+      </DndContext>
     </div>
   );
 };
@@ -167,6 +222,9 @@ const TodayRow: React.FC<{ habit: Habit; logs: Log[]; when: Date; today: Date }>
   const progress = periodCount / habit.target;
   const intensity = progressIntensity(progress);
 
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: habit.path });
+
   const cadence = `${habit.target}× ${HABIT_FREQUENCY_LABEL[habit.frequency].toLowerCase()}`;
   const periodLabel =
     habit.frequency === "daily"
@@ -182,6 +240,9 @@ const TodayRow: React.FC<{ habit: Habit; logs: Log[]; when: Date; today: Date }>
   const rowStyle: React.CSSProperties = {
     ["--kp-card-stripe" as string]: accent,
     ["--kp-card-border" as string]: accent,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : undefined,
   };
 
   const addTick = async () => {
@@ -207,12 +268,25 @@ const TodayRow: React.FC<{ habit: Habit; logs: Log[]; when: Date; today: Date }>
 
   return (
     <div
+      ref={setNodeRef}
       className={`kp-today-row kp-progress-${intensity} ${
         habit.state === "paused" ? "is-paused" : ""
       }`}
       style={rowStyle}
       onClick={open}
     >
+      <button
+        type="button"
+        className="kp-today-row__drag"
+        data-no-open
+        aria-label="Drag to reorder"
+        title="Drag to reorder"
+        onClick={(e) => e.stopPropagation()}
+        {...attributes}
+        {...listeners}
+      >
+        <Icon name="gripVertical" size={14} />
+      </button>
       <button
         type="button"
         className="kp-tick-action"
