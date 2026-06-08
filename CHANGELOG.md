@@ -8,6 +8,10 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 ## [Unreleased]
 
+### Changed
+
+- Calendar Week and Month chips (events, tasks, logs/habits) now fill with the project colour at the same low-opacity tint used in Day view, instead of only carrying a coloured border. Project membership is readable at a glance across all three calendar modes; chips without a project keep their plain background.
+
 ### Added
 
 - Drag-to-reorder for habits in the Today view. Each row now exposes a grip handle on hover; dragging persists a fractional `order` to the habit's frontmatter so the new sequence carries across both Today and Review modes (and survives reloads). Uses the same dnd-kit + fractional-indexing pattern as Kanban cards.

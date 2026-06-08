@@ -648,8 +648,12 @@ const EventCalChip: React.FC<{
   const label = timeLabel ? `${timeLabel} · ${event.title}` : event.title;
   const respClass = responseStatusClass(event);
   const respLabel = responseStatusLabel(event);
+  const accent = project?.color;
   const style: React.CSSProperties = {
-    borderColor: project?.color ?? "var(--background-modifier-border)",
+    borderColor: accent ?? "var(--background-modifier-border)",
+    ...(accent && {
+      background: `color-mix(in oklab, ${accent} 18%, var(--kp-bg))`,
+    }),
   };
   return (
     <div
@@ -697,9 +701,13 @@ const LogCalChip: React.FC<{
     ? (log.habit as string)
     : (log.excerpt ?? "Log");
   const label = isHabit ? title : (log.excerpt ?? (time ? `Log @ ${time}` : "Log"));
+  const accent = project?.color;
   const style: React.CSSProperties = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-    borderColor: project?.color ?? "var(--background-modifier-border)",
+    borderColor: accent ?? "var(--background-modifier-border)",
+    ...(accent && {
+      background: `color-mix(in oklab, ${accent} 18%, var(--kp-bg))`,
+    }),
     opacity: isDragging ? 0.4 : 1,
   };
   return (
@@ -737,9 +745,13 @@ const CalChip: React.FC<{
   const priority = task.priority
     ? settings.priorities.find((p) => p.id === task.priority)
     : undefined;
+  const accent = project?.color;
   const style: React.CSSProperties = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-    borderColor: project?.color ?? "var(--background-modifier-border)",
+    borderColor: accent ?? "var(--background-modifier-border)",
+    ...(accent && {
+      background: `color-mix(in oklab, ${accent} 18%, var(--kp-bg))`,
+    }),
     opacity: isDragging ? 0.4 : 1,
   };
   return (
