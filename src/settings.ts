@@ -47,6 +47,7 @@ export interface AssistantSettings {
   showTimer: boolean;
   persistTranscripts: boolean;
   userName: string;
+  webSearch: boolean;
 }
 
 export interface ViewStateSettings {
@@ -91,6 +92,7 @@ export const DEFAULT_ASSISTANT_SETTINGS: AssistantSettings = {
   showTimer: true,
   persistTranscripts: true,
   userName: "",
+  webSearch: false,
 };
 
 export const DEFAULT_SETTINGS: KanbanPlusSettings = {
@@ -605,6 +607,18 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
       );
 
     new Setting(container)
+      .setName("Web search")
+      .setDesc(
+        "Let marvis search the web with Google grounding for current facts. Requires a grounding-capable Gemini live model; disable if sessions fail to start."
+      )
+      .addToggle((tog) =>
+        tog.setValue(a.webSearch).onChange(async (v) => {
+          a.webSearch = v;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(container)
       .setName("System instruction (override)")
       .setDesc(
         "Leave blank to use the bundled marvis prompt. Custom prompts are appended to the model setup."
@@ -630,6 +644,7 @@ export class KanbanPlusSettingTab extends PluginSettingTab {
             apiKey: a.apiKey,
             model: a.model,
             voice: a.voice,
+            enableGoogleSearch: a.webSearch,
           });
           new Notice("Connection verified. ✔");
         } catch (err) {

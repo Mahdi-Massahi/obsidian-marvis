@@ -15,9 +15,12 @@ import { TaskService } from "./services/taskService";
 import { LogService } from "./services/logService";
 import { EventService } from "./services/eventService";
 import { HabitService } from "./services/habitService";
+import { DocumentService } from "./services/documentService";
 import { CalendarSyncEngine } from "./services/calendar/syncEngine";
 import { ChatTranscriptService } from "./services/assistant/chatTranscriptService";
 import { AssistantSession } from "./services/assistant/assistantSession";
+import { ActiveFileTracker } from "./services/assistant/activeFileTracker";
+import { SkillService } from "./services/assistant/skillService";
 import { PlannerView, VIEW_TYPE_KANBAN_PLUS } from "./views/PlannerView";
 import { AssistantView, VIEW_TYPE_MARVIS_ASSISTANT } from "./views/AssistantView";
 import { TaskActionBar } from "./views/shared/TaskActionBar";
@@ -34,9 +37,12 @@ export default class KanbanPlusPlugin extends Plugin {
   logService!: LogService;
   eventService!: EventService;
   habitService!: HabitService;
+  documentService!: DocumentService;
+  skillService!: SkillService;
   calendarSyncEngine!: CalendarSyncEngine;
   chatTranscriptService!: ChatTranscriptService;
   assistantSession!: AssistantSession;
+  activeFileTracker!: ActiveFileTracker;
   taskActionBar!: TaskActionBar;
 
   private openViews = new Set<PlannerView>();
@@ -100,6 +106,12 @@ export default class KanbanPlusPlugin extends Plugin {
       sidebarCache,
       () => this.allocateCode("habit")
     );
+    this.documentService = new DocumentService(this.app, this.projectService);
+    this.skillService = new SkillService(
+      this.app,
+      () => this.settings.rootFolder,
+      this.projectService
+    );
     this.calendarSyncEngine = new CalendarSyncEngine(
       this,
       this.eventService,
@@ -125,6 +137,8 @@ export default class KanbanPlusPlugin extends Plugin {
 
     registerCommands(this);
     this.registerTaskContextMenu();
+    this.activeFileTracker = new ActiveFileTracker(this);
+    this.activeFileTracker.start();
     this.taskActionBar = new TaskActionBar(this);
     this.taskActionBar.start();
 

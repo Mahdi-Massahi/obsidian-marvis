@@ -8,6 +8,17 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 ## [Unreleased]
 
+### Added
+
+- **AI assistant — web search.** A new *Web search* toggle in assistant settings lets Marvis answer with Google Search grounding for current facts and anything outside the vault (off by default). The grounding tool is added alongside the existing function declarations in the Gemini live setup; if the configured model rejects grounding together with tool calling, the session drops grounding on reconnect and continues rather than failing to start. (`src/services/assistant/geminiLiveClient.ts`, `src/services/assistant/assistantSession.ts`, `src/settings.ts`)
+- **AI assistant — full-text content search.** New `search_content` tool greps *inside* markdown bodies across the whole vault, including free-form documents that `search_vault` (titles/excerpts/tags of indexed entities only) can't see. Returns matching files with line snippets; bounded for performance — recent files first, per-file snippet cap, hard scan cap, and early-exit once the result limit is met. (`src/services/documentService.ts`, `src/services/assistant/toolRegistry.ts`)
+- **AI assistant — skills library.** The assistant can now grow and reuse its own skills — short markdown instruction files under `<root>/_assistant/skills/`. Their name + description index is injected into the system prompt so the model knows what's available; `load_skill` pulls a skill's full text into context on demand, `save_skill` (confirmed like any other write) creates or updates one, and `list_skills` enumerates them. Files carry `kind: skill` and the `_assistant` subtree is skipped by the indexer, so they never become entities. (`src/services/assistant/skillService.ts`, `src/services/assistant/toolRegistry.ts`, `src/index/indexer.ts`)
+
+### Fixed
+
+- **AI assistant — duplicate confirmation modals.** Approving the same change could pop the confirmation modal twice. De-duplication no longer relies on the model-supplied call id alone — Gemini live re-issues an identical write under a *fresh* id after a partial-speech turn or a session-resumption replay, which id-matching can't catch. Write calls are now de-duplicated by a content hash of their name + arguments (within a short window, and within a single batch), and repeats are answered without re-prompting. (`src/services/assistant/assistantSession.ts`)
+- **AI assistant — reading the focused note.** "Read the note I have open" and deictic references ("this task", "here", "the current note") failed when the assistant panel held focus, because `workspace.getActiveFile()` returns null for the panel's own leaf. A new active-file tracker remembers the last focused markdown editor (ignoring the assistant view), so the `[active: …]` message stamp and `get_active_file` resolve to the note the user actually means — including free-form documents. (`src/services/assistant/activeFileTracker.ts`)
+
 ## [0.2.4] — 2026-06-08
 
 ### Changed

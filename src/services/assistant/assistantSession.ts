@@ -10,6 +10,7 @@ import {
   buildFunctionDeclarations,
   dispatch,
   FunctionResponseItem,
+  isWriteTool,
 } from "./toolRegistry";
 
 export type SessionState =
@@ -56,10 +57,29 @@ function formatDateTimeStamp(d: Date = new Date()): string {
   );
 }
 
+// Order-independent JSON so identical tool calls hash the same regardless of
+// key ordering in the model's arguments object.
+function stableStringify(v: unknown): string {
+  if (v === null || typeof v !== "object") return JSON.stringify(v) ?? "null";
+  if (Array.isArray(v)) return `[${v.map(stableStringify).join(",")}]`;
+  const obj = v as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(",")}}`;
+}
+
+// Content key for a tool call: name + normalized args. Two calls with the same
+// key are semantically the same action even if the model gave them different
+// ids.
+function toolHash(call: { name: string; args?: Record<string, unknown> }): string {
+  return `${call.name} ${stableStringify(call.args ?? {})}`;
+}
+
 function buildSystemInstruction(opts: {
   userName?: string;
   override?: string;
   projectNames?: string[];
+  webSearch?: boolean;
+  skillIndex?: Array<{ name: string; description: string }>;
 }): string {
   const now = new Date();
   const todayISO = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -71,6 +91,17 @@ function buildSystemInstruction(opts: {
   const projectsBlock = projects.length
     ? `\nKNOWN PROJECTS (canonical names — match user mentions against this list; do not invent):\n${projects.map((p) => `- ${p}`).join("\n")}\n`
     : "";
+  const webSearchLine = opts.webSearch
+    ? "\n- You can search the web with Google Search for current facts, prices, news, or anything outside the vault. Prefer the vault tools for the user's own data; use web search only for external information, and say when you're drawing on a web result."
+    : "";
+  const SKILL_CAP = 50;
+  const skills = (opts.skillIndex ?? []).filter((s) => s.name && s.name.trim());
+  const shownSkills = skills.slice(0, SKILL_CAP);
+  const skillsBlock = shownSkills.length
+    ? `\nSKILLS (reusable saved instructions — when the user's request matches one, call load_skill(name) to get the full text before acting):\n${shownSkills
+        .map((s) => `- ${s.name}: ${s.description || "(no description)"}`)
+        .join("\n")}${skills.length > SKILL_CAP ? `\n- …and ${skills.length - SKILL_CAP} more (call list_skills to see all).` : ""}\n`
+    : "";
 
   const base = `You are Marvis, ${name ? `${name}'s` : "the user's"} voice-driven planning assistant inside Obsidian.
 
@@ -79,20 +110,24 @@ CURRENT CONTEXT (this session started at this moment — use it as your referenc
 - Today: ${todayISO}
 - Tomorrow: ${tomorrowISO}
 ${name ? `- User's name: ${name}` : ""}
-${projectsBlock}
+${projectsBlock}${skillsBlock}
 You have read and write access to ${name ? `${name}'s` : "the user's"} projects, tasks, milestones, events, and logs through tools. You can also read habits — daily, weekly, or monthly recurring practices the user is tracking. Use list_habits and get_habit_review when habits are relevant; the planning snapshot already includes which habits are due today and which are on a streak. You should:
 - Address ${name ? name + " by name occasionally — naturally, not in every turn" : "the user warmly without overusing 'user'"}. Sound concise, friendly, and warm. Speak in short turns, summarize lists rather than reading every item.
 - At the start of any open-ended planning conversation ("what's on my plate?", "good morning", "what should I focus on?"), proactively call get_planning_snapshot and use list_tasks (filtered by due=today and due=tomorrow) to give a personalized overview. Mention overdue items if any, then today, then tomorrow if relevant.
 - Resolve relative dates ("today", "tomorrow", "Friday", "next week") against today's date above. Today is ${todayISO}, tomorrow is ${tomorrowISO}. Do not invent dates.
 - The user's text messages may arrive prefixed with [YYYY-MM-DD HH:mm:ss] indicating exactly when they were sent. Treat that timestamp as authoritative for "now" within the conversation if it differs from the session-start time above.
 - Text messages may also include [active: <path>] right after the timestamp — that's the file the user has focused in Obsidian. When they use deictic references ("this task", "the current note", "here", "that log"), assume they mean the file in [active: …]. In voice mode (no [active: …] line) or when no file is focused, call get_active_file to resolve. Don't call get_active_file when the user names a file or project explicitly.
-- Before making any change to the vault (creating tasks/milestones/projects/logs/events, updating tasks, archiving items), briefly state intent in one sentence, then call the tool. The user sees a confirmation modal — never assume approval. If a tool returns declined: true, accept it without arguing and offer alternatives.
+- Before making any change to the vault (creating tasks/milestones/projects/logs/events, updating tasks, archiving items, writing documents), briefly state intent in one sentence, then call the tool. The user sees a confirmation modal — never assume approval. If a tool returns declined: true, accept it without arguing and offer alternatives.
 - After a write tool resolves with ok: true, acknowledge in ONE short sentence ("Done.", "Created.", "Logged.", "Updated."). Optionally include just the title or a single anchor (date/project) — never the full field list. The user already saw every field in the approval modal, so do not read back priority, due date, tags, status, project, etc. unless they explicitly ask "what did you set?". Same rule for batches: one acknowledgement covers the batch.
 - Never invent project names, task titles, paths, or item ids. Only reference items returned by tools. If unsure, call list_* or search_vault first.
 - Use ISO YYYY-MM-DD for dates in tool arguments.
 - When the user mentions a project, match it against KNOWN PROJECTS above (case-insensitive; tolerate minor mispronunciations and partial matches). If two or more entries plausibly match, ask the user which one. Only call create_project if no entry in the list reasonably matches. When no project is specified at all, default to "Inbox".
 - When creating tasks, logs, or events, always populate the body field with the substantive content the user gave you — notes, context, acceptance criteria, what happened, agenda, links, attendees. The title is a one-line label; the body is where the actual information lives. For logs especially, the body is the main payload — never create a log with only a title. Only leave body empty if the user genuinely gave nothing beyond a title.
 - When calling create_task, classify the task and include exactly one of \`bug\`, \`feature\`, \`improvement\`, or \`idea\` in \`tags\`: \`bug\` for something broken or wrong ("X is failing", "fix Y", "Z doesn't work"), \`feature\` for a concrete new capability to build ("add", "support", "implement"), \`improvement\` for refining/polishing something that already exists ("make X faster", "tweak Y", "clean up Z", "better wording for…"), \`idea\` for an exploratory or half-formed thought ("maybe we could…", "what if…", brainstorm-style). When unsure between feature and idea, prefer \`idea\`; when unsure between feature and improvement, ask whether the thing already exists — if yes, \`improvement\`. Preserve any additional tags the user mentioned alongside the classification tag.
+- You can also save free-form content to plain document files (ordinary markdown notes, not tasks/logs/milestones). When the user wants to dictate or write information into a document: use create_document to make a new markdown file at a path they name, and append_to_document to add content to an existing file (it creates the file if missing). Pass the dictated text in \`content\`, and use ISO dates in filenames (e.g. 'Notes/Standup 2026-07-20.md'). When the target path is ambiguous, confirm the file name or folder with the user before writing. These go through the same confirmation modal as every other change.
+- To read a document back, use read_document with its path (it reads any markdown file, free-form or Marvis note). If you don't know the exact path, call list_documents (optionally scoped to a folder) to find it first, or search_vault for Marvis items. get_item only works for indexed Marvis entities, so use read_document for plain documents.
+- To find text *inside* note bodies (not just titles or tags), use search_content — it reads full file bodies across the whole vault, including plain documents. Prefer search_vault when matching a Marvis item by title/tag; use search_content when the thing you're looking for is written in the body text.${webSearchLine}
+- You have a library of saved skills (listed above under SKILLS when any exist). When the user's request matches a skill's description, call load_skill with its name and follow it before acting. When the user teaches you a repeatable procedure or asks you to remember how to do something, offer to save it with save_skill — it goes through the confirmation modal like any other change. Use list_skills when the user asks what you can do or wants to review them. A newly saved skill is available to load_skill right away, but only appears in the SKILLS list above from the next session.
 - Keep spoken replies under ~3 sentences unless asked for more detail. For long lists, summarize as counts ("you have five tasks due today — want me to read them?") and read on request.`;
 
   if (opts.override && opts.override.trim()) {
@@ -127,12 +162,20 @@ export class AssistantSession {
   private opts: SessionOptions = {};
   private pendingTools = new Map<string, ClientFunctionCall>();
   private toolQueue: Promise<void> = Promise.resolve();
+  // Content-hash cache of recently-handled WRITE calls (keyed by name+args), so
+  // a re-issued identical write under a fresh id doesn't re-prompt the user.
+  private recentToolResults = new Map<string, { at: number; response: Record<string, unknown> }>();
+  private static readonly TOOL_DEDUP_TTL_MS = 30_000;
   private inputBuffer = "";
   private outputBuffer = "";
   private lastSpokenAt = 0;
   private wakeLock: { release: () => Promise<void> } | null = null;
   private wakeLockReacquireRef: ((this: Document, ev: Event) => void) | null = null;
   private micActive = false;
+  // Web-search degrade: set true if a setup fails while Google Search grounding
+  // was enabled, so the reconnect drops grounding instead of looping forever.
+  private webSearchBlocked = false;
+  private sawSetupComplete = false;
 
   constructor(plugin: KanbanPlusPlugin, transcript: ChatTranscriptService) {
     this.plugin = plugin;
@@ -243,6 +286,9 @@ export class AssistantSession {
     }
     this.startedAt = null;
     this.pendingTools.clear();
+    this.recentToolResults.clear();
+    this.webSearchBlocked = false;
+    this.sawSetupComplete = false;
     this.toolQueue = Promise.resolve();
     this.inputBuffer = "";
     this.outputBuffer = "";
@@ -263,7 +309,7 @@ export class AssistantSession {
     // setup was sent earlier. Then prepend [active: <path>] so deictic
     // references ("this task", "here") resolve without an extra tool call.
     const stampPattern = /^\s*\[\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?\]/;
-    const activeFile = this.plugin.app.workspace.getActiveFile();
+    const activeFile = this.plugin.activeFileTracker.current();
     const activePrefix = activeFile ? `[active: ${activeFile.path}] ` : "";
     const stamped = stampPattern.test(text)
       ? text
@@ -279,6 +325,11 @@ export class AssistantSession {
     const settings = this.plugin.settings.assistant;
     const tools = buildFunctionDeclarations();
     const projectNames = Object.values(this.plugin.store.getState().projects).map((p) => p.name);
+    // Grounding is on only if the user enabled it AND we haven't already found
+    // that the model rejects it (webSearchBlocked). Keep the prompt in sync so
+    // we never advertise a capability the setup didn't actually enable.
+    const webSearch = settings.webSearch && !this.webSearchBlocked;
+    this.sawSetupComplete = false;
     const client = new GeminiLiveClient({
       apiKey: settings.apiKey.trim(),
       model: settings.model,
@@ -287,8 +338,11 @@ export class AssistantSession {
         userName: settings.userName,
         override: settings.systemInstructionOverride,
         projectNames,
+        webSearch,
+        skillIndex: this.plugin.skillService.listSkillIndex(),
       }),
       tools,
+      enableGoogleSearch: webSearch,
       resumeHandle: this.resumeHandle ?? undefined,
     });
     this.wireClient(client);
@@ -347,6 +401,9 @@ export class AssistantSession {
       if (this.outputBuffer.trim()) this.flushOutputBuffer();
       this.setState("listening");
     });
+    client.on("setupComplete", () => {
+      this.sawSetupComplete = true;
+    });
     client.on("sessionResumption", ({ handle }) => {
       this.resumeHandle = handle;
     });
@@ -354,7 +411,20 @@ export class AssistantSession {
       void this.reconnect();
     });
     client.on("close", ({ code }) => {
-      if (this.state !== "idle" && code !== 1000) void this.reconnect();
+      if (this.state === "idle" || code === 1000) return;
+      // A non-1000 close before setup completed, while Google Search grounding
+      // was enabled, most likely means the model rejects grounding + function
+      // calling together. Drop grounding once so the reconnect can succeed
+      // instead of looping on the same bad setup.
+      if (
+        this.plugin.settings.assistant.webSearch &&
+        !this.webSearchBlocked &&
+        !this.sawSetupComplete
+      ) {
+        this.webSearchBlocked = true;
+        new Notice("Web search isn't supported by this model — continuing without it.");
+      }
+      void this.reconnect();
     });
     client.on("error", ({ message }) => {
       new Notice(`Assistant error: ${message}`);
@@ -362,12 +432,48 @@ export class AssistantSession {
   }
 
   private async handleToolCalls(calls: ClientFunctionCall[]): Promise<void> {
-    // Drop any call whose id is already in flight. Gemini Live can resend the
-    // same toolCall (e.g. after a session-resumption hiccup before our
-    // sendToolResponses lands), and we don't want to re-prompt the user for
-    // an approval they've already given.
-    const fresh = calls.filter((c) => !c.id || !this.pendingTools.has(c.id));
-    if (fresh.length === 0) return;
+    // Prune expired content-dedup entries so the cache can't grow unbounded.
+    const nowMs = Date.now();
+    for (const [hash, entry] of this.recentToolResults) {
+      if (nowMs - entry.at > AssistantSession.TOOL_DEDUP_TTL_MS) {
+        this.recentToolResults.delete(hash);
+      }
+    }
+
+    // Dedup in three layers before dispatching:
+    //  1. in-flight id (a call we're still handling — pendingTools),
+    //  2. duplicate id within this same batch,
+    //  3. for WRITE tools, an identical (name+args) call we've already handled.
+    //     Gemini Live re-issues the same write with a FRESH id after a
+    //     partial-speech turn or a session-resumption replay (see the comment
+    //     in geminiLiveClient.sendSetup) — id-dedup can't catch that. Such calls
+    //     are short-circuited so the user isn't re-prompted, and the model still
+    //     gets a response for every call it made.
+    const fresh: ClientFunctionCall[] = [];
+    const shortCircuit: FunctionResponseItem[] = [];
+    const seenIds = new Set<string>();
+    const seenHashes = new Set<string>();
+    for (const call of calls) {
+      if (call.id && this.pendingTools.has(call.id)) continue;
+      if (call.id && seenIds.has(call.id)) continue;
+      if (call.id) seenIds.add(call.id);
+      if (isWriteTool(call.name)) {
+        const hash = toolHash(call);
+        const cached = this.recentToolResults.get(hash);
+        if (seenHashes.has(hash) || cached) {
+          shortCircuit.push({
+            id: call.id,
+            name: call.name,
+            response: cached?.response ?? { ok: true, deduped: true, summary: "Already handled." },
+          });
+          continue;
+        }
+        seenHashes.add(hash);
+      }
+      fresh.push(call);
+    }
+
+    if (fresh.length === 0 && shortCircuit.length === 0) return;
 
     // Commit any pre-amble the model said (or user input we haven't finalized)
     // before we record tool-call entries — otherwise the transcript shows the
@@ -407,6 +513,11 @@ export class AssistantSession {
           },
         }
       );
+      // Cache write results (including declines) so a re-issued identical write
+      // under a fresh id is short-circuited instead of re-prompting.
+      if (isWriteTool(call.name)) {
+        this.recentToolResults.set(toolHash(call), { at: Date.now(), response: response.response });
+      }
       if (call.id && this.pendingTools.has(call.id)) {
         responses.push(response);
         this.pendingTools.delete(call.id);
@@ -415,7 +526,8 @@ export class AssistantSession {
       }
     }
 
-    if (responses.length > 0) this.client?.sendToolResponses(responses);
+    const out = [...responses, ...shortCircuit];
+    if (out.length > 0) this.client?.sendToolResponses(out);
     if (this.pendingTools.size === 0) {
       this.setState(wasState === "speaking" ? "speaking" : "thinking");
     }
@@ -530,30 +642,18 @@ export class AssistantSession {
   }
 }
 
-const WRITE_TOOL_NAMES = new Set([
-  "create_task",
-  "update_task",
-  "create_milestone",
-  "create_project",
-  "create_log",
-  "create_event",
-  "archive_item",
-]);
-
-function isWriteTool(name: string): boolean {
-  return WRITE_TOOL_NAMES.has(name);
-}
-
 export async function testGeminiConnection(opts: {
   apiKey: string;
   model: string;
   voice: string;
+  enableGoogleSearch?: boolean;
 }): Promise<void> {
   const client = new GeminiLiveClient({
     apiKey: opts.apiKey.trim(),
     model: opts.model,
     voice: opts.voice,
     tools: [],
+    enableGoogleSearch: opts.enableGoogleSearch,
   });
   await client.connect();
   await new Promise<void>((resolve, reject) => {

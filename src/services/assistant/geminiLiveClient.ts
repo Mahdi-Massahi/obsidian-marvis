@@ -35,6 +35,8 @@ export interface ClientOptions {
   voice: string;
   systemInstruction?: string;
   tools: FunctionDeclaration[];
+  /** Add Google Search grounding alongside the function declarations. */
+  enableGoogleSearch?: boolean;
   resumeHandle?: string;
   onLog?: (line: string) => void;
 }
@@ -183,8 +185,17 @@ export class GeminiLiveClient {
         parts: [{ text: this.opts.systemInstruction }],
       };
     }
+    // Tool blocks are additive: function declarations and the built-in Google
+    // Search grounding tool are separate entries in the same array.
+    const toolBlocks: Record<string, unknown>[] = [];
     if (this.opts.tools && this.opts.tools.length > 0) {
-      setup.tools = [{ functionDeclarations: this.opts.tools }];
+      toolBlocks.push({ functionDeclarations: this.opts.tools });
+    }
+    if (this.opts.enableGoogleSearch) {
+      toolBlocks.push({ googleSearch: {} });
+    }
+    if (toolBlocks.length > 0) {
+      setup.tools = toolBlocks;
     }
     this.send({ setup });
     this.setupSent = true;

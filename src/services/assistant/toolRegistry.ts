@@ -64,6 +64,12 @@ export function buildFunctionDeclarations(): Array<{
   }));
 }
 
+// Whether a tool mutates the vault (and therefore routes through the confirm
+// modal). Driven by the registry so callers never drift out of sync with it.
+export function isWriteTool(name: string): boolean {
+  return TOOLS.some((t) => t.name === name && t.write);
+}
+
 export async function dispatch(
   call: FunctionCall,
   ctx: ToolCtx,
@@ -392,7 +398,7 @@ register({
   parameters: { type: "object", properties: {} },
   write: false,
   handler: (_args, ctx) => {
-    const file = ctx.app.workspace.getActiveFile();
+    const file = ctx.plugin.activeFileTracker.current();
     if (!file) return { active: null };
     const found = findItemByPath(ctx, file.path);
     if (!found) {
@@ -667,6 +673,70 @@ register({
 });
 
 register({
+  name: "search_content",
+  description:
+    "Full-text search INSIDE the body text of markdown files across the whole vault, including free-form documents that search_vault can't see. Returns matching files with the matched line snippets. Use this when the user asks about something written in the text/body of a note, not just its title or tags. (search_vault only matches titles, excerpts, and tags of indexed Marvis items; search_content reads full file bodies.)",
+  parameters: {
+    type: "object",
+    required: ["query"],
+    properties: {
+      query: { type: "string" },
+      folder: { type: "string", description: "Optional vault-relative folder to scope the search, e.g. 'Notes'." },
+      limit: { type: "number", description: "Max number of matching files to return. Default 20." },
+      regex: { type: "boolean", description: "Treat the query as a case-insensitive regular expression. Default false." },
+    },
+  },
+  write: false,
+  handler: async (args, ctx) =>
+    ctx.plugin.documentService.searchContent(asStr(args.query), {
+      folder: args.folder != null ? asStr(args.folder) : undefined,
+      limit: typeof args.limit === "number" ? args.limit : undefined,
+      regex: args.regex === true,
+    }),
+});
+
+register({
+  name: "list_skills",
+  description:
+    "List the assistant's saved skills (reusable instruction files) by name and description. Use this to answer 'what skills do you have?' or to help the user review/prune the library.",
+  parameters: { type: "object", properties: {} },
+  write: false,
+  handler: (_args, ctx) => ctx.plugin.skillService.listSkillIndex(),
+});
+
+register({
+  name: "load_skill",
+  description:
+    "Load the full text of a saved skill by name so you can follow its instructions. Available skills are listed in your system prompt under SKILLS — call this before acting when the user's request matches one.",
+  parameters: {
+    type: "object",
+    required: ["name"],
+    properties: { name: { type: "string" } },
+  },
+  write: false,
+  handler: async (args, ctx) => ctx.plugin.skillService.loadSkill(asStr(args.name)),
+});
+
+register({
+  name: "save_skill",
+  description:
+    "Create or update a saved skill — a reusable set of instructions the assistant can load later. Provide a short machine-friendly name, a one-line description of when to use it, and the body text. Overwrites an existing skill with the same name. Save a skill when the user asks you to remember how to do something, or teaches you a repeatable procedure.",
+  parameters: {
+    type: "object",
+    required: ["name", "description", "body"],
+    properties: {
+      name: { type: "string", description: "Short skill name, e.g. 'weekly-review'." },
+      description: { type: "string", description: "One line describing when this skill applies." },
+      body: { type: "string", description: "The full instructions that make up the skill." },
+    },
+  },
+  write: true,
+  preview: (a) => `Save skill "${asStr(a.name)}" — ${asStr(a.description)}`,
+  handler: async (args, ctx) =>
+    ctx.plugin.skillService.saveSkill(asStr(args.name), asStr(args.description), asStr(args.body)),
+});
+
+register({
   name: "get_planning_snapshot",
   description:
     "Get a high-level snapshot: tasks due today, overdue tasks, upcoming events, and active projects. " +
@@ -784,7 +854,7 @@ register({
 
 register({
   name: "get_item",
-  description: "Read an item's title, frontmatter fields, and full body by its path.",
+  description: "Read a Marvis item's title, frontmatter fields, and full body by its path. Only works for indexed Marvis entities (task/log/event/milestone/project). To read a plain document or any other markdown file, use read_document.",
   parameters: {
     type: "object",
     required: ["path"],
@@ -798,6 +868,49 @@ register({
     const found = findItemByPath(ctx, path);
     if (!found) throw new Error(`No item at path ${path}`);
     return { kind: found.kind, item: found.item };
+  },
+});
+
+register({
+  name: "read_document",
+  description:
+    "Read the full text of any markdown file in the vault by path — a free-form document or a Marvis note. Use this to read back a document you created, or any file the user names. `path` is vault-relative; if it has no extension, '.md' is tried automatically. For structured frontmatter fields of a Marvis task/log/event/milestone/project, prefer get_item.",
+  parameters: {
+    type: "object",
+    required: ["path"],
+    properties: {
+      path: {
+        type: "string",
+        description: "Vault-relative path of the file to read, e.g. 'Notes/Journal.md'.",
+      },
+    },
+  },
+  write: false,
+  handler: async (args, ctx) => {
+    return await ctx.plugin.documentService.readDocument(asStr(args.path));
+  },
+});
+
+register({
+  name: "list_documents",
+  description:
+    "List markdown files in the vault, optionally scoped to a folder — including free-form documents that search_vault and the list_* tools (which only see indexed Marvis entities) don't surface. Use this to find a document to read when you don't know its exact path.",
+  parameters: {
+    type: "object",
+    properties: {
+      folder: {
+        type: "string",
+        description: "Optional vault-relative folder to list within, e.g. 'Notes'. Omit to list the whole vault.",
+      },
+      limit: { type: "number", description: "Max files to return. Default 100." },
+    },
+  },
+  write: false,
+  handler: (args, ctx) => {
+    return ctx.plugin.documentService.listDocuments({
+      folder: args.folder != null ? asStr(args.folder) : undefined,
+      limit: typeof args.limit === "number" ? args.limit : undefined,
+    });
   },
 });
 
@@ -1181,6 +1294,89 @@ register({
     else if (found.kind === "event") await ctx.plugin.eventService.archive(found.item as Event);
     else throw new Error(`Cannot archive ${found.kind}`);
     return { path };
+  },
+});
+
+register({
+  name: "create_document",
+  description:
+    "Create a new free-form markdown document — a plain note, NOT a Marvis task/log/milestone/project/event — at a specific path in the vault. Use this to persist dictated content, meeting notes, drafts, or any information the user wants saved to a document file. `path` is vault-relative (e.g. 'Notes/Meeting 2026-07-20.md'); a '.md' extension is added when missing and parent folders are created automatically. Fails if a file already exists at that path unless overwrite is true — to add to an existing file, use append_to_document instead.",
+  parameters: {
+    type: "object",
+    required: ["path"],
+    properties: {
+      path: {
+        type: "string",
+        description:
+          "Vault-relative path for the new file, e.g. 'Notes/Ideas.md'. '.md' is appended if omitted; parent folders are created as needed.",
+      },
+      content: {
+        type: "string",
+        description:
+          "Full markdown content of the document — the dictated or written text. Include a leading '# Title' heading when it helps. Leave empty only if the user genuinely wants a blank file.",
+      },
+      overwrite: {
+        type: "boolean",
+        description: "Replace the file if one already exists at path. Default false.",
+      },
+    },
+  },
+  write: true,
+  preview: (args) => {
+    const body = asStr(args.content).trim();
+    const head = body ? ` — ${body.slice(0, 60)}${body.length > 60 ? "…" : ""}` : "";
+    return `Create document ${asStr(args.path)}${args.overwrite ? " (overwrite)" : ""}${head}`;
+  },
+  handler: async (args, ctx) => {
+    return await ctx.plugin.documentService.createDocument(asStr(args.path), {
+      content: args.content != null ? asStr(args.content) : undefined,
+      overwrite: args.overwrite === true,
+    });
+  },
+});
+
+register({
+  name: "append_to_document",
+  description:
+    "Append markdown text to a specific document file, creating it if it doesn't exist. Use this to add dictated content to an existing note, or to keep adding to the same document across a conversation. `path` is vault-relative and a '.md' extension is added when missing. Optionally pass `heading` to place the content under a new '## heading' section.",
+  parameters: {
+    type: "object",
+    required: ["path", "content"],
+    properties: {
+      path: {
+        type: "string",
+        description: "Vault-relative path of the file to append to, e.g. 'Notes/Journal.md'.",
+      },
+      content: {
+        type: "string",
+        description: "Markdown text to append — the dictated or written content.",
+      },
+      heading: {
+        type: "string",
+        description: "Optional. When given, the content is appended under a new '## heading' section.",
+      },
+      createIfMissing: {
+        type: "boolean",
+        description: "Create the file if it doesn't exist yet. Default true.",
+      },
+    },
+  },
+  write: true,
+  preview: (args) => {
+    const body = asStr(args.content).trim();
+    const head = body ? body.slice(0, 60) : "(empty)";
+    const sec = args.heading ? ` under "## ${asStr(args.heading)}"` : "";
+    return `Append to ${asStr(args.path)}${sec}: ${head}${body.length > 60 ? "…" : ""}`;
+  },
+  handler: async (args, ctx) => {
+    return await ctx.plugin.documentService.appendToDocument(
+      asStr(args.path),
+      asStr(args.content),
+      {
+        heading: args.heading != null ? asStr(args.heading) : undefined,
+        createIfMissing: args.createIfMissing !== false,
+      }
+    );
   },
 });
 

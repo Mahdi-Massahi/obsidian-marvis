@@ -249,6 +249,7 @@ export class Indexer {
       else if (child instanceof TFolder) {
         if (child.name === "skills") continue;
         if (child.name === "_chats") continue;
+        if (child.name === "_assistant") continue;
         this.walk(child, visit);
       }
     }
