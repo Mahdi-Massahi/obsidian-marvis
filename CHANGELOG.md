@@ -8,6 +8,8 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 ## [Unreleased]
 
+## [0.2.5] — 2026-07-30
+
 ### Added
 
 - **AI assistant — web search.** A new *Web search* toggle in assistant settings lets Marvis answer with Google Search grounding for current facts and anything outside the vault (off by default). The grounding tool is added alongside the existing function declarations in the Gemini live setup; if the configured model rejects grounding together with tool calling, the session drops grounding on reconnect and continues rather than failing to start. (`src/services/assistant/geminiLiveClient.ts`, `src/services/assistant/assistantSession.ts`, `src/settings.ts`)
