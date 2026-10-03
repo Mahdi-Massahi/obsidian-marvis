@@ -8,6 +8,11 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 ## [Unreleased]
 
+### Fixed
+
+- **Kanban — milestone grouping respects the project filter.** With one or more projects selected, *Group by milestone* now only shows columns for those projects' milestones instead of every milestone in the vault. (`src/views/Kanban.tsx`)
+- **Kanban — milestones with the same name in different projects.** Milestone columns were keyed by name alone, so same-named milestones (e.g. *Paper* in two projects) were merged into one column and labelled with whichever project was indexed last. Columns are now keyed by project + name, and each task is placed under its own project's milestone. Quick-adding a task in a milestone column also creates it in that milestone's project rather than the first filtered project. (`src/views/Kanban.tsx`)
+
 ## [0.2.5] — 2026-07-30
 
 ### Added

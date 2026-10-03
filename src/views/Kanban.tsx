@@ -35,13 +35,10 @@ export const KanbanRoot: React.FC = () => {
   const allTasks = React.useMemo(() => Object.values(tasksMap), [tasksMap]);
   const filtered = React.useMemo(() => applyFilter(allTasks, filter), [allTasks, filter]);
 
-  const columns = React.useMemo(() => buildColumns(filtered, groupBy, settings, milestones), [
-    filtered,
-    groupBy,
-    settings.statuses,
-    settings.priorities,
-    milestones,
-  ]);
+  const columns = React.useMemo(
+    () => buildColumns(filtered, groupBy, settings, milestones, filter.projects),
+    [filtered, groupBy, settings.statuses, settings.priorities, milestones, filter.projects]
+  );
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -112,8 +109,7 @@ export const KanbanRoot: React.FC = () => {
     } else if (groupBy === "priority") {
       optimistic.priority = targetColumnId === "__none" ? undefined : targetColumnId;
     } else if (groupBy === "milestone") {
-      optimistic.milestone =
-        targetColumnId === "__unassigned" ? undefined : targetColumnId;
+      optimistic.milestone = targetCol.milestone;
     }
     store.getState().upsertTask(optimistic);
     setActiveId(null);
@@ -121,7 +117,7 @@ export const KanbanRoot: React.FC = () => {
     // Persist to disk in the background; the indexer will re-sync afterwards.
     void (async () => {
       if (sourceColumnId !== targetColumnId) {
-        await applyGroupChange(activeTask, groupBy, targetColumnId, taskService);
+        await applyGroupChange(activeTask, groupBy, targetCol, taskService);
       }
       await taskService.setOrder(activeTask, newOrder);
     })();
@@ -184,31 +180,42 @@ interface Column {
   color?: string;
   tasks: Task[];
   suffix?: string;
+  // Milestone mode only: the milestone name written to tasks dropped/created here,
+  // and the project it belongs to.
+  milestone?: string;
+  project?: string;
+}
+
+// Milestone names aren't unique across projects (e.g. "Paper" in two projects),
+// so milestone columns are keyed by project + name.
+function milestoneColumnId(project: string | undefined, name: string): string {
+  return `${project ?? ""}/${name}`;
 }
 
 function columnIdFor(task: Task, groupBy: GroupBy): string {
   if (groupBy === "status") return task.status;
   if (groupBy === "priority") return task.priority ?? "__none";
-  return task.milestone ?? "__unassigned";
+  return task.milestone ? milestoneColumnId(task.project, task.milestone) : "__unassigned";
 }
 
 async function applyGroupChange(
   task: Task,
   groupBy: GroupBy,
-  newColId: string,
+  target: Column,
   taskService: import("../services/taskService").TaskService
 ): Promise<void> {
-  if (groupBy === "status") await taskService.setStatus(task, newColId);
+  if (groupBy === "status") await taskService.setStatus(task, target.id);
   else if (groupBy === "priority")
-    await taskService.setPriority(task, newColId === "__none" ? "" : newColId);
-  else await taskService.setMilestone(task, newColId === "__unassigned" ? undefined : newColId);
+    await taskService.setPriority(task, target.id === "__none" ? "" : target.id);
+  else await taskService.setMilestone(task, target.milestone);
 }
 
 function buildColumns(
   tasks: Task[],
   groupBy: GroupBy,
   settings: import("../settings").KanbanPlusSettings,
-  milestones: Record<string, import("../schema/types").Milestone>
+  milestones: Record<string, import("../schema/types").Milestone>,
+  projectFilter: string[]
 ): Column[] {
   const sorted = tasks.slice().sort((a, b) => a.order - b.order);
   if (groupBy === "status") {
@@ -238,23 +245,28 @@ function buildColumns(
       return { id, label: def?.label ?? id, color: def?.color, tasks: list };
     });
   }
-  const map = new Map<string, Task[]>();
-  map.set("__unassigned", []);
-  for (const m of Object.values(milestones)) map.set(m.name, []);
-  for (const t of sorted) {
-    const key = t.milestone ?? "__unassigned";
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(t);
+  const cols = new Map<string, Column>();
+  cols.set("__unassigned", { id: "__unassigned", label: "Unassigned", tasks: [] });
+  const addMilestoneCol = (project: string | undefined, name: string): Column => {
+    const id = milestoneColumnId(project, name);
+    let col = cols.get(id);
+    if (!col) {
+      col = { id, label: name, suffix: project, milestone: name, project, tasks: [] };
+      cols.set(id, col);
+    }
+    return col;
+  };
+  // With a project filter active, only seed columns for that project's milestones.
+  const projectSet = projectFilter.length ? new Set(projectFilter) : null;
+  for (const m of Object.values(milestones)) {
+    if (projectSet && (!m.project || !projectSet.has(m.project))) continue;
+    addMilestoneCol(m.project, m.name);
   }
-  const milestoneByName = new Map(
-    Object.values(milestones).map((m) => [m.name, m])
-  );
-  return Array.from(map.entries()).map(([id, list]) => ({
-    id,
-    label: id === "__unassigned" ? "Unassigned" : id,
-    suffix: id === "__unassigned" ? undefined : milestoneByName.get(id)?.project,
-    tasks: list,
-  }));
+  for (const t of sorted) {
+    const col = t.milestone ? addMilestoneCol(t.project, t.milestone) : cols.get("__unassigned")!;
+    col.tasks.push(t);
+  }
+  return Array.from(cols.values());
 }
 
 interface ColProps {
@@ -278,7 +290,7 @@ const KanbanColumn: React.FC<ColProps> = ({ column, groupBy }) => {
       </div>
       <SortableContext items={column.tasks.map((t) => t.id)}>
         <div className="kp-col__body">
-          <NewTaskGhost columnId={column.id} groupBy={groupBy} />
+          <NewTaskGhost column={column} groupBy={groupBy} />
           {column.tasks.map((task) => (
             <SortableCard key={task.id} task={task} />
           ))}
@@ -289,11 +301,12 @@ const KanbanColumn: React.FC<ColProps> = ({ column, groupBy }) => {
 };
 
 interface GhostProps {
-  columnId: string;
+  column: Column;
   groupBy: GroupBy;
 }
 
-const NewTaskGhost: React.FC<GhostProps> = ({ columnId, groupBy }) => {
+const NewTaskGhost: React.FC<GhostProps> = ({ column, groupBy }) => {
+  const columnId = column.id;
   const { taskService, settings, store } = usePlugin();
   const filter = store((s) => s.filter);
   const projects = store((s) => s.projects);
@@ -328,7 +341,10 @@ const NewTaskGhost: React.FC<GhostProps> = ({ columnId, groupBy }) => {
     };
     if (groupBy === "status" && columnId !== "__none") input.status = columnId;
     if (groupBy === "priority" && columnId !== "__none") input.priority = columnId;
-    if (groupBy === "milestone" && columnId !== "__unassigned") input.milestone = columnId;
+    if (groupBy === "milestone" && column.milestone) {
+      input.milestone = column.milestone;
+      if (column.project) input.project = column.project;
+    }
 
     try {
       await taskService.createTask(input);
