@@ -1116,6 +1116,22 @@
   margin: 0;
 }
 
+/* Search field pinned to the top of a scrolling chip menu. */
+.kp-chipgroup__search {
+  position: sticky;
+  top: -4px;
+  z-index: 1;
+  width: 100%;
+  margin-bottom: 4px;
+  box-shadow: 0 -4px 0 var(--kp-bg);
+}
+
+.kp-chipgroup__empty {
+  padding: 6px 10px;
+  font-size: var(--kp-text-sm);
+  color: var(--text-faint);
+}
+
 /* =====================================================
    Task card
    ===================================================== */

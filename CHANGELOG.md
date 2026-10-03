@@ -8,6 +8,10 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 ## [Unreleased]
 
+### Added
+
+- **Filter bar — search in Project, Milestone and Tag dropdowns.** These dropdowns now open with a search field as the first item, focused on open, to narrow long lists. Matches the option's name and its dimmed suffix, so typing a project name also finds that project's milestones. `Esc` closes the menu. (`src/views/shared/FilterBar.tsx`, `styles.css`)
+
 ### Fixed
 
 - **Kanban — milestone grouping respects the project filter.** With one or more projects selected, *Group by milestone* now only shows columns for those projects' milestones instead of every milestone in the vault. (`src/views/Kanban.tsx`)

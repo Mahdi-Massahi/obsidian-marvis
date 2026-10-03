@@ -255,6 +255,7 @@ export const FilterBar: React.FC<Props> = ({
               selected={filter.projects}
               onToggle={(v) => setFilter({ projects: toggle(filter.projects, v) })}
               colors={projectColors}
+              searchable
             />
           )}
           {!hideMilestoneFilter && (
@@ -264,6 +265,7 @@ export const FilterBar: React.FC<Props> = ({
               selected={filter.milestones}
               onToggle={(v) => setFilter({ milestones: toggle(filter.milestones, v) })}
               suffixes={milestoneProjects}
+              searchable
             />
           )}
           {activeView !== "habits" && (
@@ -316,6 +318,7 @@ export const FilterBar: React.FC<Props> = ({
               selected={filter.tags}
               onToggle={(v) => setFilter({ tags: toggle(filter.tags, v) })}
               prefix="#"
+              searchable
             />
           )}
           {(activeView === "calendar" || activeView === "timeline") && (
@@ -669,13 +672,28 @@ interface ChipGroupProps {
   colorMode?: "dot" | "text";
   // Per-option dimmed inline suffix (e.g. project name on a milestone option).
   suffixes?: Record<string, string>;
+  // Show a search field as the first menu item, for long option lists.
+  searchable?: boolean;
 }
 
-const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggle, labels, prefix, colors, colorMode = "dot", suffixes }) => {
+const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggle, labels, prefix, colors, colorMode = "dot", suffixes, searchable }) => {
   const [open, setOpen] = React.useState(false);
   const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null);
+  const [query, setQuery] = React.useState("");
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  const visibleOptions = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((opt) =>
+      `${labels?.[opt] ?? opt} ${suffixes?.[opt] ?? ""}`.toLowerCase().includes(q)
+    );
+  }, [options, query, labels, suffixes]);
 
   const updatePos = React.useCallback(() => {
     const r = triggerRef.current?.getBoundingClientRect();
@@ -726,7 +744,23 @@ const ChipGroup: React.FC<ChipGroupProps> = ({ label, options, selected, onToggl
           className="kp-chipgroup__menu kp-chipgroup__menu--floating"
           style={{ top: pos.top, left: pos.left }}
         >
-          {options.map((opt) => {
+          {searchable && (
+            <input
+              type="search"
+              className="kp-chipgroup__search"
+              placeholder="Search…"
+              value={query}
+              autoFocus
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setOpen(false);
+              }}
+            />
+          )}
+          {searchable && visibleOptions.length === 0 && (
+            <div className="kp-chipgroup__empty">No matches</div>
+          )}
+          {visibleOptions.map((opt) => {
             const c = colors?.[opt];
             const showDot = c && colorMode === "dot";
             const labelStyle =
