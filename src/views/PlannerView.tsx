@@ -46,6 +46,10 @@ export class PlannerView extends ItemView {
     return iconFor(this.kind);
   }
 
+  getKind(): ViewKind {
+    return this.kind;
+  }
+
   async setState(state: unknown, result: ViewStateResult): Promise<void> {
     const s = state as Partial<PlannerViewState> | null;
     if (
