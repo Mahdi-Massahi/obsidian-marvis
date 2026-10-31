@@ -394,15 +394,16 @@ function findItemByPath(
 register({
   name: "get_active_file",
   description:
-    "Return the file currently focused in Obsidian. Use this to resolve deictic references — 'this task', 'the current note', 'here', 'that log' — into a specific item. If the focused file is a Marvis note (task/log/event/milestone/project), returns its kind plus key fields; for any other file returns kind 'other' with path and basename; returns { active: null } when no file is focused.",
+    "Return what the user has in front of them in Obsidian. Use this to resolve deictic references — 'this task', 'the current note', 'here', 'that log' — into a specific item, and in voice mode before creating anything. `active` is the focused file: if it is a Marvis note (task/log/event/milestone/project), its kind plus key fields; for any other file, kind 'other' with path and basename; null when no file is focused. `view` is the Marvis view on screen with the filters applied to it, or null when there is none.",
   parameters: { type: "object", properties: {} },
   write: false,
   handler: (_args, ctx) => {
+    const view = ctx.plugin.activeFileTracker.currentView();
     const file = ctx.plugin.activeFileTracker.current();
-    if (!file) return { active: null };
+    if (!file) return { active: null, view };
     const found = findItemByPath(ctx, file.path);
     if (!found) {
-      return { active: { kind: "other", path: file.path, basename: file.basename } };
+      return { active: { kind: "other", path: file.path, basename: file.basename }, view };
     }
     const item = found.item as unknown as Record<string, unknown>;
     const out: Record<string, unknown> = {
@@ -431,7 +432,7 @@ register({
     if (Array.isArray(tagsRaw) && tagsRaw.length > 0) {
       out.tags = (tagsRaw as unknown[]).map(String);
     }
-    return { active: out };
+    return { active: out, view };
   },
 });
 

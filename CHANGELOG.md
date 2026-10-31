@@ -8,6 +8,14 @@ Releases prior to 0.2.0 are not catalogued here — see the [GitHub releases pag
 
 ## [Unreleased]
 
+### Added
+
+- **Assistant — aware of the Marvis view in front of you.** Marvis now sees which view is on screen (Kanban, Timeline, Calendar, Habits or Table), its grouping or tab, and the filters applied to it. Tasks, logs, events and milestones you ask for land in that context, so with a project and a tag filtered you no longer repeat them; it asks when several projects are filtered and leaves the filter out when the request plainly belongs elsewhere. Works in voice too, through `get_active_file`. (`src/services/assistant/viewContext.ts`, `activeFileTracker.ts`, `assistantSession.ts`, `toolRegistry.ts`)
+
+### Fixed
+
+- **Assistant — no stale "active" note behind a Marvis view.** Once you focus a Marvis view, a note that is no longer on screen stops counting as the focused file, so "here" no longer resolves to a note hidden behind the board. (`src/services/assistant/activeFileTracker.ts`)
+
 ## [0.3.0] — 2026-10-03
 
 ### Added

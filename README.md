@@ -43,7 +43,7 @@ Every view works on Obsidian iOS and Android. The toolbar collapses into a mobil
 - **Recurring tasks/events** via RRULE.
 - **Customisable statuses & priorities** with colours; configurable root folder and view defaults.
 - **Apple Calendar sync** (macOS) — one-way pull of events into the vault, mapped to projects.
-- **Conversational AI assistant** (Gemini Live, voice + text) — docks as a right-sidebar panel; aware of your projects and the file you have focused so deictic references ("this task", "the current note") resolve automatically; every vault change is gated by a confirmation modal; transcripts can be persisted to `_chats/`.
+- **Conversational AI assistant** (Gemini Live, voice + text) — docks as a right-sidebar panel; aware of your projects, the file you have focused, and the Marvis view and filters on screen, so deictic references ("this task", "the current note") resolve automatically and new items land in the project and tags you're looking at; every vault change is gated by a confirmation modal; transcripts can be persisted to `_chats/`.
 - **Per-project coding-agent skill** — each project gets a `skills/marvis.md` scaffolded from a configurable template, so external agents (Claude Code, Cursor, …) can pick up project conventions automatically.
 - **Archive** — move done tasks into a project's `archive/` folder.
 - **Mobile-friendly** — works on Obsidian mobile (macOS-only features like Apple Calendar sync degrade gracefully).
